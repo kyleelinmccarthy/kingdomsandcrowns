@@ -19,8 +19,9 @@ import { overlaps, STEP_UP, HERO_RADIUS, type Collider, type Pt } from "./collis
 import type { LookLimits } from "./controls";
 import { DOOR_PUSH } from "./doorways";
 import type { InteractSpot } from "./interact";
-import { edgeDistance, RELEASE_MARGIN, SWITCH_MARGIN } from "./interact";
+import { edgeDistance, lockSpot, RELEASE_MARGIN, SWITCH_MARGIN } from "./interact";
 import type { RoomPlan, WallSide } from "./interiors";
+import type { LockSpotView } from "@/lib/realm/world-state";
 
 /** The hero, head to toe. A solid that starts above this over the feet is walked under. */
 export const HERO_HEIGHT = 2.3;
@@ -72,9 +73,10 @@ export type RoomSpots = { spots: InteractSpot[]; floors: number[] };
 
 /**
  * Three things to press E at in a room: whoever keeps it, the one thing in it to use, and the way
- * out. Built once per room; each spot carries its own prebuilt target, as the island's do.
+ * out; and a fourth in a room with a chest (`roomChestFor`), on the floor, before the door. Built
+ * once per room; each spot carries its own prebuilt target, as the island's do.
  */
-export function roomSpots(plan: RoomPlan, keeperName: string | null): RoomSpots {
+export function roomSpots(plan: RoomPlan, keeperName: string | null, chest?: LockSpotView | null, viewer: "child" | "parent" = "child"): RoomSpots {
   const spots: InteractSpot[] = [];
   const floors: number[] = [];
   if (plan.keeper && keeperName) {
@@ -84,6 +86,10 @@ export function roomSpots(plan: RoomPlan, keeperName: string | null): RoomSpots 
   const f = plan.fixture;
   spots.push({ target: { kind: "fixture", id: f.id, label: f.label, verb: f.verb }, x: f.x, z: f.z, hw: f.r, hd: f.r, round: true, reach: 1.5, bias: 0.3, ring: f.r + 0.55 });
   floors.push(f.floor);
+  if (chest) {
+    spots.push(lockSpot(chest, viewer));
+    floors.push(0);
+  }
   spots.push({ target: { kind: "door", id: "door", label: "outside", verb: "Go" }, x: plan.door.x, z: plan.D / 2, hw: plan.door.hw, hd: 0.2, round: false, reach: 1.4, bias: 0, ring: plan.door.hw + 0.4 });
   floors.push(0);
   return { spots, floors };

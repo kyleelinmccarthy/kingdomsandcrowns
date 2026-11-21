@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vitest";
 import { testDatabase } from "@/test/libsql-test-db";
+import { REALM_PLACE_FOUND_DDL } from "@/test/realm-db-ddl";
 
 /**
  * The places a hero has found, against a real libsql database. The gate is mocked as the actor:
@@ -25,11 +26,7 @@ vi.mock("@/lib/auth/access", () => ({
 const { recordPlacesFound } = await import("./realm-places");
 const { loadPlacesFound } = await import("@/lib/services/realm-places");
 
-const DDL = [
-  `CREATE TABLE realm_place_found (
-    id text PRIMARY KEY NOT NULL, child_id text NOT NULL, place_id text NOT NULL, found_at integer NOT NULL)`,
-  `CREATE UNIQUE INDEX realm_place_found_child_place_idx ON realm_place_found (child_id, place_id)`,
-];
+const DDL = REALM_PLACE_FOUND_DDL;
 
 const hero: Actor = { userId: "child:c1", permission: "edit" };
 const mom: Actor = { userId: "u-mom", permission: "edit" };

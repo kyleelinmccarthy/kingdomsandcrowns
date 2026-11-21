@@ -30,7 +30,7 @@ import type { RunStart, RunSummary } from "@/lib/utils/deed-run-types";
 import { realmCue } from "@/lib/realm3d/sound/store";
 import type { BuildingOverview } from "@/lib/services/deeds";
 import type { Villager } from "@/lib/realm/villagers";
-import { attemptFeedback, finishLabel, resultBuildingLine, resultHeadline, resultMinutesLine, resultStarsLine, talkCopy, type Viewer } from "@/lib/realm3d/talk";
+import { attemptFeedback, finishLabel, leaveWhat, resultBuildingLine, resultHeadline, resultMinutesLine, resultStarsLine, talkCopy, type Viewer } from "@/lib/realm3d/talk";
 import { MAX_STARS, countsTowardBuilding, type Stars } from "@/lib/utils/deed-scoring";
 import { deedErrorLine } from "@/lib/utils/deed-refusals";
 import { DeedMeter } from "@/components/deed-meter";
@@ -41,7 +41,7 @@ import { useDeedFlow } from "@/components/use-deed-flow";
 import { ALL_ANSWERED } from "@/lib/utils/deed-run-flow";
 import { AREA_LABELS, type SkillArea } from "@/lib/utils/skills";
 import { canSpeak, speak, stopSpeaking, type SpeechToken } from "@/lib/utils/speech";
-import { SIDE_QUEST_LOWER, SIDE_QUESTS_LOWER } from "@/lib/utils/side-quest-copy";
+import { SIDE_QUESTS_LOWER } from "@/lib/utils/side-quest-copy";
 import { Panel, Progress } from "./frame-hud";
 
 type Profile = { readAloud: boolean; untimed: boolean };
@@ -270,8 +270,8 @@ export function DeedRun({
   const question = run.questions[index];
   const demo = useTaskDemo(run, index);
   const isLast = index === run.questions.length - 1;
-  const what = run.kind === "review" ? "review" : run.kind === "build" ? "build" : run.kind === "world" ? "puzzles" : SIDE_QUEST_LOWER;
-  const finish = finishLabel(run.kind);
+  const what = leaveWhat(run.kind, run.deed.id);
+  const finish = finishLabel(run.kind, run.deed.id);
   const nextRef = useRef<HTMLButtonElement>(null);
   const feedback = flow.result ? attemptFeedback(flow.result, flow.ruledOut.length > 0, villagerName, question) : null;
 
@@ -334,9 +334,12 @@ export function DeedRun({
             <GameIcon name="hourglass" className="r3-result-building-icon" /> {minutesLine}
           </p>
         )}
-        <p className="r3-result-line">
-          <Subject area={run.deed.area} /> {head.line}
-        </p>
+        {/* A title alone ("It was already open.", "Floor solved!") has no line, and no lone subject seal. */}
+        {head.line && (
+          <p className="r3-result-line">
+            <Subject area={run.deed.area} /> {head.line}
+          </p>
+        )}
         {summary.masteryChanges.length > 0 && (
           <ul className="r3-result-mastery">
             {summary.masteryChanges.map((c) => (

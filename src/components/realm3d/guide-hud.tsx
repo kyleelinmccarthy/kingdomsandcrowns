@@ -265,11 +265,11 @@ export function DeedToastBanner({ toast, numerals }: { toast: DeedToast | null; 
   if (!toast) return null;
   return (
     <div className={`r3-toast${toast.rose ? " r3-toast--rose" : ""}`} role="status">
-      <GameIcon name={toast.rose ? "castle" : "house"} className="r3-toast-icon" />
+      <GameIcon name={toast.icon ?? (toast.rose ? "castle" : "house")} className="r3-toast-icon" />
       <span className="r3-toast-text">
         <span className="r3-toast-title">{toast.title}</span>
         <span className="r3-toast-line">{toast.line}</span>
-        <Progress done={toast.done} total={toast.total} numerals={numerals} text={`${toast.done} of ${toast.total}`} label={`${toast.done} of ${toast.total} ${SIDE_QUESTS_LOWER} done.`} />
+        {toast.total > 0 && <Progress done={toast.done} total={toast.total} numerals={numerals} text={`${toast.done} of ${toast.total}`} label={`${toast.done} of ${toast.total} ${SIDE_QUESTS_LOWER} done.`} />}
       </span>
     </div>
   );

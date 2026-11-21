@@ -123,7 +123,12 @@ describe("RealmSettingsPanel", () => {
     const user = userEvent.setup();
     render(<RealmSettingsPanel childId="c1" settings={DEFAULT_REALM_SETTINGS} summary={summary} />);
     const group = screen.getByRole("group", { name: "Side quests" });
-    expect(within(group).getByText("Science sorts and logic puzzles on a lock's face. Off: science plays as multiple choice.")).toBeInTheDocument();
+    // Says what Off does, everywhere it reaches, and that nothing found is lost (final f8).
+    expect(
+      within(group).getByText(
+        "Science sorts and logic puzzles on a lock's face. Off: science plays as multiple choice, Puzzle practice is hidden, and the Realm's chests, vault doors and Tower puzzles rest. Anything already found stays.",
+      ),
+    ).toBeInTheDocument();
     const sw = within(group).getByRole("switch", { name: "Solving logic locks" });
     expect(sw).toBeChecked();
     await user.click(sw);

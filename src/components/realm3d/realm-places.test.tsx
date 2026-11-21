@@ -25,6 +25,7 @@ vi.mock("@/lib/actions/realm-settings", () => ({
 }));
 vi.mock("@/lib/actions/realm-sound", () => ({ saveRealmSound: vi.fn(async () => {}) }));
 vi.mock("@/lib/actions/deeds", () => ({ startDeedRun: vi.fn(), answerDeedQuestion: vi.fn(), completeDeedRun: vi.fn() }));
+vi.mock("@/lib/actions/world-locks", () => ({ startWorldLockRun: vi.fn() }));
 vi.mock("@/lib/actions/seasons", () => ({ markCeremonySeen: vi.fn(async () => {}) }));
 vi.mock("@/lib/actions/spells", () => ({ getSpellbook: vi.fn(async () => ({ spells: [], slots: 4, level: 3, unlocked: [], schoolCounts: {}, subjectNamesBySchool: {} })) }));
 vi.mock("@/lib/actions/realm", () => ({ getRealmKingdom: vi.fn() }));
@@ -55,7 +56,12 @@ vi.mock("@/lib/realm3d/worldgen", async (orig) => {
   return { ...real, realmWorld: () => world };
 });
 
+import { answerDeedQuestion, completeDeedRun } from "@/lib/actions/deeds";
 import { recordPlacesFound } from "@/lib/actions/realm-places";
+import { startWorldLockRun } from "@/lib/actions/world-locks";
+import type { WorldStateView } from "@/lib/realm/world-state";
+import { WORLD_OPEN } from "@/lib/utils/deed-refusals";
+import type { RunSummary } from "@/lib/utils/deed-run-types";
 import type { RideBus } from "@/lib/realm3d/riding";
 import { RealmGame, type RealmData } from "./realm-game";
 
@@ -170,5 +176,72 @@ describe("the how-to-play card says how minutes are earned (earningLines)", () =
     mount({ viewer: "parent", realm: { ...realm, isChildView: false } });
     openHelp();
     expect(screen.queryByText(/Finish a quest/)).toBeNull();
+  });
+});
+
+describe("a vault door's map marks its place at once", () => {
+  // Longwater's door is shut; its map leads to cove-12, "Driftwood Cove" in this stubbed world.
+  const shut: WorldStateView = { locksOn: true, open: [], decor: [], tower: [] };
+  const door = { kind: "lock" as const, id: "door:longwater", label: "the vault door", verb: "Open" };
+  const run = {
+    runId: "lock-1",
+    deed: { id: "door:longwater", title: "The vault door", story: "A vault door, sealed with a puzzle.", area: "logic" as const },
+    questions: [{ kind: "choice" as const, id: "q1", skillId: "logic-g45", prompt: "Which shape comes next?", view: { choices: ["circle", "square"] } }],
+    responses: [null] as (string | null)[],
+    kind: "world" as const,
+    pending: null,
+  };
+  const summary = (world: RunSummary["world"]): RunSummary => ({
+    correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 0, previousBest: 0, deedBest: 0,
+    counted: false, crowned: false, kind: "world", building: null, minutesEarned: 0, sideQuestPayFull: false, world,
+  });
+  const opened = { objectId: "door:longwater", opened: true, rewards: [{ kind: "fragment" as const, placeId: "cove-12" }, { kind: "lore" as const, id: "longwater-map" as const }] };
+
+  beforeEach(() => {
+    (window as unknown as { speechSynthesis: { cancel: () => void } }).speechSynthesis = { cancel: () => {} };
+    vi.mocked(startWorldLockRun).mockResolvedValue(run);
+    vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "circle" });
+  });
+
+  async function playToDone() {
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "circle" })));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Done" })));
+  }
+
+  it("marks the place on the map and in fast travel without a reload, and holds 'You found a map' until the board closes", async () => {
+    vi.mocked(completeDeedRun).mockResolvedValue(summary(opened));
+    const bus = mount({ realm: { ...realm, worldState: shut } });
+    expect(foundMarks()).toBe(1);
+    await act(async () => void bus.onInteract(door));
+    await playToDone();
+    // The map knows it already, behind the open board; the toast waits.
+    expect(ride().visited.has("cove-12")).toBe(true);
+    expect(screen.queryByText("You found a map to Driftwood Cove!")).toBeNull();
+    await waitFor(() => expect(recordPlacesFound).toHaveBeenCalledWith("c1", ["cove-12"]));
+    fireEvent.click(screen.getByRole("button", { name: "Back to the Realm" }));
+    expect(screen.getByText("You found a map to Driftwood Cove!")).toBeInTheDocument();
+    expect(screen.getByText("Look for it on your map.")).toBeInTheDocument();
+    expect(screen.getByText("2 of 3 places found")).toBeInTheDocument();
+    expect(foundMarks()).toBe(2);
+  });
+
+  it("a miss marks nothing and says nothing", async () => {
+    vi.mocked(completeDeedRun).mockResolvedValue(summary({ objectId: "door:longwater", opened: false, reason: "missed", rewards: [] }));
+    const bus = mount({ realm: { ...realm, worldState: shut } });
+    await act(async () => void bus.onInteract(door));
+    await playToDone();
+    fireEvent.click(screen.getByRole("button", { name: "Back to the Realm" }));
+    expect(ride().visited.has("cove-12")).toBe(false);
+    expect(screen.queryByText(/You found a map/)).toBeNull();
+  });
+
+  it("a door the server says is already open is drawn open at once, with no toast (G3 review 2)", async () => {
+    vi.mocked(startWorldLockRun).mockRejectedValue(new Error(WORLD_OPEN));
+    const bus = mount({ realm: { ...realm, worldState: shut } });
+    await act(async () => void bus.onInteract(door));
+    expect(screen.getByRole("alert")).toHaveTextContent("That's already open.");
+    const locks = handed.props!.worldLocks as { locks: { id: string; open: boolean }[] };
+    expect(locks.locks.find((l) => l.id === "door:longwater")!.open).toBe(true);
+    expect(screen.queryByText(/You found a map/)).toBeNull();
   });
 });

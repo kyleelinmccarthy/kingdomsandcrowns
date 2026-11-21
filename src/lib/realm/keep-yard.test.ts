@@ -4,11 +4,10 @@ import { castlePlan } from "@/lib/realm3d/castle-plan";
 import { CASTLE_POSITION } from "./layout";
 import { MATERIAL_IDS } from "./materials";
 import { KEEP_YARD, VILLAGE_DECOR_SPOTS, YARD_RADIUS } from "./keep-yard";
-import { IMPROVEMENT_IDS, IMPROVEMENTS } from "./improvements";
-import { improvementPlacements } from "@/lib/realm3d/improvement-spots";
+import { IMPROVEMENTS } from "./improvements";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { CASTLE_TIER_IDS, canopyRadius, clearanceFailures, levelFailures, overlaps, overlapsPatch, ROAD, grow, rectAt, TREE_SCALE, type R } from "@/test/world-clearance";
+import { CASTLE_TIER_IDS, canopyRadius, clearanceFailures, gap, levelFailures, overlaps, overlapsPatch, ROAD, grow, rectAt, TREE_SCALE, villageDecorPieces, villagePieces, yardPieces, type R } from "@/test/world-clearance";
 
 type Spot = { what: string; x: number; z: number; r: number };
 const yardSpots = (): Spot[] => [
@@ -17,8 +16,6 @@ const yardSpots = (): Spot[] => [
   { what: "chronicleHall", ...KEEP_YARD.chronicleHall, r: YARD_RADIUS.chronicleHall },
   { what: "lectern", ...KEEP_YARD.lectern, r: YARD_RADIUS.lectern },
 ];
-const villageSpots = (): Spot[] =>
-  (["village-banners", "village-lamps", "village-fountain", "village-statue"] as const).map((id) => ({ what: id, ...VILLAGE_DECOR_SPOTS[id], r: YARD_RADIUS[id] }));
 const box = (s: Spot): R => rectAt(s.x, s.z, s.r * 2, s.r * 2);
 
 describe("the keep yard", () => {
@@ -37,10 +34,10 @@ describe("the keep yard", () => {
     for (const tier of CASTLE_TIER_IDS) {
       const b = castlePlan(tier).bounds;
       const castle: R = { x0: CASTLE_POSITION.x + b.x0, x1: CASTLE_POSITION.x + b.x1, z0: CASTLE_POSITION.z + b.z0, z1: CASTLE_POSITION.z + b.z1 };
-      for (const s of [...yardSpots(), ...villageSpots()]) expect(overlaps(box(s), grow(castle, 1)), `${s.what} touches the ${tier} castle`).toBe(false);
+      for (const s of [...yardSpots().map((y) => ({ what: y.what, rect: box(y) })), ...villageDecorPieces()]) expect(overlaps(s.rect, grow(castle, 1)), `${s.what} touches the ${tier} castle`).toBe(false);
       for (const solid of castlePlan(tier).solids) {
         const r: R = { x0: CASTLE_POSITION.x + solid.x - solid.hw, x1: CASTLE_POSITION.x + solid.x + solid.hw, z0: CASTLE_POSITION.z + solid.z - solid.hd, z1: CASTLE_POSITION.z + solid.z + solid.hd };
-        for (const s of [...yardSpots(), ...villageSpots()]) expect(overlaps(box(s), r), `${s.what} is inside a ${tier} castle solid`).toBe(false);
+        for (const s of [...yardSpots().map((y) => ({ what: y.what, rect: box(y) })), ...villageDecorPieces()]) expect(overlaps(s.rect, r), `${s.what} is inside a ${tier} castle solid`).toBe(false);
       }
     }
   });
@@ -79,22 +76,9 @@ describe("the keep yard", () => {
 });
 
 describe("the keep yard against the village's own pieces (N-1)", () => {
-  /** The gap between two rectangles: 0 when they touch or share area. */
-  const gap = (a: R, b: R) => Math.hypot(Math.max(0, a.x0 - b.x1, b.x0 - a.x1), Math.max(0, a.z0 - b.z1, b.z0 - a.z1));
-  const hall = KEEP_YARD.chronicleHall;
-  const yard: { what: string; rect: R }[] = [
-    ...yardSpots().map((s) => ({ what: s.what, rect: box(s) })),
-    ...IMPROVEMENTS["chronicle-hall"].levels.flatMap((l, li) => l.boxes.map((b, bi) => ({ what: `hall L${li + 1} box ${bi}`, rect: rectAt(hall.x + b.x, hall.z + b.z, b.sx, b.sz) }))),
-  ];
-  // Every plan built to the top, so every plaque stands; the hall's own plaque belongs to the yard.
-  const plaques = improvementPlacements(Object.fromEntries(IMPROVEMENT_IDS.map((id) => [id, 3])), () => 0)
-    .filter((p) => p.id !== "chronicle-hall")
-    .map((p) => ({ what: `${p.id} plaque`, rect: rectAt(p.plaque.x, p.plaque.z, 0.7, 0.7) }));
-  const village = [...villageSpots().map((s) => ({ what: s.what, rect: box(s) })), ...plaques];
-
-  it("keeps every keep-yard spot and box at least 1.5 from every village decoration's spot and every improvement's plaque", () => {
+  it("keeps every keep-yard spot and box at least 1.5 from every village decoration's spot, improvement box and plaque, villager, the hitching post and the arch", () => {
     const close: string[] = [];
-    for (const y of yard) for (const v of village) if (gap(y.rect, v.rect) < 1.5) close.push(`${y.what} is ${gap(y.rect, v.rect).toFixed(2)} from ${v.what}`);
+    for (const y of yardPieces()) for (const v of villagePieces()) if (gap(y.rect, v.rect) < 1.5) close.push(`${y.what} is ${gap(y.rect, v.rect).toFixed(2)} from ${v.what}`);
     expect(close).toEqual([]);
   });
 });
@@ -128,12 +112,12 @@ describe("the village decoration spots", () => {
   });
 
   it("clears every site, the road, the lap ring, the plaza and the village's decorations, and each other", () => {
-    const spots = villageSpots();
-    expect(spots.flatMap((s) => [...clearanceFailures(s.what, box(s)), ...levelFailures(s.what, box(s))])).toEqual([]);
-    for (let i = 0; i < spots.length; i++) for (let j = i + 1; j < spots.length; j++) expect(overlaps(grow(box(spots[i]), 0.5), box(spots[j])), `${spots[i].what} and ${spots[j].what}`).toBe(false);
+    const spots = villageDecorPieces();
+    expect(spots.flatMap((s) => [...clearanceFailures(s.what, s.rect), ...levelFailures(s.what, s.rect)])).toEqual([]);
+    for (let i = 0; i < spots.length; i++) for (let j = i + 1; j < spots.length; j++) expect(overlaps(grow(spots[i].rect, 0.5), spots[j].rect), `${spots[i].what} and ${spots[j].what}`).toBe(false);
   });
 
   it("stands clear of the keep yard too", () => {
-    for (const v of villageSpots()) for (const y of yardSpots()) expect(overlaps(box(v), box(y)), `${v.what} and ${y.what}`).toBe(false);
+    for (const v of villageDecorPieces()) for (const y of yardSpots()) expect(overlaps(v.rect, box(y)), `${v.what} and ${y.what}`).toBe(false);
   });
 });

@@ -15,7 +15,7 @@
  * No `three`, no DOM.
  */
 
-import type { AttemptResult, RunSummary } from "@/lib/utils/deed-run-types";
+import type { AttemptResult, RunSummary, TowerOutcome, WorldOutcome } from "@/lib/utils/deed-run-types";
 import { seasonPhrase } from "@/lib/realm/season-phrase";
 import { agree } from "@/lib/realm/improvements";
 import { cutFeedbackLine } from "@/lib/tasks/measure-copy";
@@ -29,6 +29,8 @@ import { SIDE_QUEST_LOWER, SIDE_QUESTS, SIDE_QUESTS_LOWER } from "@/lib/utils/si
 import { minutesWord } from "@/lib/utils/minutes-copy";
 import { REVIEW_DONE, REVIEW_FINISH, reviewSummaryLine } from "@/lib/utils/review-copy";
 import { PRACTICE_FINISH, PUZZLES_SOLVED } from "@/lib/utils/practice-copy";
+import { ALREADY_OPEN, CHEST_OPENS, DOOR_OPENS, LOCK_FINISH, LOCK_HOLDS, LOCK_HOLDS_LINE, TOWER_FLOOR_SOLVED, TOWER_HOLDS, TOWER_HOLDS_LINE, worldRewardLine } from "@/lib/utils/world-lock-copy";
+import { isWorldObjectId, worldObjectById } from "@/lib/realm/world-objects";
 
 export type Viewer = "child" | "parent";
 
@@ -141,7 +143,22 @@ export type DeedToast = {
   rose: boolean;
   /** Everything above, as one sentence for read-aloud. */
   spoken: string;
+  /** The icon, when it is not a side quest's house or castle: a found map. A toast with it and no `total` shows no pips. */
+  icon?: "map";
 };
+
+/**
+ * A vault door's map: the place it leads to is on the hero's map now (`use-world-state.ts` marks it).
+ * Several maps at once are named in the one toast ("You found maps to A and B!"), so none is lost to
+ * the next toast replacing it.
+ */
+export function fragmentToast(...placeNames: string[]): DeedToast {
+  const many = placeNames.length > 1;
+  const names = many ? `${placeNames.slice(0, -1).join(", ")} and ${placeNames[placeNames.length - 1]}` : placeNames[0];
+  const title = many ? `You found maps to ${names}!` : `You found a map to ${names}!`;
+  const line = many ? "Look for them on your map." : "Look for it on your map.";
+  return { title, line, done: 0, total: 0, rose: false, icon: "map", spoken: `${title} ${line}` };
+}
 
 /** A rise's sentences as a toast: the first one is the title, the rest the line. */
 export function riseWords(sentence: string, site: { done: number; total: number }): DeedToast {
@@ -212,14 +229,34 @@ export function deedToast(input: {
 /** The last button of a build run, where a side quest's says "Finish side quest". */
 const BUILD_FINISH = "Finish building";
 
-/** The last button of a run, by its kind: one source for the page's player and the Realm's board. */
-export function finishLabel(kind: RunKind): string {
+/** A chest's or vault door's run, told from Puzzle practice (also `world`) by what owns it: the run's `deed.id`. */
+const isLockRun = (kind: RunKind, ownerId?: string): boolean => kind === "world" && isWorldObjectId(ownerId);
+
+/**
+ * The last button of a run, by its kind and, for a world run, its owner (`run.deed.id`): one
+ * source for the page's player and the Realm's board. A chest or door says "Done" (RG-m); Puzzle
+ * practice and the Tower's bonus locks finish their puzzles.
+ */
+export function finishLabel(kind: RunKind, ownerId?: string): string {
   switch (kind) {
     case "review": return REVIEW_FINISH;
     case "build": return BUILD_FINISH;
-    case "world": return PRACTICE_FINISH;
+    case "world": return isLockRun(kind, ownerId) ? LOCK_FINISH : PRACTICE_FINISH;
+    case "tower": return PRACTICE_FINISH;
     case "deed":
     case "challenge": return `Finish ${SIDE_QUEST_LOWER}`;
+  }
+}
+
+/** What a run's leave link leaves: "Leave the lock", "Leave the puzzles", "Leave the side quest". */
+export function leaveWhat(kind: RunKind, ownerId?: string): string {
+  switch (kind) {
+    case "review": return "review";
+    case "build": return "build";
+    case "world": return isLockRun(kind, ownerId) ? "lock" : "puzzles";
+    case "tower": return "puzzles";
+    case "deed":
+    case "challenge": return SIDE_QUEST_LOWER;
   }
 }
 
@@ -228,9 +265,15 @@ type BuildOutcome = Pick<NonNullable<RunSummary["improvement"]>, "id" | "label" 
 
 /** The result card's headline, as the flat Realm's `DeedResults` wrote it; a Crown Challenge is crowned or close. */
 export function resultHeadline(
-  summary: { correctCount: number; total: number; flawless: boolean; kind?: RunSummary["kind"]; improvement?: BuildOutcome },
+  summary: { correctCount: number; total: number; flawless: boolean; kind?: RunSummary["kind"]; improvement?: BuildOutcome; world?: WorldOutcome; tower?: TowerOutcome },
   deedTitle: string,
 ): { title: string; line: string } {
+  // A chest or vault door is judged on whether it opened, and on what it gave: never a count of right answers.
+  if (summary.kind === "world" && summary.world) return worldHeadline(summary.world);
+  // A Tower floor's bonus lock: solved or held, never a count of right answers, a star or a minute.
+  if (summary.kind === "tower" && summary.tower) {
+    return summary.tower.solvedNow ? { title: TOWER_FLOOR_SOLVED, line: "" } : { title: TOWER_HOLDS, line: TOWER_HOLDS_LINE };
+  }
   // A build run is judged on what it built, never as a side quest: the plan stands, waits, or stopped.
   if (summary.kind === "build") {
     const b = summary.improvement;
@@ -246,7 +289,7 @@ export function resultHeadline(
   // A review teaches and pays nothing: no "Flawless!" to chase, only how it went.
   if (summary.kind === "review") return { title: REVIEW_DONE, line: reviewSummaryLine(summary) };
   // Nor does Puzzle practice, and it is no side quest: the puzzles are solved, and this many right.
-  if (summary.kind === "world") return { title: PUZZLES_SOLVED, line: `${summary.correctCount} of ${summary.total} right.` };
+  if (summary.kind === "world" || summary.kind === "tower") return { title: PUZZLES_SOLVED, line: `${summary.correctCount} of ${summary.total} right.` };
   const challenge = summary.kind === "challenge";
   return {
     title: challenge
@@ -254,6 +297,13 @@ export function resultHeadline(
       : summary.flawless ? "Flawless!" : "Side quest done!",
     line: `${summary.correctCount} of ${summary.total} right in ${deedTitle}.`,
   };
+}
+
+/** A chest's or vault door's result: it opened (and what was inside), the lock held, or it was already open. */
+function worldHeadline(o: WorldOutcome): { title: string; line: string } {
+  if (o.opened) return { title: worldObjectById(o.objectId)?.type === "door" ? DOOR_OPENS : CHEST_OPENS, line: worldRewardLine(o) };
+  if (o.reason === "already-open") return { title: ALREADY_OPEN, line: "" };
+  return { title: LOCK_HOLDS, line: LOCK_HOLDS_LINE };
 }
 
 /** The result card's building line, word for word the flat Realm's; a run on a building that already stood is practice. */

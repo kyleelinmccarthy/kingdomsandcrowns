@@ -110,12 +110,24 @@ describe("run kinds", () => {
       paysMinutes: false,
     });
   });
+  it("a tower run (R-G4b) moves nothing at all: no mastery, review, stars, minutes, building or second chance", () => {
+    expect(RUN_EFFECTS.tower).toEqual({
+      raisesBuilding: false,
+      earnsStars: false,
+      movesMastery: false,
+      countsForSchool: false,
+      feedsReview: false,
+      allowsSecondChances: false,
+      paysMinutes: false,
+    });
+  });
   it("only a deed pays play minutes", () => {
     expect(RUN_EFFECTS.deed.paysMinutes).toBe(true);
     expect(RUN_EFFECTS.challenge.paysMinutes).toBe(false);
     expect(RUN_EFFECTS.review.paysMinutes).toBe(false);
     expect(RUN_EFFECTS.build.paysMinutes).toBe(false);
     expect(RUN_EFFECTS.world.paysMinutes).toBe(false);
+    expect(RUN_EFFECTS.tower.paysMinutes).toBe(false);
   });
   it("misses come back from a deed, a review, a build and a world run, never from a challenge", () => {
     expect(kindsThatFeedReview().sort()).toEqual(["build", "deed", "review", "world"]);

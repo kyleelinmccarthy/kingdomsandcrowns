@@ -40,7 +40,10 @@ export const KEEP_YARD: {
   lectern: { x: 5.5, z: 22.5 },
 };
 
-/** Where each village decoration stands: its boxes are centred here. Open ground in the south and the flanks of the village. */
+/**
+ * Where each village decoration stands: its boxes are centred here. Open ground in the south and the flanks of the village.
+ * These are built improvements (`improvements.ts`); a chest's reward decorations are `DECOR` in `decor.ts`.
+ */
 export const VILLAGE_DECOR_SPOTS: Record<"village-banners" | "village-lamps" | "village-fountain" | "village-statue", Vec2> = {
   "village-banners": { x: -14, z: 9 },
   "village-lamps": { x: 14.5, z: 9.5 },

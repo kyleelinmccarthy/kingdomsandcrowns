@@ -17,7 +17,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { HudBus } from "@/lib/realm3d/hud-bus";
-import { pickSpot, type InteractSpot } from "@/lib/realm3d/interact";
+import { makeNearMemo, nearChanged, pickSpot, type InteractSpot, type NearMemo } from "@/lib/realm3d/interact";
 import type { RealmWorld } from "@/lib/realm3d/worldgen";
 
 const SEGMENTS = 72;
@@ -38,14 +38,14 @@ export function Interaction({
   bus: HudBus;
   world: RealmWorld;
 }) {
-  const current = useRef(-1);
   /**
-   * The target last announced. The spots are rebuilt when the village changes (a building goes up
-   * under the child's feet), and the same index then carries a new target — "Go into the Chapel"
-   * where it said "Talk to Sister Wren" — so a change of target is announced too, not only a
-   * change of index, or the prompt goes on naming what E no longer does.
+   * The index and target last announced (`nearChanged`). The spots are rebuilt when the village
+   * changes (a building goes up under the child's feet, a chest opens), and the same index then
+   * carries a new target — "Go into the Chapel" where it said "Talk to Sister Wren" — so a change of
+   * words is announced too, not only a change of index, or the prompt goes on naming what E no
+   * longer does.
    */
-  const announced = useRef<InteractSpot["target"] | null>(null);
+  const near = useRef<NearMemo>(makeNearMemo());
   const mesh = useRef<THREE.Mesh>(null);
   const geo = useMemo(() => {
     const g = new THREE.BufferGeometry();
@@ -82,7 +82,7 @@ export function Interaction({
   useEffect(
     () => () => {
       // Leaving the scene with something in reach: tell the HUD there is nothing now.
-      if (current.current >= 0) bus.onNear(null);
+      if (near.current.i >= 0) bus.onNear(null);
     },
     [bus],
   );
@@ -94,11 +94,9 @@ export function Interaction({
       return;
     }
     const p = heroRef.current;
-    const i = pickSpot(spots, p.x, p.z, current.current);
+    const i = pickSpot(spots, p.x, p.z, near.current.i);
     const target = i < 0 ? null : spots[i].target;
-    if (i !== current.current || target !== announced.current) {
-      current.current = i;
-      announced.current = target;
+    if (nearChanged(near.current, i, target)) {
       bus.onNear(target);
       if (i >= 0) layRing(geo, spots[i], world);
     }

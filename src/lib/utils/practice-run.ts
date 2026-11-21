@@ -8,6 +8,10 @@
  *
  * With the grown-up's lock switch off a logic skill is played as choice, and it has no choice
  * questions (R-F7), so the run comes back empty; the action refuses before it gets here.
+ *
+ * `lockRun` is the draw every lock run shares (RG-j): Puzzle practice, a chest or vault door, and a
+ * Tower floor; `lockLevel` is the rung each is drawn at. `startLockRun` (`services/lock-runs.ts`)
+ * puts them together with the skill each kind of run picks (`practiceSkill` for practice).
  */
 import { kindForSkill } from "@/lib/tasks/registry";
 import type { TaskKind } from "@/lib/tasks/types";
@@ -20,29 +24,40 @@ import type { Skill } from "./skills";
 
 export const PRACTICE_RUN = { tasks: 3 } as const;
 
-export function buildPracticeRun(input: {
-  /** The hero's logic grade: their own grade, with no offset (`gradesFor`). */
-  grade: Grade;
-  masteryBySkill: Record<string, number>;
+const EMPTY: BuiltRun = { skillIds: [], questions: [] };
+
+/**
+ * `count` locks of one skill at `level`, from `seed`. Locks only: a skill no lock presents, or the
+ * grown-up's lock switch off (`enabledKinds`), gives an empty run, never a choice question.
+ */
+export function lockRun(input: {
+  skill: Skill;
+  level: number;
+  count: number;
   seed: number;
   /** The hands-on kinds the grown-up has left on (`enabledHandsOnKinds`). */
   enabledKinds: ReadonlySet<TaskKind>;
   profile: ProfileLike;
-  /** The grown-up's focus picks (`loadFocusSkillIds`); the first logic one in the hero's window is practised. */
-  focusSkillIds?: readonly string[];
 }): BuiltRun {
+  const { skill } = input;
+  if (kindForSkill("lock", skill.id, input.enabledKinds) !== "lock") return EMPTY;
   const rng = seededRng(input.seed);
-  const skill = practiceSkill(input.grade, input.focusSkillIds ?? []);
-  if (!skill) return { skillIds: [], questions: [] };
-  const level = Math.min(input.masteryBySkill[skill.id] ?? 0, MASTERY_MAX);
-  const kind = kindForSkill("lock", skill.id, input.enabledKinds);
-  const questions = drawForSkill(skill, level, PRACTICE_RUN.tasks, rng, [], new Set(), new Set(), kind);
-  if (questions.length === 0) return { skillIds: [], questions: [] };
+  const questions = drawForSkill(skill, input.level, input.count, rng, [], new Set(), new Set(), "lock");
+  if (questions.length === 0) return EMPTY;
   return { skillIds: [skill.id], questions: applyProfile(questions, input.profile, rng) };
 }
 
+/**
+ * The rung a lock run is drawn at: the hero's mastery of its skill, capped, plus `boost` rungs, capped
+ * again. Puzzle practice and the world's chests and doors draw at the hero's mastery (`boost` 0); a
+ * Tower floor's bonus lock one harder (`boost` 1, PC-G12).
+ */
+export function lockLevel(mastery: number, boost: number): number {
+  return Math.min(Math.min(mastery, MASTERY_MAX) + boost, MASTERY_MAX);
+}
+
 /** The logic skill a practice run draws: the first logic focus pick in the hero's window, else their own grade's. */
-function practiceSkill(grade: Grade, focusSkillIds: readonly string[]): Skill | undefined {
+export function practiceSkill(grade: Grade, focusSkillIds: readonly string[]): Skill | undefined {
   const window = focusWindow({ logic: grade });
   const focus = focusSkillIds.map((id) => window.find((s) => s.id === id)).find((s) => s !== undefined);
   return focus ?? chooseSkills({ area: "logic" }, grade)[0];

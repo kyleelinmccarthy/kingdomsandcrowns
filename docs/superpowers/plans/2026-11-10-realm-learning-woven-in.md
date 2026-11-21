@@ -1765,60 +1765,906 @@ Every fact must be uncontroversial at its grade.
 
 ## Rulings
 
-- **R-G1:** `realm_world_state (id, child_id → child cascade, object_id, state text, updated_at)`, unique on `(child_id, object_id)`, in migration 0044. A pure `lockedNow(object, row, today, zone)`:
+- **R-G1:** `realm_world_state (id, child_id → child cascade, object_id, state text, updated_at)`, unique on `(child_id, object_id)`, in migration 0044. Every column but `id` is `notNull`. A pure `lockedNow(object, row, today, zone)`:
   - an object with no row is locked;
   - `"open"` with no `resetAfterDays` stays open;
   - with `resetAfterDays`, it locks again once `today − dayOf(updated_at) ≥ resetAfterDays`.
 - **R-G2: objects (`WORLD_OBJECTS`, pure catalog).**
-  - **Chests** (`resetAfterDays: 7`) stand at fixed village and room spots from the survey. Each refill's puzzle is seeded by `(objectId, cycle)`.
+  - **Chests** (`resetAfterDays: 7`) stand at fixed village and room spots from the survey. Each refill's puzzle is fresh (PC-G3). *(F13: the stale "seeded by `(objectId, cycle)`" clause is struck.)*
+  - **An emptied chest keeps relocking weekly, with a fresh puzzle (owner, 2026-11-20).** Once the hero owns every reward it holds:
+    - opening it gives no reward and writes no reward row;
+    - its result line is exactly "You've found everything in this chest."
   - **Vault doors** (once) stand near the five authored places. Each reveals a generated place (a map fragment) and a lore page.
   - Every object's lock draws from the hero's logic skill. A chest in the library or garden draws a vocab or science sort instead, when those pools exist.
 - **R-G3: opening.**
   - A `world` run of ONE lock task, started by `startWorldLockRun(childId, objectId)`: hero only; refused while the object is still open; resumes on `sourceRef = objectId`.
-  - In the completion hook, when the task resolved right (first or second try), upsert the state `"open"` and apply the reward, both idempotent through the unique index.
+  - On finishing, the run's close, the state `"open"` and the rewards are written together: one `withChildLock` transaction, a plain read-check-write (RG-c, RG-n). This applies when the task resolved right, first or second try. *(F13: the stale "idempotent through the unique index" clause is struck.)*
   - A miss leaves the object locked, and the hero can try again with a fresh puzzle.
 - **R-G4: rewards.** Never materials.
   - **`decor`:** an entry in a small `DECOR` catalog of boxes, drawn at its fixed spot (owner: "appear at set spots"). The spot is held clear by `world-clearance.ts`.
   - **`lore`:** an entry in a `LORE` catalog of short pages, shown in a new "Found pages" section of the Chronicle book. `getChronicle` returns `lore`.
   - **`fragment`:** a generated place id, applied with `addPlacesFound`, plus the toast "You found a map to {place}!". The client store adds it too.
 - **R-G4b: Puzzle Tower runs.** `RUN_EFFECTS.tower` has every effect false. A tower run moves nothing but the tower record.
-- **R-G5: the Puzzle Tower.**
+- **R-G5: the Puzzle Tower** (floors and copy: owner, 2026-11-20).
   - A fixed structure at (25.5, 23.5), 8×8, the only free plot. It is not a `BUILDINGS` entry: it has its own catalog entry and clearance test.
-  - It has one floor per band. A floor opens after 3 stars on any lock deed at that band (`deed_run.kind='deed'`, `deed_id` among lock deeds, `band`, `stars = 3`), checked by one query.
+  - **Floors.** There is one floor per band. 3 stars on a science (lock) side quest at the hero's own band opens their floor **and every floor below it** (cumulative).
+    - Floors above the hero's band are never shown: not drawn as storeys, and not listed on the `TowerBoard`.
+    - With no 3-star run yet, only the hero's own floor shows, as waiting.
+    - "The hero's band" is defined in PC-G18.
+    - The stars are read by one query (`deed_run.kind='deed'`, `deed_id` among the lock deeds, `stars = 3`, distinct `band`).
+  - **Copy.** A waiting floor's line is exactly "Earn 3 stars on a science side quest to open this floor." It never names a grade or band.
   - Each open floor offers a bonus lock, harder by one level, as a `tower` run.
-  - The record is `realm_world_state` `tower:<band>`, with state = solved count.
+  - The record is `realm_world_state` `tower:<band>` (object id `towerRef(band)`), with state = solved count.
   - The exterior grows one storey per open floor.
 - **R-G6: interactables.**
   - New interact kinds: `"lock"` (chests and doors) and `"tower"`, added to the overlay chain's negative list.
   - Room chests get an optional third argument on `roomSpots`, so the existing three-spot tests keep their shape.
   - Chests and doors are non-solid (heaps precedent). A vault door's frame is drawn beside the path, not across it.
+- **R-G7: the grown-up's locks switch (owner, 2026-11-20).** With "Solving logic locks" off:
+  - chests and vault doors are not drawn;
+  - the Tower's bonus locks are not offered;
+  - `startWorldLockRun` and `startTowerRun` refuse with `WORLD_LOCKS_OFF`, mirroring `startPracticeRun`;
+  - everything already found stays: decorations, lore pages, found places and tower records.
+
+  Whether the Tower itself stays drawn is the planner's call, PC-G6.
+
+### Controller rulings (pre-flight scan, 2026-11-20; findings in `.superpowers/sdd/2026-11-10-realm-learning-woven-in/part-g-preflight.md`)
+
+- **RG-a (F1):** `World` takes `worldLocks?: WorldCanvas` (set up in G3); its `spots` memo depends on that one prop. G5 reads `locksOn` from it. See PC-G9.
+- **RG-b (F2):** the test helpers are `yardPieces()` (the keep yard's own spots and hall boxes) and `villagePieces()` (everything else). `keep-yard.test.ts` compares the first against the second; the new spots are tested against both.
+- **RG-c (F3):** `withChildLock` serialises across instances: a libsql write transaction takes the write lock at BEGIN (`realm-play.ts:119-121`). So finishing is a plain read-check-write inside the lock, with no compare-and-set. A second finish is a no-op and writes no second reward row (tested in G2).
+- **RG-d (F4):** every `worldLockSkill` test case spells out the hero's full `grades`.
+- **RG-e (F5):** `EMPTY_WORLD_STATE.locksOn = false`, so a failed read draws nothing. `KingdomState` gains an optional `grades?: Record<SkillArea, Grade>`. `RealmData.worldState` is optional.
+- **RG-f (F6):** every chest has an `ry`, and every decor a `label` and `ry` (G1's tables). `lore.test.ts` checks:
+  - ten unique ids;
+  - 2–4 sentences, at most 320 characters, a title of at most 40;
+  - no `/grade|kindergarten/i`;
+  - no `/\b(behind|ahead)\b/i`;
+  - no `<`.
+- **RG-g (F7):** G5 tests `applyTowerOutcome`, every `towerFloorLine` variant, a bad band id, and that a tower `RunStart` has no `"solution"`.
+- **RG-h (F8):** G6's tests move into G3 (the bundle's reads) and G5 (`EXPLAIN QUERY PLAN`), each written red-first. G6 is a stub. G7's whole-branch review counts the per-load queries.
+- **RG-i (F9):** the test `DEED_RUN_DDL` includes `CREATE INDEX deed_run_child_completed_idx ON deed_run (child_id, completed_at)`.
+- **RG-j (F10, F27):** practice, world locks and the Tower share:
+  - one run builder (`lockRun`, in `practice-run.ts`);
+  - one band derivation (`towerBands`, in `puzzle-tower.ts`, used by G3 and G5);
+  - one set of copy constants (`world-lock-copy.ts`, which `interact.ts` imports);
+  - one start-action skeleton (`startLockRun`, in `src/lib/services/lock-runs.ts`).
+
+  Test DDL comes from `src/test/realm-db-ddl.ts`:
+  - `DEED_RUN_DDL`, `SKILL_MASTERY_DDL` and `REALM_PLACE_FOUND_DDL` are added there;
+  - `practice-db.test.ts` and `realm-places.test.ts` switch to them;
+  - the six other `deed_run` copies stay. `star-backfill.test.ts` and `record-of-work.test.ts` need pre-migration shapes on purpose, and the rest (`deeds-db`, `review-db`, `improvements-db`, `deed-run-store-db`, `realm-quest-rewards-db`) are in files Part G does not otherwise edit.
+- **RG-k (F11):** G7's smoke shows:
+  - an emptied chest's exact line;
+  - the exact waiting-floor line;
+  - that no floor above the hero's band shows.
+- **RG-l (F12):** the vacuous `quietSurfaces(true)` test is replaced by a `realm-game` test of `handed.props.worldLocks`. With locks off it is empty (`locks: []`, `locksOn: false`).
+
+  **Quiet world: applied differently, flagged to the controller.** In the quiet world (0 minutes) it is the bundle's canvas, unchanged. The ruling as given says "absent or empty when the world is quiet". That would contradict the owner's quiet-world decision (`quiet.ts`, decision 8): only troubles, riding and recess rest, and learning stays on. Locks pay nothing, so they are learning.
+- **RG-m (F22):** a chest or door run's finish button reads "Done" (`LOCK_FINISH`), and its leave link "Leave the lock". Tower runs keep Puzzle practice's copy ("Finish puzzles", "Leave the puzzles").
+- **RG-n (F24):** the open and the run's close share one `withChildLock` transaction. If opening throws, both roll back: the run stays open and can be finished again (tested in G2). The tower's count bump takes the same path. There is no `"error"` outcome.
+- **RG-o (F28):** `worldLockSkill` resolves a subject skill through the catalog, never by building an id string. It walks `nearestGrades(grade)` within the grade's own band, taking the first `skillsFor(area, g)` skill that `TASK_KINDS.lock.presents`. A grade-4 hero's library chest draws `vocab-g45` (tested).
+- **Notes applied:**
+  - F13 (above);
+  - F14: every test command has `--maxWorkers=2`;
+  - F15: the refusals live in `deed-refusals.ts`, with a `deedErrorLine` test;
+  - F16: R-G1's `notNull`;
+  - F17: G2's test-time guidance;
+  - F18: G3 and G4's Files;
+  - F19: G3 and G5's spot-overlap test;
+  - F20: G1's `worldObjectById` and keeper guard;
+  - F21: PC-G7, accepted;
+  - F23: PC-G5;
+  - F25: PC-G14;
+  - F26: the file map.
+
+### Planner calls (2026-11-20, against `dev` b4443b2; the code forced each one)
+
+- **PC-G1: one table, namespaced ids.** `realm_world_state.object_id` holds:
+  - `chest:<id>` and `door:<place>`, state `"open"`;
+  - `decor:<id>`, state `"placed"`;
+  - `lore:<id>`, state `"found"`;
+  - `tower:<band>`, state = the solved count as text.
+
+  *Reason:* a chest relocks weekly, but the decoration it gave must stay, so rewards need rows of their own.
+- **PC-G2: finishing a lock run is one locked transaction** (RG-c, RG-n). `withChildLock(childId, tx => …)`:
+  1. closes the run (`update … where completed_at is null returning`); no row back means `FINISHED`;
+  2. on a right answer, reads the hero's world rows;
+  3. checks `lockedNow`;
+  4. upserts the object's row to `"open"` (`onConflictDoUpdate`);
+  5. writes the rewards: `decor:`/`lore:` with `onConflictDoNothing`, fragments with `addPlacesFound(childId, ids, tx)`.
+
+  `addPlacesFound` gains `exec: Exec = db`.
+- **PC-G3: each lock run start is seeded with `Date.now() >>> 0`**, as every run start is. *Reason:* R-G3's fresh puzzle after a miss. A resumed run keeps one puzzle stable for 60 minutes (`findOpenRun`). The seed is chosen on the server; generators stay pure.
+- **PC-G4: which skill a lock draws** (`worldLockSkill`, RG-o). `WorldObject.draws` is an area: `"logic" | "language" | "science"`.
+  - **Logic:** the skill Puzzle practice would draw, `practiceSkill(grades.logic, focusSkillIds)` (now exported), so the grown-up's logic focus counts here too.
+  - **Language and science:** the catalog walk of RG-o at `grades[area]`. Today a sort pool credits:
+    - `science-*` at every band;
+    - `vocab-*` at grades 5, 6 and 9.
+
+    So a hero whose language grade is K–3 finds no skill in their band and gets a **logic** lock, never a vocab `choice` question. A grade-4 hero's band (4–5) reaches `vocab-g45`.
+- **PC-G5: what a chest gives.** Each opening gives the first reward in the chest's `rewards` that the hero does not yet own. A vault door gives all of its rewards at once. An emptied chest still opens weekly and gives `[]`. Its own row is rewritten, but it writes no reward row (R-G2, owner; F23).
+- **PC-G6: with locks off, the Tower stays drawn, at its earned storeys, with no E spot** (R-G7).
+  - *Reason:* R-F7 hides the *offer* of logic locks (the Puzzle practice button), not the hero's record. Here the offer is the Tower's E spot, and its storeys are the record R-G7 keeps.
+  - `worldCanvas` gives `locks: []` and `locksOn: false`, and the tower spot keys on `locksOn`.
+- **PC-G7: only the hero finishes a world-object or tower run.** `completeDeedRun` refuses a grown-up with `WORLD_HERO_ONLY` before anything is written, as it does build runs.
+  - **Accepted (F21):** a grown-up with edit access can still *answer* the hero's open chest run, which moves the hero's logic mastery. This is the same as Puzzle practice and side quests today.
+- **PC-G8: the floor query counts science deed runs by the deed's identity** (`deed_id IN (the lock deeds)`), whether that run played as sorts or as `choice`. *Reason:* telling them apart needs a JSON scan, and the Tower is unplayable with locks off anyway.
+- **PC-G9: E spots go through `World`, drawing through its siblings** (RG-a).
+  - `buildSpots` runs inside the memoised `World`, so `World` takes `worldLocks?: WorldCanvas`, added to its `spots` memo's deps as `built` is. From it, `locks` gives the lock spots and `locksOn` the tower spot.
+  - Siblings of `<World>` draw: `<WorldLocks>`, `<Decorations>`, `<PuzzleTower>`.
+  - `SpikeScene` takes the same stable `worldLocks` prop and hands it to both.
+  - The Tower's collider is static: one line in the `solids` memo.
+- **PC-G10: an open chest or door keeps its E spot**, with the verb "Look in" or "Look through". Its board says it is open and starts nothing.
+- **PC-G11: the component is `WorldLockBoard` (`world-lock-board.tsx`)**, because `src/lib/tasks/lock-board.ts` already exists.
+- **PC-G12: the Tower.**
+  - The base is always drawn; one storey is added per open visible floor (at most 5).
+  - The body is 6×6 on the 8×8 plot, with one static collider as tall as five storeys.
+  - A floor's lock is `logic-<band>` at `towerLevel(mastery) = min(mastery + 1, MASTERY_MAX)`.
+  - No demo, no second chances.
+- **PC-G13: the fragment toast reuses `DeedToast`**, with an optional `icon?: "map"`. `DeedToastBanner` skips the pips when `total === 0`. It is held until the board closes, since an open overlay hides the toast.
+- **PC-G14: vault doors.** A door's id is `door:<placeId>`. Its position is `placeById(suffix)` plus an offset from a local `DOOR_OFFSETS: Record<string, {x, z}>` table in `world-objects.ts`, resolved at module load (F25).
+  - The riddle-stone tests arbitrate: dry ground, more than 3 from every track and road, more than 1 from solid scenery, outside every other spot's reach.
+  - The implementer may move a door at most 3 units, and records the move in the commit.
+- **PC-G15: the world state is assembled after the child row is read**, from rows read in the first parallel round. The zone and grades cost no extra read (G3 pins this).
+- **PC-G16: `RunKind` gains `"tower"` in G2, together with `deed_run.kind`'s TS enum.** `db:generate` emits nothing for the enum; 0044 holds only the table.
+- **PC-G17: the world-lock path runs only when `run.kind === "world" && isWorldObjectId(run.sourceRef)`**, so Puzzle practice is untouched.
+- **PC-G18: "the hero's band" (R-G5).** `towerBands(grades) = { ownBand: bandForGrade(grades.logic), scienceBand: bandForGrade(grades.science) }` is shared by G3 and G5 (RG-j).
+  - **Which floors show:** the hero's own grade's band. Logic has no offset (R-F6), and the Tower's locks are logic locks.
+  - **What opens the hero's floor:** a 3-star run at the band their science side quests draw at now. That is what `deed_run.band` stores, so the floor stays reachable whatever the grown-up's science offset.
+  - **History stays:** a 3-star run at any band `b ≤ ownBand` keeps the floors up to `b` open. A science band above `ownBand` opens nothing above it.
+  - **The rule** is `towerFloors(starred, bands): { band; open }[]`, the visible floors, bottom first:
+    - `top` = `ownBand` if `starred.has(scienceBand)`, else the highest `b ∈ starred` with `b ≤ ownBand`, or none;
+    - the open floors are every band ≤ `top`;
+    - the visible floors are the open floors plus `ownBand`.
+  - **The bundle** reads `grades` from the `loadKingdomOverview` call it already makes (`KingdomState.grades?`, RG-e). On a failed kingdom read, `tower` is `[]`.
+
+### Owner questions
+
+None open. The owner answered Q1–Q4 on 2026-11-20:
+- Q1 and Q2 are now R-G5;
+- Q3 is in R-G2;
+- Q4 is R-G7.
+
+## Global constraints for Part G
+
+Part F's constraints still apply, plus:
+
+- **Never materials, minutes or stars.** `RUN_EFFECTS.world` (4a) and `RUN_EFFECTS.tower` (every effect false) are the only effects. No path writes `realm_material` or `realm_play_ledger`, or sets `deed_run.stars` above 0.
+- **Hero only, family scoped.**
+  - Every lock start goes through `startLockRun`: `requireChildAccess(childId, { write: true })`, then `isChildActor`, then `CLOSED`, then the locks switch. This is `startPracticeRun`'s order.
+  - A grown-up's visit reads the world state and the found pages, and opens nothing.
+- **Leak rule.** Lock runs are written only by `insertRun` and resumed only by `resumedStart` (`toClientTask` views).
+- **Once means once.** The close, the open and the rewards are one locked transaction (PC-G2). A second finish writes nothing.
+- **The Realm rules:**
+  - additive lines only in `realm-game.tsx`, `spike-scene.tsx`, `frame-hud.tsx`, `hud.tsx` and `hud-bus.ts`;
+  - painters are new files;
+  - no `three` under Vitest: boxes live in pure `world-lock-boxes.ts`;
+  - `World` stays memoised, with `worldLocks` stable;
+  - no `Math.random`;
+  - browser checks press keys and never click the canvas.
+- **The server's day.** `lockedNow` uses the family's zone and `realmNow`'s date, never the device's.
+- **Tests:** every `npx vitest run` has `--maxWorkers=2`.
+- **Copy** (`src/lib/utils/world-lock-copy.ts`; refusals in `deed-refusals.ts`):
+  - **Verbs and labels:**
+    - `CHEST_VERBS = { shut: "Open", open: "Look in" }`;
+    - `DOOR_VERBS = { shut: "Open", open: "Look through" }`;
+    - `TOWER_VERB = "Climb"`;
+    - `CHEST_LABEL = "the old chest"`;
+    - `DOOR_LABEL = "the vault door"`;
+    - `TOWER_LABEL = "the Puzzle Tower"`.
+  - **Stories:**
+    - `CHEST_STORY` = "An old chest, shut with a puzzle for a lock."
+    - `DOOR_STORY` = "A vault door, sealed with a puzzle."
+    - `TOWER_STORY` = "A bonus puzzle, just for the joy of it."
+  - **Refusals** (`deed-refusals.ts`, in `KNOWN`):
+    - `WORLD_HERO_ONLY` = "Locks are for the hero to open."
+    - `WORLD_OPEN` = "That's already open."
+    - `WORLD_LOCKS_OFF` = "The locks are resting for now."
+    - `TOWER_SHUT` = "That floor isn't open yet."
+  - **Headlines** (title / line):
+
+    | Outcome | Title | Line |
+    |---|---|---|
+    | a chest opens | "The chest opens!" | the reward line |
+    | a door opens | "The vault door swings open!" | the reward line |
+    | a miss | "The lock holds." | "Try again with a fresh lock." |
+    | already open | "It was already open." | |
+    | a tower solve | "Floor solved!" | |
+    | a tower miss | "The puzzle holds." | "Every climb makes you sharper." |
+  - **Reward lines:**
+    - "Inside: {decor label}. Look for it in the village."
+    - "Inside: a page for your Chronicle, “{title}”."
+    - "Inside: a map and a page for your Chronicle."
+    - `CHEST_EMPTY` = "You've found everything in this chest." (exact)
+  - **Board lines:**
+    - `CHEST_OPEN_LINE` = "You opened this chest. A new lock comes next week."
+    - `DOOR_OPEN_LINE` = "The vault stands open. Its map is yours."
+  - **Run words:** `LOCK_FINISH = "Done"`; leave link "Leave the lock" (RG-m). Tower runs use `PRACTICE_FINISH` and "Leave the puzzles".
+  - **The toast:** "You found a map to {place}!" / "Look for it on your map."
+  - **The Chronicle:** the section is "Found pages".
+  - **The Tower:**
+    - `TOWER_WAITING` = "Earn 3 stars on a science side quest to open this floor." (exact);
+    - floors are named by position, "The first floor" … "The fifth floor".
+- **No child-facing grade or band label anywhere in Part G** (R-G5, owner).
+
+## Review Focus (Part G)
+
+1. **A second finish.** Two runs for one chest finish one after the other, or at once. The chest opens once, with one reward row; the other summary says `already-open`. Finishing one run twice gives `FINISHED`. Pinned in G2.
+2. **The weekly refill at a time-zone edge.** A chest opened at 23:30 local (06:30 UTC the next day) relocks on the seventh local day. Pinned in G1 and G2.
+3. **A grown-up can't open a lock.** They are refused at start and at finish, with nothing written, and still see the state and the pages. Pinned in G2 and G4.
+4. **No solution reaches the browser.** Fresh and resumed chest and tower starts carry no `"solution"`. Pinned in G2 and G5.
+5. **A K–3 hero at the library chest** gets a logic lock, never a `choice` task or a throw; a grade-4 hero gets `vocab-g45`. Pinned in G2.
+
+**Execution order:** G1, G2, G3, G4, G5, G7 (G6 folded into G3 and G5).
+
+## File map (Part G)
+
+| File | Responsibility |
+|---|---|
+| **New, pure, client-safe** | |
+| `src/lib/realm/world-objects.ts`, `lore.ts`, `world-state.ts`, `puzzle-tower.ts` | catalogs, `lockedNow`, `nextRewards`, the view and its mirror, `towerFloors`, `towerBands`, the Tower's place |
+| `src/lib/utils/world-lock-copy.ts` | Part G's copy |
+| `src/lib/realm3d/world-lock-boxes.ts` | chest, door, decor and tower boxes |
+| **New, server** | |
+| `src/lib/utils/world-lock-run.ts` | `worldLockSkill` (imports the registry) |
+| `src/lib/services/lock-runs.ts` | `startLockRun`, the shared start skeleton |
+| `src/lib/services/realm-world-state.ts` | `worldClock`, `loadWorldRows`, `loadWorldRaw`, `openWorldObject`, `bumpTowerRecord`, `loadStarredBands`, `loadFoundPages` |
+| `src/lib/actions/world-locks.ts` | `startWorldLockRun`, `startTowerRun` |
+| **New, client** | |
+| `src/components/realm3d/world-locks.tsx`, `decorations.tsx`, `puzzle-tower.tsx` | painters, siblings of `World` |
+| `src/components/realm3d/world-lock-board.tsx`, `tower-board.tsx`, `use-world-state.ts` | the boards and the frame's hook |
+| **Modified, shared** | |
+| `src/lib/db/schema.ts`, `migrations/0044_realm_world_state.sql` | the table (G1); the `tower` enum (G2) |
+| `src/lib/utils/deed-scoring.ts`, `deed-run-types.ts`, `deed-refusals.ts`, `practice-run.ts` | `tower` effects; `WorldOutcome`/`TowerOutcome`; refusals; `lockRun`, `practiceSkill` |
+| `src/lib/actions/deeds.ts`, `practice.ts`, `realm.ts`, `realm-chronicle.ts` | the locked finish; practice on `startLockRun`; the bundle; `lore` |
+| `src/lib/services/realm-places.ts` | `addPlacesFound(…, exec)` |
+| `src/lib/realm/kingdom-state.ts` | `KingdomState.grades?` |
+| `src/lib/realm3d/talk.ts`, `interact.ts`, `room-rules.ts`, `hud-bus.ts` | headlines, run words, toast; spots; the room chest; the union |
+| `src/components/realm3d/spike-scene.tsx`, `realm-game.tsx`, `interior-scene.tsx`, `deed-board.tsx`, `guide-hud.tsx`, `chronicle-book.tsx`; `src/app/(app)/realm/page.tsx` | wiring (additive), the room chest, run words, the toast guard, found pages, page data |
+| `src/test/world-clearance.ts`, `src/test/realm-db-ddl.ts` | `yardPieces`, `villagePieces`, `segmentDistance`; shared DDL |
 
 ## Tasks
 
-Each G task gets its full Files, Interfaces and Tests detail at the start of 4b, written against 4a's merged code, as Part E was for 3b.
+### Task G1: The world state's table, catalogs and rules (pure)
 
-- **G1:** the schema (0044), the shared DDL, the pure `WORLD_OBJECTS` / `DECOR` / `LORE` catalogs, `lockedNow`, the tower catalog, and the clearance tests for every spot (world and room).
-- **G2:** `startWorldLockRun` plus `finishWorldLock` in `completeDeedRun` (hero only; idempotent; rewards applied; `RunSummary.world?`), and `RUN_EFFECTS.tower` (R-G4b). DB tests:
-  - two tabs open a chest once;
-  - a chest that is still open refuses;
-  - the weekly refill comes back locked with a new puzzle;
-  - a fragment marks the place found;
-  - nothing ever writes `realm_material`.
-- **G3:** the bundle's `worldState` (one query) and a `use-world-state` hook. Chests and doors are drawn as siblings of `World`, closed or open. The `"lock"` interact kind and a `LockBoard` play the run with `DeedRun` and mirror the open state client-side. Room chests appear through the `roomSpots` third argument.
-- **G4:** rewards in the world:
-  - `Decorations` (a `World` sibling);
-  - "Found pages" in the Chronicle book;
-  - the fragment toast and the places-store add.
-- **G5:** the Puzzle Tower:
-  - floor rule and query;
-  - a `TowerBoard` (floors open or waiting, with the copy "Earn 3 stars on a lock side quest for {band} to open this floor.");
-  - `tower` runs;
-  - the record;
-  - the exterior with its storeys.
-- **G6:** the bundle and performance pass. Count the per-load queries and fold reads into existing ones where possible.
-- **G7:** verify:
-  - full checks;
-  - prod-copy 0044;
-  - browser smoke (a chest, a vault door that reveals a place, a lore page, a decoration appearing, a tower floor, the weekly refill simulated by date, a parent visitor);
-  - whole-branch review and one fix wave;
-  - merge on the owner's word.
+**Files:**
+- **Schema:** modify `src/lib/db/schema.ts` to add `realmWorldState`:
+  - `id` text primary key;
+  - `childId` `notNull`, references `child`, cascade;
+  - `objectId` `notNull`;
+  - `state` `notNull`;
+  - `updatedAt` timestamp, `notNull`;
+  - `uniqueIndex("realm_world_state_child_object_idx").on(childId, objectId)`.
+
+  Run `npm run db:generate -- --name realm_world_state`, then `npm run db:migrate`.
+- **Test DDL:** modify `src/test/realm-db-ddl.ts` to add `REALM_WORLD_STATE_DDL`, as 0044 writes it.
+- **Clearance helpers:** modify `src/test/world-clearance.ts` (RG-b):
+  - `yardPieces()`: the keep yard's spots and Chronicle Hall boxes;
+  - `villagePieces()`: `VILLAGE_DECOR_SPOTS`, every improvement's boxes and plaque at level 3, every villager, `VILLAGE_POST`, `ARCH`;
+  - `segmentDistance(p, a, b)`.
+
+  `keep-yard.test.ts` uses `villagePieces()` in place of its local `villageSpots()` and plaque list. `riddle-stones.test.ts` uses `segmentDistance`.
+- **New modules:** create `src/lib/realm/lore.ts`, `world-objects.ts`, `world-state.ts` and `puzzle-tower.ts`, with `lore.test.ts`, `world-objects.test.ts`, `world-state.test.ts` and `puzzle-tower.test.ts`.
+- **Rooms:** modify `src/lib/realm3d/interiors.test.ts` with "the room chests".
+- **Spec §2a**, "Calls settled for slice 4b":
+  - the owner's answers (R-G2's emptied chest, R-G5, R-G7);
+  - RG-a–RG-o;
+  - R-G1–R-G7;
+  - PC-G1–PC-G18;
+  - one line each.
+
+**Interfaces (produces):**
+- **`lore.ts`:**
+  - `type LoreId` (the ten ids below);
+  - `LORE: Readonly<Record<LoreId, { title: string; text: string }>>`;
+  - `LORE_IDS`.
+- **`world-objects.ts`:**
+  - `type DecorId`;
+  - `DECOR: Readonly<Record<DecorId, { label: string; x: number; z: number; ry: number }>>`;
+  - `DECOR_IDS`;
+  - `type WorldReward = { kind: "decor"; id: DecorId } | { kind: "lore"; id: LoreId } | { kind: "fragment"; placeId: string }`;
+  - `rewardKey(r)`, giving `"decor:<id>"`, `"lore:<id>"` or `"place:<id>"`;
+  - `type WorldObject = { id: string; type: "chest" | "door"; label: string; x: number; z: number; ry: number; room?: RoomKind; resetAfterDays?: number; draws: "logic" | "language" | "science"; rewards: readonly WorldReward[] }`. Room-local `x`/`z` when `room` is set;
+  - `WORLD_OBJECTS`;
+  - `worldObjectById(id: string | null | undefined): WorldObject | null`, own entries only;
+  - `isWorldObjectId(id: unknown): id is string`;
+  - `CHEST_RESET_DAYS = 7`.
+- **`world-state.ts`:**
+  - `type WorldRow = { objectId: string; state: string; updatedAt: Date }`;
+  - `lockedNow(object: Pick<WorldObject, "resetAfterDays">, row: Pick<WorldRow, "state" | "updatedAt"> | null, today: string, zone: string): boolean`;
+  - `nextRewards(object: WorldObject, owned: ReadonlySet<string>): WorldReward[]`;
+  - `type TowerFloorView = { band: ContentBand; open: boolean; solved: number }`;
+  - `type WorldStateView = { locksOn: boolean; open: string[]; decor: DecorId[]; tower: TowerFloorView[] }`;
+  - `EMPTY_WORLD_STATE`, which has `locksOn: false` (RG-e);
+  - `worldStateView(rows: readonly WorldRow[], floors: readonly { band: ContentBand; open: boolean }[], clock: { today: string; zone: string }, locksOn: boolean): WorldStateView`. Its `tower` is exactly `floors`, each given `solved` from its `towerRef(band)` row.
+- **`puzzle-tower.ts`:**
+  - `PUZZLE_TOWER = { x: 25.5, z: 23.5, plot: 8, body: 6, baseH: 3.2, storeyH: 2.4, door: { x: 22.2, z: 23.5 } }`;
+  - `TOWER_FLOORS = CONTENT_BANDS`;
+  - `towerRef(band)`, giving `"tower:<band>"`;
+  - `bandOfTowerRef(ref: string | null): ContentBand | null`;
+  - `towerSkillId(band)`, giving `"logic-<band>"`;
+  - `towerColliders(heightAt): Collider[]`;
+  - `towerBands(grades: Pick<Record<SkillArea, Grade>, "logic" | "science">): { ownBand: ContentBand; scienceBand: ContentBand }`;
+  - `towerFloors(starred: ReadonlySet<ContentBand>, bands: { ownBand: ContentBand; scienceBand: ContentBand }): { band: ContentBand; open: boolean }[]` (PC-G18).
+
+**The catalog** (positions are the survey's starting spots; the tests arbitrate):
+
+| object | at (x, z), ry | draws | rewards, in order |
+|---|---|---|---|
+| `chest:west-lane` | (−19.5, 12), π/2 | logic | decor `stone-bench`, decor `sundial`, lore `the-first-lock` |
+| `chest:east-lane` | (19.5, 10), −π/2 | logic | `flower-cart`, `bird-bath`, lore `the-locksmith` |
+| `chest:castle-back` | (14.25, −41), 0 | logic | `weather-vane`, `hay-bales`, lore `the-castle-cellar` |
+| `chest:library` | room `library` (2.0, 3.0), `atan2(-2, -3)` | language | `story-post`, `barrel-stack`, lore `the-scribes-cipher` |
+| `chest:garden` | room `garden` (0, 1.0), π | science | `herb-planter`, `scarecrow`, lore `the-glasshouse-key` |
+| `door:ringstones` | place + (0, 7) | logic | fragment `summit-7`, lore `ringstones-map` |
+| `door:highcairn` | place + (−6, 3) | logic | fragment `summit-6`, lore `highcairn-map` |
+| `door:longwater` | place + (7, 0) | logic | fragment `cove-12`, lore `longwater-map` |
+| `door:farfurrow` | place + (3, 6) | logic | fragment `deepwood-10`, lore `farfurrow-map` |
+| `door:appleway` | place + (5, −3) | logic | fragment `deepwood-9`, lore `appleway-map` |
+
+- Doors face their place: `ry = Math.atan2(-offset.x, -offset.z)`. Room chests face the room's middle.
+- Decor (label, (x, z), ry):
+
+  | decor | label | (x, z) | ry |
+  |---|---|---|---|
+  | `stone-bench` | "a stone bench" | (−18, 8) | π/2 |
+  | `sundial` | "a sundial" | (−20.5, 16) | 0 |
+  | `flower-cart` | "a flower cart" | (18.5, 6.5) | −π/2 |
+  | `bird-bath` | "a bird bath" | (20.5, 13.5) | 0 |
+  | `weather-vane` | "a weather vane" | (19, −5) | 0 |
+  | `hay-bales` | "a stack of hay bales" | (22, 1.5) | 0 |
+  | `scarecrow` | "a scarecrow" | (5, 17) | π |
+  | `barrel-stack` | "a stack of barrels" | (−3.25, 26.5) | 0 |
+  | `herb-planter` | "an herb planter" | (7.5, −10.25) | 0 |
+  | `story-post` | "a story post" | (−15, −31) | 0 |
+- **Lore:**
+  - 2–4 sentences, at most 320 characters;
+  - plain text, in the Realm's voice;
+  - a door's page tells of the place its map leads to.
+
+- [ ] **Step 1: Write the failing tests.**
+
+  **`lore.test.ts`** (RG-f):
+  - ten unique ids, equal to `LORE_IDS`;
+  - each text has 2–4 sentences (split on `/[.!?](?:\s|$)/`) and at most 320 characters;
+  - each title is at most 40 characters;
+  - no title or text matches `/grade|kindergarten/i`, `/\b(behind|ahead)\b/i` or `/</`.
+
+  **`world-state.test.ts`:**
+  - "an object with no row is locked": `lockedNow({}, null, "2026-11-09", "UTC") === true`.
+  - "a door once open stays open": `false` on `"2027-06-01"` for a row opened 2026-01-01.
+  - "a chest relocks on the seventh day in the family's zone":
+    - the row has `updatedAt = new Date("2026-11-03T06:30:00Z")`;
+    - in `"America/Denver"`, `"2026-11-08"` gives `false` and `"2026-11-09"` gives `true`;
+    - in `"UTC"`, `"2026-11-09"` gives `false`.
+  - "a chest gives its next unowned reward": for `chest:west-lane`:
+    - nothing owned gives `[decor stone-bench]`;
+    - with `decor:stone-bench` owned, it gives `[decor sundial]`;
+    - with all three owned, it gives `[]`.
+  - "a door gives everything at once": `door:ringstones` gives `[fragment summit-7, lore ringstones-map]`.
+  - "the view". The rows are:
+    - `chest:west-lane` open today;
+    - `chest:east-lane` opened 8 days ago;
+    - `decor:sundial`;
+    - `tower:g23 = "2"`;
+    - `tower:k1 = "x"`;
+    - an unknown `chest:nope`.
+
+    The floors are `[{k1, true}, {g23, true}, {g45, false}]`. The view gives:
+    - `open: ["chest:west-lane"]`;
+    - `decor: ["sundial"]`;
+    - `tower: [{k1, true, 0}, {g23, true, 2}, {g45, false, 0}]`.
+  - "`EMPTY_WORLD_STATE` draws nothing": `locksOn === false`, and every list is empty.
+
+  **`world-objects.test.ts`:**
+  - ids are unique and prefixed `chest:` or `door:`;
+  - chests reset after 7 days; doors never do;
+  - every reward resolves, and every decor and lore id is given by exactly one object;
+  - fragments are in `REALM_PLACE_IDS`, not authored, and distinct;
+  - there is one door per `PLACES` id, read from the id's suffix;
+  - room chests are only `library`/`language` and `garden`/`science`;
+  - `worldObjectById("toString")`, `("__proto__")` and `("constructor")` each give `null`;
+  - "every village chest and decor spot clears the village":
+    - `clearanceFailures(what, rectAt(x, z, 1.4, 1.4), undefined, 0)` is `[]`, and so is `levelFailures`;
+    - nothing within 1.0 of a `yardPieces()` or `villagePieces()` rect, or of another chest or decor;
+    - nothing within 1.5 of the Tower's plot;
+  - the door tests copy the riddle-stone describe:
+    - dry;
+    - `segmentDistance` greater than 3 from every `VILLAGE_TRACKS` and `world.roads` line;
+    - more than 1 from solid `SCENERY`;
+    - outside every `others` spot's reach and every riddle stone's, and the reverse.
+
+  **`interiors.test.ts` "the room chests":**
+  - each room chest is on the flood-reachable floor;
+  - at least 2.5 from the fixture, door, spawn, and keeper (when `plan.keeper` is not null);
+  - `!roomBuried(plan.solids, x, z, 0, 1.3)`.
+
+  **`puzzle-tower.test.ts`:**
+  - the 8×8 plot clears: `clearanceFailures(…, undefined, 1.5)` and `levelFailures` are `[]`, with nothing within 1.5 of `yardPieces()` or `villagePieces()`;
+  - refs round-trip, and junk (`"tower:g7"`, `"chest:x"`, `null`) gives `null`;
+  - every `towerSkillId(b)` names a logic skill;
+  - one collider: `[{ x: 25.5, z: 23.5, hw: 3, hd: 3, round: false, base: -1, top: 3.2 + 5 * 2.4 }]`;
+  - `towerBands({ logic: "4", science: "2", … })` equals `{ ownBand: "g45", scienceBand: "g23" }`;
+  - the four `towerFloors` cases:
+    - stars at the hero's band: `towerFloors(new Set(["g45"]), { ownBand: "g45", scienceBand: "g45" })` gives k1, g23 and g45, all open, and nothing above;
+    - no stars: `towerFloors(new Set(), …)` gives `[{ band: "g45", open: false }]`;
+    - earlier stars: `{k1}` gives `[{k1, true}, {g45, false}]`;
+    - offsets: `{g23}` with `scienceBand: "g23"` opens k1–g45; `{g68}` with `scienceBand: "g68"` opens k1–g45 and shows no `g68`.
+- [ ] **Step 2:** `npx vitest run src/lib/realm/lore.test.ts src/lib/realm/world-state.test.ts src/lib/realm/world-objects.test.ts src/lib/realm/puzzle-tower.test.ts src/lib/realm3d/interiors.test.ts src/lib/realm/keep-yard.test.ts src/lib/realm/riddle-stones.test.ts --maxWorkers=2`.
+
+  Expected: FAIL. The new files fail on "Cannot find module"; the two refactored files fail on the missing helper exports.
+- [ ] **Step 3: Implement.**
+  - **Schema:** generate, then migrate. 0044 must hold exactly `CREATE TABLE realm_world_state` and its unique index. Commit it with its meta.
+  - **`lockedNow`:**
+
+    ```ts
+    if (!row || row.state !== "open") return true;
+    if (object.resetAfterDays === undefined) return false;
+    return addDays(todayInZone(zone, row.updatedAt), object.resetAfterDays) <= today;
+    ```
+  - **Spots:** a spot that fails moves within the survey's clear ranges (chests and decor) or at most 3 units (doors). Name each move in the commit.
+- [ ] **Step 4:** the same command, then `npx tsc --noEmit`. Expected: PASS, 0 errors.
+- [ ] **Step 5: Commit.** `feat(realm): the world's locks: a state table, chests, doors, decor, lore and the Tower's plot`.
+
+### Task G2: Opening a lock on the server
+
+**Files:**
+- **Run kinds:**
+  - `deed-scoring.ts`: `RunKind` gains `"tower"`, and `RUN_EFFECTS.tower` is all `false`; `deed-scoring.test.ts` gets the `tower` block (`kindsThatFeedReview` unchanged);
+  - `schema.ts`: `deed_run.kind` gains `"tower"`. `db:generate` should report "No schema changes" (PC-G16).
+- **Run words** (RG-m), in `talk.ts`:
+  - `finishLabel(kind: RunKind, ownerId?: string)`: `LOCK_FINISH` for `world` with `isWorldObjectId(ownerId)`; `case "tower"` gives `PRACTICE_FINISH`;
+  - `leaveWhat(kind: RunKind, ownerId?: string): string`: `"lock"`, `"puzzles"` (world, tower), `"review"`, `"build"`, or `SIDE_QUEST_LOWER`.
+
+  `deed-board.tsx` replaces its `what` ternary with `leaveWhat(run.kind, run.deed.id)`, and passes `run.deed.id` to `finishLabel`.
+- **Copy and refusals:** create `src/lib/utils/world-lock-copy.ts`; `deed-refusals.ts` gets the four refusals, added to `KNOWN` (F15).
+- **The shared run builder** (RG-j), in `practice-run.ts`:
+  - export `practiceSkill`;
+  - add `lockRun(input: { skill: Skill; level: number; count: number; seed: number; enabledKinds: ReadonlySet<TaskKind>; profile: ProfileLike }): BuiltRun`;
+  - `buildPracticeRun` calls `lockRun` with `count: PRACTICE_RUN.tasks`.
+- **`worldLockSkill`:** create `src/lib/utils/world-lock-run.ts` with `worldLockSkill`, plus its test.
+- **The shared start skeleton:** create `src/lib/services/lock-runs.ts` with `startLockRun`. `actions/practice.ts` is rewritten onto it, with `practice-db.test.ts` as the guard.
+- **Places:** `realm-places.ts`: `addPlacesFound(childId, placeIds, exec: Exec = db)`.
+- **New server modules:** create `src/lib/services/realm-world-state.ts` and `src/lib/actions/world-locks.ts`.
+- **The finish:** `deed-run-types.ts` gets `WorldOutcome` and `RunSummary.world?`; `actions/deeds.ts` gets the locked finish.
+- **Test DDL** (RG-i, RG-j), in `src/test/realm-db-ddl.ts`:
+  - `DEED_RUN_DDL`, with `deed_run_child_completed_idx`;
+  - `SKILL_MASTERY_DDL`;
+  - `REALM_PLACE_FOUND_DDL`.
+
+  `practice-db.test.ts` and `realm-places.test.ts` switch to them.
+- **Tests:**
+  - `src/lib/actions/world-locks-db.test.ts`;
+  - `src/lib/utils/world-lock-run.test.ts`;
+  - `deed-refusals.test.ts` (each new refusal comes through `deedErrorLine` unchanged);
+  - `talk.test.ts` (run words).
+
+**Interfaces:**
+- **Consumes:**
+  - G1;
+  - `insertRun`, `findOpenRun`, `resumedStart`, `demoAt`, `loadMasteryRows`;
+  - `loadFocusSkillIds`, `loadLearningProfileRow`, `profileFromRow`;
+  - `withChildLock`, `loadHeroLevels`, `loadRealmSettings`, `enabledHandsOnKinds`;
+  - `drawForSkill`, `applyProfile`, `nearestGrades`, `skillsFor`, `TASK_KINDS`.
+- **Produces:**
+  - `type WorldOutcome = { objectId: string; opened: boolean; reason?: "missed" | "already-open"; rewards: WorldReward[] }`, and `RunSummary.world?`.
+  - `worldLockSkill(object: Pick<WorldObject, "draws">, grades: Record<SkillArea, Grade>, focusSkillIds: readonly string[]): { skill: Skill; grade: Grade } | null` (RG-o).
+  - `lockRun(...)`, as above.
+  - `startLockRun(childId: string, spec: LockRunSpec): Promise<RunStart>`, where:
+
+    ```ts
+    type LockRunSpec = {
+      kind: "world" | "tower";
+      sourceRef: string;
+      refusals: { heroOnly: string; off: string };
+      check?: (hero: HeroLevels) => Promise<void>;
+      pick: (hero: HeroLevels, focusSkillIds: readonly string[]) => { skill: Skill; grade: Grade; boost: number } | null;
+      count: number;
+      header: (skill: Skill) => RunStart["deed"];
+      demo: boolean;
+    }
+    ```
+
+    The order is:
+    1. `requireChildAccess(write)`, then `isChildActor`, else `heroOnly`;
+    2. `loadHeroLevels` and `loadRealmSettings`, with `CLOSED`, then `off`;
+    3. `check`;
+    4. resume via `findOpenRun(child, kind, sourceRef)`, with the header from the stored skill;
+    5. `pick` and the focus;
+    6. the level: the mastery, capped at `MASTERY_MAX`, plus the boost, capped again;
+    7. `lockRun` with seed `Date.now() >>> 0`; an empty run gives `NONE_READY`;
+    8. `insertRun`, with `secondChances: RUN_EFFECTS[kind].allowsSecondChances && settings.secondChances`, and `demoAt` when `demo` is set.
+
+    Practice's spec is `kind "world"`, `sourceRef "practice"`, `PRACTICE_*` refusals, `count: 3` and `demo: true`.
+  - `worldClock(childId: string, now?: Date): Promise<{ today: string; zone: string }>`: `realmNow` gives the date, and `usableTimeZone(getTimezoneForChild)` the zone.
+  - `loadWorldRows(childId: string, exec?: Exec): Promise<WorldRow[]>`.
+  - `openWorldObject(tx: Tx, childId: string, object: WorldObject, outcome: QuestionOutcome, now: Date, clock): Promise<WorldOutcome>`: PC-G2's steps 2–5, inside the caller's transaction.
+  - `startWorldLockRun(childId: string, objectId: string): Promise<RunStart>`:
+    - an unknown id gives `NOT_IN_CHRONICLE`;
+    - `startLockRun` with `kind "world"`, `sourceRef: object.id` and `WORLD_*` refusals;
+    - `check` uses `worldClock` and `lockedNow`, else `WORLD_OPEN`;
+    - `pick` is `worldLockSkill` with `boost: 0`;
+    - `count: 1`, `demo: true`;
+    - the header is `{ id: object.id, title: "The old chest" or "The vault door", story: CHEST_STORY or DOOR_STORY, area: skill.area }`.
+
+**`completeDeedRun`:**
+- After the `build` guard: `worldOwned(run) && !isChildActor(access)` gives `WORLD_HERO_ONLY`.
+- For a world-object run, the generic close is replaced:
+
+  ```ts
+  const clock = await worldClock(run.childId, now);
+  const world = await withChildLock(run.childId, async (tx) => {
+    if ((await closeRun(tx)).length === 0) throw new Error(FINISHED);
+    return openWorldObject(tx, run.childId, object, outcomes[0], now, clock);
+  });
+  ```
+
+  Here `closeRun(exec)` is the existing `update … returning`, made to take an executor, so the generic path calls `closeRun(db)`.
+- A throw from `openWorldObject` rolls back the close (RG-n).
+- The summary adds `...(world ? { world } : {})`.
+
+- [ ] **Step 1: Write the failing tests** (`world-locks-db.test.ts`).
+
+  **Setup:**
+  - DDL from `realm-db-ddl.ts`;
+  - `vi.mock("@/lib/services/realm-clock", …)`: `realmNow` gives `"2026-11-09"`;
+  - a **partial** `vi.mock("@/lib/services/family-timezone", async () => ({ ...await vi.importActual(…), getTimezoneForChild: async () => "America/Denver" }))`, so `usableTimeZone` survives (F17).
+  - **Time stamps (F17):** `completeDeedRun` stamps rows with the real clock, after the mocked day. Tests that need an earlier opening set `updated_at` by SQL to an epoch before 2026-11-09 (for example `2026-11-01T12:00Z`). They never use "now minus 7 days".
+
+  **Tests** (each spells out the full hero `grades`, RG-d):
+  - "starts one lock at the hero's logic grade, a world run named by the chest". For `{math:"8", reading:"8", language:"8", science:"8", logic:"5"}`:
+    - `start.kind === "world"`;
+    - one task, of kind `"lock"`;
+    - the row has `source_ref = 'chest:west-lane'`, `deed_id IS NULL` and `band = 'g45'`.
+  - "never sends the solution, fresh or resumed": neither `JSON.stringify(start)` contains `"solution"`, and both have the same `runId`.
+  - "the library chest" (Review Focus 5):
+    - `{…, language: "4", logic: "4"}` gives `["vocab-g45"]` and `view.puzzle === "sort"` (RG-o);
+    - `{…, language: "2", logic: "2"}` gives `["logic-g23"]`;
+    - `{…, language: "2", logic: "5"}` gives `["logic-g45"]`;
+    - none is ever `kind: "choice"`.
+  - "the garden chest": `science: "6"` gives `["science-g68"]`; `science: "3"` gives `["science-g23"]`.
+  - "refuses a grown-up, an unknown id, and `practice`, writing nothing": `WORLD_HERO_ONLY`, then `NOT_IN_CHRONICLE` twice.
+  - "refuses while locks are off, keeping everything found" (R-G7): `WORLD_LOCKS_OFF`, with no run written; the existing `chest:`, `decor:`, `lore:` and `realm_place_found` rows are unchanged.
+  - "the seventh local day" (Review Focus 2):
+    - `updated_at = 2026-11-03T06:30Z` starts;
+    - `updated_at = 2026-11-03T18:00Z` gives `WORLD_OPEN`.
+  - "a right answer opens the chest and gives its first reward":
+    - `world` is `{ objectId: "chest:west-lane", opened: true, rewards: [{ kind: "decor", id: "stone-bench" }] }`;
+    - the rows are `"open"` and `"placed"`.
+  - "a second-try right answer opens it too".
+  - "a miss leaves it locked; the next start is a new run": `reason: "missed"`, no state rows, and a different `runId`.
+  - "the next week's opening gives the next reward". Set `updated_at` by SQL as above.
+  - "an emptied chest relocks weekly, opens with a fresh puzzle, and never writes a reward twice" (R-G2):
+    - `world.rewards` is `[]`;
+    - `world.opened` is `true`;
+    - the `decor:`/`lore:` count is still 3, each `object_id` once, and it stays 3 after a second week.
+  - "a vault door marks its place found and gives its page, and never relocks":
+    - `summit-7` is in `realm_place_found`;
+    - `lore:ringstones-map` is `"found"`;
+    - a start on 2026-12-09 (`realmNow` re-mocked) gives `WORLD_OPEN`.
+  - "a second finish is a no-op" (RG-c, Review Focus 1):
+    - two right runs for one chest, finished one after the other: the second gives `reason: "already-open"`, and there is one `decor:` row;
+    - the same again with `Promise.all`;
+    - `completeDeedRun` twice on one run gives `FINISHED` the second time, with no second row.
+  - "if opening throws, the run stays open and finishes on a retry" (RG-n):
+    - `addPlacesFound` is mocked to reject once; a door's `completeDeedRun` rejects;
+    - `completed_at` is still null; no `door:`, `lore:` or place rows are written;
+    - a second `completeDeedRun` gives `opened: true` and writes all three.
+  - "a grown-up can't finish the hero's chest run" (Review Focus 3): `WORLD_HERO_ONLY`, the run stays open, and no state rows are written.
+  - "pays nothing, earns no star, writes no material": `stars === 0`, `minutesEarned === 0`, and `realm_play_ledger` and `realm_material` are empty.
+  - "Puzzle practice finishes with no world outcome".
+
+  **Other test files:**
+  - **`world-lock-run.test.ts`:**
+    - `worldLockSkill` follows the logic focus pick;
+    - `{…, language: "K", logic: "K"}` falls back to `logic-k1`;
+    - `{…, language: "6", logic: "6"}` gives `vocab-g68`;
+    - `lockRun` with locks disabled gives an empty run;
+    - the same seed gives the same task id.
+  - **`deed-scoring.test.ts`:** `RUN_EFFECTS.tower` is all-false.
+  - **`talk.test.ts`:**
+    - `finishLabel("world", "chest:west-lane") === "Done"`;
+    - `finishLabel("world", "practice") === "Finish puzzles"`;
+    - `finishLabel("tower") === "Finish puzzles"`;
+    - `leaveWhat` gives `"lock"`, `"puzzles"` and `"puzzles"` for the same three.
+  - **`deed-refusals.test.ts`:** each of the four new lines comes through `deedErrorLine`.
+- [ ] **Step 2:** `npx vitest run src/lib/actions/world-locks-db.test.ts src/lib/utils/world-lock-run.test.ts src/lib/utils/deed-scoring.test.ts src/lib/realm3d/talk.test.ts src/lib/utils/deed-refusals.test.ts --maxWorkers=2`.
+
+  Expected: FAIL. `world-locks` is a missing module, and the `tower`, run-word and refusal assertions fail.
+- [ ] **Step 3:** implement to the interfaces.
+- [ ] **Step 4:** the same command, plus `src/lib/actions/practice-db.test.ts src/lib/actions/realm-places.test.ts src/lib/actions/deeds-db.test.ts`, then `npx tsc --noEmit`. Expected: PASS, 0 errors; practice's tests are unchanged and green.
+- [ ] **Step 5: Commit.** `feat(realm): a chest or vault door opens once its lock is solved, once, for the hero alone`.
+
+### Task G3: Chests and doors in the world and in rooms
+
+**Files:**
+- **The bundle:** modify `src/lib/actions/realm.ts`.
+  - `RealmBundle.worldState?: WorldStateView`.
+  - The first round adds `const worldRead = loadWorldRaw(childId).catch(() => null)`.
+  - `loadKingdomState` keeps the overview's `grades` on `KingdomState.grades?` (RG-e; `src/lib/realm/kingdom-state.ts`).
+  - After the child row: `worldState: raw ? worldStateView(raw.rows, kingdom.grades ? towerFloors(raw.starred, towerBands(kingdom.grades)) : [], { today, zone: usableTimeZone(child.timezone) }, settings.mechanics.lock) : EMPTY_WORLD_STATE`.
+  - `loadWorldRaw(childId): Promise<{ rows: WorldRow[]; starred: ReadonlySet<ContentBand> }>`. `starred` is empty until G5.
+- **Page data:** in `page.tsx` and `realm-game.tsx`, `RealmData.worldState?: WorldStateView` (optional), carried as `...(bundle.worldState ? { worldState: bundle.worldState } : {})`.
+- **`world-state.ts`:**
+  - `type LockSpotView = { id: string; type: "chest" | "door"; label: string; x: number; z: number; ry: number; open: boolean }`;
+  - `type WorldCanvas = { locksOn: boolean; locks: readonly LockSpotView[]; decor: readonly DecorId[]; storeys: number }`;
+  - `worldCanvas(view)`: world objects only, none when `!locksOn` (R-G7); `storeys` = open visible floors;
+  - `roomChestFor(room, view): LockSpotView | null`, `null` when `!locksOn`;
+  - `applyWorldOutcome(view, o)`, which returns the same object when `!o.opened`.
+- **`hud-bus.ts`:** the union gains `"lock"`.
+- **`interact.ts`:**
+  - `SpotInput.locks?: readonly LockSpotView[]`;
+  - `lockTarget(l)`, using `CHEST_VERBS`/`DOOR_VERBS`/labels from `world-lock-copy.ts` (RG-j);
+  - chest spot hw 0.55, hd 0.4; door spot hw 1.0, hd 0.3; reach 1.4, bias 0.4, ring +0.6.
+- **`room-rules.ts`:** `roomSpots(plan, keeperName, chest?: LockSpotView | null)`. The chest spot comes before the door, at floor 0.
+- **Boxes and painter:**
+  - create `src/lib/realm3d/world-lock-boxes.ts`: `chestBoxes(open)` and `vaultDoorBoxes(open)`;
+  - create `src/components/realm3d/world-locks.tsx`: `WorldLocks({ locks, heightAt })`, which exports `ChestMesh({ open })`. It has no colliders.
+- **`spike-scene.tsx`** (additive, RG-a):
+  - `RealmCanvasProps.worldLocks?: WorldCanvas`;
+  - `World` takes `worldLocks` and passes `locks: worldLocks?.locks` into `buildSpots`, with `worldLocks` in the `spots` deps;
+  - `<WorldLocks locks={worldLocks?.locks} heightAt={world.heightAt} />`.
+- **`interior-scene.tsx`:** `RoomViewProps.chest?: LockSpotView | null` reaches `RoomWorld`, which feeds `roomSpots` and draws `<ChestMesh>`.
+- **The hook:** create `src/components/realm3d/use-world-state.ts`: `useWorldState(initial: WorldStateView | undefined, { addPlace, say, placeName, overlayOpen })` gives `{ view, canvas, applyWorldOutcome }`. `canvas` is memoised on a string key.
+- **The board:** create `src/components/realm3d/world-lock-board.tsx`: `WorldLockBoard({ childId, object, open, viewer, numerals, profile, calm, onOutcome, onClose })`.
+  - An open object shows its open line, to anyone, and starts nothing.
+  - Otherwise a visitor sees `WORLD_HERO_ONLY`.
+  - Otherwise it starts once (an `asked` ref) and plays in `<DeedRun>`, with `onResult={(s) => s.world && onOutcome(s.world)}`.
+  - A finish that rejects shows `deedErrorLine`; "Done" can be pressed again (RG-n).
+- **`realm-game.tsx`** (additive):
+  - `const lockState = useWorldState(realm.worldState, …)`;
+  - `worldLocks={lockState.canvas}`;
+  - `chest={roomChest}`;
+  - the `lock` overlay branch;
+  - `!== "lock"` in the negative chain.
+- **`talk.ts` `resultHeadline`:** the `world` branch with an outcome. The line comes from `worldRewardLine(o)` in `world-lock-copy.ts`; an empty `rewards` gives `CHEST_EMPTY`.
+- **Tests:**
+  - `realm-bundle.test.ts` gains a `loadWorldRaw` mock and turns `loadKingdomOverview` into a `vi.fn` carrying `grades` (F18);
+  - `realm-game.test.tsx` gains `vi.mock("@/lib/actions/world-locks", …)`.
+
+**Interfaces:**
+- **Consumes:** G1; G2's `startWorldLockRun` and `WorldOutcome`.
+- **Produces:**
+  - `LockSpotView`, `WorldCanvas`;
+  - `worldCanvas`, `roomChestFor`, `applyWorldOutcome`;
+  - `useWorldState`;
+  - `RealmCanvasProps.worldLocks`, and `World`'s `worldLocks`;
+  - `loadWorldRaw`.
+
+- [ ] **Step 1: Write the failing tests.**
+
+  **`world-state.test.ts`:**
+  - `worldCanvas` lists 3 village chests and 5 doors, with `open` from `view.open`;
+  - with `locksOn: false`, it gives `locks: []` and `locksOn: false`, and keeps `decor` and `storeys`;
+  - `roomChestFor("library")` gives the library chest; `"mill"` gives `null`; with locks off it gives `null`;
+  - a missed outcome returns the same view object.
+
+  **`interact.test.ts` "the world's locks":**
+  - one spot per lock;
+  - the verbs "Open", "Look in" and "Look through";
+  - reachable from any side;
+  - lets go once walked on;
+  - none when none are given;
+  - "no spot's reach holds another spot's centre" (F19). This runs over `buildSpots` with every lock, every riddle stone, the plans board, the lectern, and every plaque at level 3.
+
+  **`interiors.test.ts`:**
+  - with the library chest, the kinds are `["villager","fixture","lock","door"]`;
+  - from the spawn, `pickRoomSpot` still picks the door;
+  - the three-spot test is unchanged.
+
+  **`world-lock-boxes.test.ts`:**
+  - an open lid stands higher than a closed one;
+  - a door's leaf is within the frame when shut and outside it when open;
+  - every box is within its footprint.
+
+  **`world-lock-board.test.tsx`:**
+  - starts once with `("c1", "chest:west-lane")`;
+  - a visitor at a locked chest sees "Locks are for the hero to open." and nothing starts;
+  - an open chest shows `CHEST_OPEN_LINE` to the hero and to a visitor, and nothing starts;
+  - a finished run calls `onOutcome`;
+  - a rejected finish shows "That didn't work." and keeps "Done".
+
+  **`use-world-state.test.ts`:**
+  - `canvas` keeps its identity across an equal re-render;
+  - an open gives a new `canvas` with that chest open;
+  - `initial` undefined gives `EMPTY_WORLD_STATE`.
+
+  **`realm-game.test.tsx`:**
+  - "opens a chest's lock board when E is pressed at it, and pauses the world", with no `InteractPanel`;
+  - "the canvas's locks follow the switch, not the clock" (RG-l):
+    - with `worldState.locksOn: false`, `handed.props.worldLocks` has `locks: []` and `locksOn: false`;
+    - with the gate quiet (0 minutes), it is the bundle's canvas, unchanged.
+
+  **`realm-bundle.test.ts`** (RG-h, red first):
+  - `worldState` comes from the raw rows;
+  - `locksOn` follows the settings row;
+  - a grade-4 overview with no stars gives `tower: [{ band: "g45", open: false, solved: 0 }]`;
+  - a failed kingdom read gives `tower: []`;
+  - a failed world read gives `EMPTY_WORLD_STATE`;
+  - `loadWorldRaw` is called exactly once;
+  - `loadHeroLevels` and `getTimezoneForChild` are never called. `getTimezoneForChild` is spied through a partial mock of `family-timezone`. (`loadRealmSettings` is already pinned at `realm-bundle.test.ts:253`.)
+
+  **`talk.test.ts`:**
+  - the four world headlines (chest opens, door opens, miss, already open);
+  - an opened chest with `rewards: []` gives exactly "The chest opens!" / "You've found everything in this chest."
+- [ ] **Step 2:** `npx vitest run src/lib/realm/world-state.test.ts src/lib/realm3d/interact.test.ts src/lib/realm3d/interiors.test.ts src/lib/realm3d/world-lock-boxes.test.ts src/components/realm3d/world-lock-board.test.tsx src/components/realm3d/use-world-state.test.ts src/components/realm3d/realm-game.test.tsx src/lib/actions/realm-bundle.test.ts src/lib/realm3d/talk.test.ts --maxWorkers=2`. Expected: FAIL.
+- [ ] **Step 3:** implement.
+- [ ] **Step 4:** the same command, `npx tsc --noEmit`, and `npx eslint` on the changed files. Expected: PASS, 0 errors.
+- [ ] **Step 5: Commit.** `feat(realm): chests and vault doors stand in the village, the places and two rooms, and open on their lock`.
+
+### Task G4: What locks give, seen in the world
+
+**Files:**
+- `world-lock-boxes.ts`: `decorBoxes(id: DecorId): YardBox[]`.
+- Create `src/components/realm3d/decorations.tsx`: `Decorations({ decor, heightAt })`, a sibling of `World` (one additive line in `spike-scene.tsx`). It has no colliders.
+- `realm-world-state.ts`: `loadFoundPages(childId): Promise<{ id: LoreId; title: string; text: string }[]>`. These are the `lore:` rows by `updated_at`, then `object_id`; unknown ids are skipped.
+- `actions/realm-chronicle.ts`: `getChronicle` returns `{ weeks, canSeal, lore }`, with the reads in parallel.
+- `chronicle-book.tsx`:
+  - a "Found pages" button when `lore.length > 0`;
+  - pages as text;
+  - "Back to the weeks".
+
+  Update the `getChronicle` mocks in `chronicle-book.test.tsx` and `realm-game.test.tsx`.
+- `talk.ts`:
+  - `DeedToast.icon?: "map"`;
+  - `fragmentToast(placeName: string): DeedToast` gives `{ title: "You found a map to {place}!", line: "Look for it on your map.", done: 0, total: 0, rose: false, icon: "map", spoken }`.
+- `guide-hud.tsx` `DeedToastBanner`: `name={toast.icon ?? …}`, and `<Progress>` only when `toast.total > 0`.
+- `use-world-state.ts`:
+  - a fragment calls `addPlace(placeId)` at once;
+  - its toast is held until `overlayOpen` is false.
+
+  `realm-game.tsx` passes `placeName = (id) => world.landmarks.find((l) => l.id === id)?.name ?? "a far place"`.
+- Tests:
+  - `world-lock-boxes.test.ts`;
+  - `world-locks-db.test.ts` ("found pages");
+  - `realm-chronicle.test.ts`;
+  - `chronicle-book.test.tsx`;
+  - **new** `src/components/realm3d/guide-hud.test.tsx` (F18);
+  - `use-world-state.test.ts`.
+
+- [ ] **Step 1: Write the failing tests.**
+  - **`world-lock-boxes.test.ts`:** every decor has at least one box, fits a 1.4 × 1.4 footprint, and stands at most 2.6 tall.
+  - **`loadFoundPages`:**
+    - two pages in found order;
+    - `lore:nope` is skipped;
+    - the pages come back whatever the locks switch says.
+  - **`realm-chronicle.test.ts`:** a hero, a view-only visitor, and a hero with locks off each get `lore`.
+  - **`chronicle-book.test.tsx`:**
+    - no button without pages;
+    - the button shows them;
+    - `"<b>x</b>"` renders as literal text;
+    - an empty Chronicle with one page still has the button.
+  - **`guide-hud.test.tsx`:** a toast with `total: 0` has no progress and shows the map icon.
+  - **`use-world-state.test.ts`:**
+    - a door outcome calls `addPlace("summit-7")` at once;
+    - `say` waits for `overlayOpen: false`, then fires once with "You found a map to Thunder Head!".
+- [ ] **Step 2:** `npx vitest run src/lib/realm3d/world-lock-boxes.test.ts src/lib/actions/world-locks-db.test.ts src/lib/actions/realm-chronicle.test.ts src/components/realm3d/chronicle-book.test.tsx src/components/realm3d/guide-hud.test.tsx src/components/realm3d/use-world-state.test.ts --maxWorkers=2`. Expected: FAIL.
+- [ ] **Step 3:** implement.
+- [ ] **Step 4:** the same command, plus `src/components/realm3d/realm-game.test.tsx`, then `npx eslint` on the changed files. Expected: PASS.
+- [ ] **Step 5: Commit.** `feat(realm): decorations appear at their spots, found pages fill the Chronicle, and a map marks its place`.
+
+### Task G5: The Puzzle Tower
+
+**Files:**
+- `realm-world-state.ts`:
+  - `loadStarredBands(childId): Promise<ReadonlySet<ContentBand>>` runs R-G5's query: `SELECT DISTINCT band FROM deed_run WHERE child_id = ? AND kind = 'deed' AND deed_id IN (<lock deeds>) AND stars = 3`;
+  - `loadWorldRaw` reads it as `starred`;
+  - `bumpTowerRecord(tx: Tx, childId, band, now): Promise<number>` upserts `object_id = towerRef(band)`, state `"1"`, or `CAST(CAST(state AS INTEGER) + 1 AS TEXT)` on conflict, `returning state`.
+- `puzzle-tower.ts`: `towerLevel(mastery: number): number` (PC-G12).
+- `actions/world-locks.ts`: `startTowerRun(childId: string, band: string): Promise<RunStart>`:
+  - a band not in `CONTENT_BANDS` gives `NOT_IN_CHRONICLE`;
+  - `startLockRun` with `kind "tower"`, `sourceRef: towerRef(band)` and `WORLD_*` refusals;
+  - `check`: `towerFloors(await loadStarredBands(childId), towerBands(hero.grades))` must hold `{ band, open: true }`, else `TOWER_SHUT`;
+  - `pick`: `findSkill(towerSkillId(band))` with `boost: 1` (giving `towerLevel`);
+  - `count: 1`, `demo: false`;
+  - header `{ id: towerRef(band), title: "The Puzzle Tower", story: TOWER_STORY, area: "logic" }`.
+- `deed-run-types.ts`: `type TowerOutcome = { band: ContentBand; solved: number; solvedNow: boolean }`, and `RunSummary.tower?`.
+- `completeDeedRun`: a tower run takes the same locked path as the world (RG-n). Inside the transaction, `outcomes[0] === "first"` calls `bumpTowerRecord`; otherwise it reads the count.
+- `world-state.ts`: `applyTowerOutcome(view, o)`; `use-world-state.ts` returns it.
+- `world-lock-copy.ts`:
+  - `towerFloorName(i)`;
+  - `towerFloorLine(f: TowerFloorView, numerals: boolean)`:
+    - "{n} solved here." (open, `solved > 0`, numerals);
+    - "You've solved puzzles here." (open, `solved > 0`, no numerals);
+    - "A new puzzle waits." (open, 0);
+    - `TOWER_WAITING` (waiting).
+- `talk.ts` `resultHeadline`: the tower branch.
+- `world-lock-boxes.ts`: `towerBoxes(storeys)`, clamped 0–5.
+- Create `src/components/realm3d/puzzle-tower.tsx`.
+- `spike-scene.tsx` (additive):
+  - `built.solids.push(...towerColliders(world.heightAt))`;
+  - inside `World`, `tower: worldLocks?.locksOn ? PUZZLE_TOWER.door : null` into `buildSpots` (RG-a);
+  - `<PuzzleTower storeys={worldLocks?.storeys ?? 0} heightAt={world.heightAt} />`.
+- `interact.ts`: `SpotInput.tower?: { x: number; z: number } | null` and `TOWER_TARGET = { kind: "tower", id: "puzzle-tower", label: TOWER_LABEL, verb: TOWER_VERB }`. The spot is hw 0.7, hd 0.9, reach 1.4, bias 0.4.
+- `hud-bus.ts`: the union gains `"tower"`.
+- Create `src/components/realm3d/tower-board.tsx`: `TowerBoard({ childId, floors, viewer, numerals, profile, calm, onOutcome, onClose })`.
+  - It lists `floors` top down by `towerFloorName(CONTENT_BANDS.indexOf(band))`.
+  - "Climb" is for the hero on open floors.
+  - It plays `startTowerRun` in `<DeedRun>`.
+- `realm-game.tsx` (additive): the `tower` branch, `!== "tower"`, and `applyTowerOutcome`.
+
+**Interfaces:**
+- **Consumes:** G1's `towerFloors`, `towerBands` and `towerRef`; G2's `startLockRun` and the locked finish; G3's hook, `WorldCanvas` and `World` prop.
+- **Produces:** `startTowerRun`, `TowerOutcome`, `loadStarredBands`, `bumpTowerRecord`, `applyTowerOutcome`.
+
+- [ ] **Step 1: Write the failing tests.**
+
+  **DB** (`world-locks-db.test.ts`, "the Puzzle Tower"):
+  - **`loadStarredBands`:** a 3-star `well-water` run at `g23` gives `{"g23"}`. These give nothing:
+    - 2 stars;
+    - 3 stars on `well-stones`;
+    - a `challenge` run;
+    - a `world` run;
+    - an open run.
+  - **`EXPLAIN QUERY PLAN`** (RG-h): `loadStarredBands`'s SQL uses `deed_run_child_completed_idx`, and the world-rows read uses `realm_world_state_child_object_idx`.
+  - **`startTowerRun`:**
+    - it refuses a grown-up (`WORLD_HERO_ONLY`), and locks off (`WORLD_LOCKS_OFF`) with the `tower:` rows kept;
+    - `"g7"` and `"toString"` give `NOT_IN_CHRONICLE`;
+    - for a grade-4 hero (`{…, logic: "4", science: "4"}`) with 3 stars at `g45`, `"k1"`, `"g23"` and `"g45"` start, and `"g68"` gives `TOWER_SHUT`;
+    - with no stars, `"g45"` gives `TOWER_SHUT`;
+    - the `"g23"` run has `["logic-g23"]`, `second_chances = 0` and `source_ref = 'tower:g23'`, and resumes;
+    - it has no `demo`;
+    - no `"solution"` appears in `JSON.stringify(start)`, fresh or resumed (RG-g).
+  - **Finishing:**
+    - right gives `tower = { band: "g23", solved: 1, solvedNow: true }`, then `solved: 2`;
+    - a miss gives `solvedNow: false` and an unchanged count;
+    - `skill_mastery` is untouched, with no stars and no minutes.
+
+  **`world-state.test.ts`:**
+  - `applyTowerOutcome` sets that floor's `solved` and returns a new view;
+  - an unknown band returns the same view.
+
+  **`world-lock-copy` tests** (`world-lock-copy.test.ts`): the three open lines, the waiting line exactly, and `towerFloorName(2) === "The third floor"`.
+
+  **`world-lock-boxes.test.ts`:**
+  - `towerBoxes(0)`'s top is `baseH`;
+  - `towerBoxes(3)`'s top is `baseH + 3 * storeyH`;
+  - `towerBoxes(9)` equals `towerBoxes(5)`;
+  - every box is within the 6 × 6 body.
+
+  **`puzzle-tower.test.ts`:** `towerLevel` gives 1, 4 and 4 for 0, 3 and 4.
+
+  **`interact.test.ts`:**
+  - one `TOWER_TARGET` spot;
+  - reachable from the west;
+  - none when `tower` is null;
+  - the F19 overlap test re-run with the tower included.
+
+  **`tower-board.test.tsx`:**
+  - a visitor gets no "Climb";
+  - the waiting line is exact, and nothing matches `/grade|kindergarten/i`;
+  - three floors in give three rows out, top down;
+  - "Climb" starts `("c1", "g23")` once;
+  - a result calls `onOutcome`.
+
+  **`talk.test.ts`:** the tower headlines.
+
+  **`realm-game.test.tsx`:** E at the Tower opens its board.
+- [ ] **Step 2:** `npx vitest run src/lib/actions/world-locks-db.test.ts src/lib/realm/world-state.test.ts src/lib/utils/world-lock-copy.test.ts src/lib/realm3d/world-lock-boxes.test.ts src/lib/realm/puzzle-tower.test.ts src/lib/realm3d/interact.test.ts src/components/realm3d/tower-board.test.tsx src/lib/realm3d/talk.test.ts src/components/realm3d/realm-game.test.tsx --maxWorkers=2`. Expected: FAIL.
+- [ ] **Step 3:** implement.
+- [ ] **Step 4:** the same command, plus `src/lib/actions/deeds-db.test.ts`, then `npx tsc --noEmit`. Expected: PASS.
+- [ ] **Step 5: Commit.** `feat(realm): the Puzzle Tower — a floor per band, opened by three stars, a storey for each`.
+
+### Task G6: folded into G3/G5 (RG-h)
+
+### Task G7: Verify, review, merge (4b)
+
+- [ ] **Full checks:**
+  - `npx vitest run --maxWorkers=2` (re-run the known flakes alone if they are the only failures);
+  - `npx tsc --noEmit`;
+  - `npx eslint src`: 0 errors.
+- [ ] **0044 on a copy of the latest production backup:** it applies, and `realm_world_state` is empty.
+- [ ] **Browser smoke.** Use `NEXT_DIST_DIR=.next-agent` and keys only, never a canvas click. Look at every image.
+  1. `?at=-19.5,13.5` → E → solve → the chest opens and the stone bench stands at (−18, 8). The finish button reads "Done".
+  2. Empty that chest. In `local.db`, set its three reward rows and an `updated_at` 8 days back by a one-off libsql `UPDATE`. Reload, solve: the line reads exactly "You've found everything in this chest." (RG-k)
+  3. `?at=-53,8.5` → E at the Ringstones vault door → solve → the toast after closing; Thunder Head is filled on the map and is a ride destination.
+  4. The Chronicle → "Found pages".
+  5. The library room chest at language 2 (logic) and language 4 (a vocab sort).
+  6. Age `chest:west-lane` 7 days → it is shut again, with a new puzzle.
+  7. The Tower board with no 3-star run: one floor, with the exact waiting line (RG-k).
+  8. A grade-4 hero after a 3-star science side quest: three floors, three storeys, and nothing above (RG-k).
+  9. `?viewer=parent`: the state is shown, and every board refuses.
+  10. Locks off: no chests or doors, and the Tower is drawn with no prompt.
+  11. Phone width.
+- [ ] **Whole-branch review.** It counts the per-load queries `getRealmBundle` adds: two, `loadWorldRaw`'s rows and `loadStarredBands`, both in the first round (RG-h). Then one fix wave, and a merge into `dev` **on the owner's word**.

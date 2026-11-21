@@ -1095,6 +1095,26 @@ export const realmPlaceFound = sqliteTable(
 );
 
 /**
+ * The world's state, one row per hero and thing in it (`lib/realm/world-state.ts`). `object_id` is
+ * namespaced: `chest:<id>` and `door:<place>` (state "open", relocked by the clock for a chest),
+ * `decor:<id>` ("placed") and `lore:<id>` ("found") for what a lock gave, which stays whatever the
+ * chest does next, and `tower:<band>` (the solved count, as text). Written only by the hero.
+ */
+export const realmWorldState = sqliteTable(
+  "realm_world_state",
+  {
+    id: text("id").primaryKey(),
+    childId: text("child_id")
+      .notNull()
+      .references(() => child.id, { onDelete: "cascade" }),
+    objectId: text("object_id").notNull(),
+    state: text("state").notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [uniqueIndex("realm_world_state_child_object_idx").on(table.childId, table.objectId)]
+);
+
+/**
  * The Ring: one durable row per hero — what recess adds up to (`lib/realm/recess/record.ts`).
  * Gleams and laps are cumulative and never reset by anything except a course change, which
  * clears the lap bests only. Foot and ridden bests are kept apart. These are NOT currency:
@@ -1240,7 +1260,8 @@ export const deedRun = sqliteTable(
     // Second-try answers, parallel to `responses` (JSON (string | null)[]).
     secondTries: text("second_tries").notNull().default("[]"),
     stars: integer("stars").notNull().default(0),
-    kind: text("kind", { enum: ["deed", "challenge", "review", "build", "world"] }).notNull().default("deed"),
+    // A TS enum only: SQLite stores any text, so adding "tower" (PC-G16) needs no migration.
+    kind: text("kind", { enum: ["deed", "challenge", "review", "build", "world", "tower"] }).notNull().default("deed"),
     // Frozen at run start, so changing the setting never alters a run in flight.
     secondChances: integer("second_chances", { mode: "boolean" }).notNull().default(false),
     startedAt: integer("started_at", { mode: "timestamp" }).notNull(),

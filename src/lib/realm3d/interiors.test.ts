@@ -3,8 +3,11 @@ import { supportHeight, HERO_RADIUS, type Collider } from "./collision";
 import { villagerById } from "@/lib/realm/villagers";
 import { fixtureLine, roomPlan, ROOM_KINDS, GALLERY_Y, LOOKOUT_Y, type RoomPlan } from "./interiors";
 import { hiddenWalls, leavingRoom, makeHidden, pickRoomSpot, roomBlocks, roomBuried, roomSlide, roomSpots, LEVEL_REACH } from "./room-rules";
-import { edgeDistance } from "./interact";
+import { edgeDistance, makeNearMemo, nearChanged } from "./interact";
+import { interactVerb } from "./frame";
 import { ROOM_OF } from "./doorways";
+import { WORLD_OBJECTS } from "@/lib/realm/world-objects";
+import { roomChestFor } from "@/lib/realm/world-state";
 
 /**
  * Where a child can get to in a room, walking and climbing by the same rules the scene uses:
@@ -172,6 +175,71 @@ describe("up and down", () => {
     const throne = rs.spots.findIndex((s) => s.target.id === "throne");
     expect(edgeDistance(rs.spots[throne], 0, plan.fixture.z + 2)).toBeLessThan(1.5);
     expect(pickRoomSpot(rs, 0, plan.fixture.z + 2, plan.fixture.floor, -1)).toBe(throne);
+  });
+});
+
+describe("the room chests", () => {
+  const roomChests = WORLD_OBJECTS.filter((o) => o.room);
+
+  it("stand in the library and the garden", () => {
+    expect(roomChests.map((o) => o.room)).toEqual(["library", "garden"]);
+  });
+
+  it.each(roomChests.map((o) => [o.id, o] as const))("%s stands where a child can walk, clear of everything the room already offers", (_id, chest) => {
+    const plan = roomPlan(chest.room!);
+    const seen = reachable(plan);
+    expect(canReach(plan, seen, chest.x, chest.z, 0, 0.2, 0), "not on the floor a child can reach").toBe(true);
+    expect(Math.hypot(chest.x - plan.fixture.x, chest.z - plan.fixture.z), "too near the fixture").toBeGreaterThanOrEqual(2.5);
+    expect(Math.hypot(chest.x - plan.door.x, chest.z - plan.D / 2), "too near the door").toBeGreaterThanOrEqual(2.5);
+    expect(Math.hypot(chest.x - plan.spawn.x, chest.z - plan.spawn.z), "too near the spawn").toBeGreaterThanOrEqual(2.5);
+    if (plan.keeper) expect(Math.hypot(chest.x - plan.keeper.x, chest.z - plan.keeper.z), "too near the keeper").toBeGreaterThanOrEqual(2.5);
+    expect(roomBuried(plan.solids, chest.x, chest.z, 0, 1.3), "buried in something").toBe(false);
+  });
+
+  it.each(roomChests.map((o) => [o.id, o] as const))("%s is a fourth thing to press E at, before the door, on the floor, and the door is still what E does from the spawn", (_id, chest) => {
+    const plan = roomPlan(chest.room!);
+    const keeper = plan.keeper ? villagerById(plan.keeper.villager) : null;
+    const view = roomChestFor(chest.room!, { locksOn: true, open: [], decor: [], tower: [] })!;
+    const rs = roomSpots(plan, keeper?.name ?? null, view);
+    expect(rs.spots.map((s) => s.target.kind)).toEqual(["villager", "fixture", "lock", "door"]);
+    const i = rs.spots.findIndex((s) => s.target.kind === "lock");
+    expect(rs.spots[i].target).toEqual({ kind: "lock", id: chest.id, label: "the old chest", verb: "Open" });
+    expect(rs.spots[i]).toMatchObject({ x: chest.x, z: chest.z });
+    expect(rs.floors[i]).toBe(0);
+    expect(rs.spots[pickRoomSpot(rs, plan.spawn.x, plan.spawn.z + 0.6, 0, -1)]?.target.kind).toBe("door");
+    // Walked up to, it is what E does.
+    expect(rs.spots[pickRoomSpot(rs, chest.x, chest.z + 1, 0, -1)]?.target.kind).toBe("lock");
+  });
+
+  it.each(roomChests.map((o) => [o.id, o] as const))("%s: solved under the hero's nose, E's prompt turns from Open to Look in (smoke bug 1)", (_id, chest) => {
+    const plan = roomPlan(chest.room!);
+    const keeper = plan.keeper ? villagerById(plan.keeper.villager) : null;
+    const before = roomSpots(plan, keeper?.name ?? null, roomChestFor(chest.room!, { locksOn: true, open: [], decor: [], tower: [] }));
+    const after = roomSpots(plan, keeper?.name ?? null, roomChestFor(chest.room!, { locksOn: true, open: [chest.id], decor: [], tower: [] }));
+    const memo = makeNearMemo();
+    const i = pickRoomSpot(before, chest.x, chest.z + 1, 0, memo.i);
+    expect(nearChanged(memo, i, before.spots[i].target)).toBe(true);
+    expect(interactVerb(memo.target!)).toBe("Open the old chest");
+    // The same spot, picked again from the rebuilt spots: the prompt is told the new words.
+    const j = pickRoomSpot(after, chest.x, chest.z + 1, 0, memo.i);
+    expect(j).toBe(i);
+    expect(nearChanged(memo, j, after.spots[j].target)).toBe(true);
+    expect(interactVerb(memo.target!)).toBe("Look in the old chest");
+  });
+
+  it("asks a visiting grown-up to look at a room's chest, never to open it (smoke bug 3)", () => {
+    const chest = roomChests[0];
+    const plan = roomPlan(chest.room!);
+    const view = roomChestFor(chest.room!, { locksOn: true, open: [], decor: [], tower: [] });
+    const lock = (viewer?: "child" | "parent") => roomSpots(plan, null, view, viewer).spots.find((s) => s.target.kind === "lock")!.target;
+    expect(interactVerb(lock("parent"))).toBe("Look at the old chest");
+    expect(interactVerb(lock("child"))).toBe("Open the old chest");
+    expect(lock()).toEqual(lock("child"));
+  });
+
+  it("is no spot at all when there is no chest", () => {
+    const plan = roomPlan("library");
+    expect(roomSpots(plan, "Scribe", null).spots.map((s) => s.target.kind)).toEqual(["villager", "fixture", "door"]);
   });
 });
 

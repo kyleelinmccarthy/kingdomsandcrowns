@@ -1,7 +1,15 @@
 import type { BuildingOverview } from "@/lib/services/deeds";
 import type { Stars } from "@/lib/utils/deed-scoring";
 
-export type KingdomState = { tone: "gentle" | "monsters"; buildings: BuildingOverview[] };
+/**
+ * The kingdom as the page holds it. The hero's per-strand grades are NOT here: the bundle reads them
+ * with the overview and builds the Tower's floors from them on the server (`loadKingdom` in
+ * `actions/realm.ts`), so they never reach the browser (final f3).
+ */
+export type KingdomState = {
+  tone: "gentle" | "monsters";
+  buildings: BuildingOverview[];
+};
 export type BuildingProgress = { done: number; total: number; complete: boolean };
 
 /**

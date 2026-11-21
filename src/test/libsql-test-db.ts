@@ -19,7 +19,8 @@ import { queueLocalWrites } from "@/lib/db/local-write-queue";
  */
 export function testDatabase(name: string) {
   const dir = mkdtempSync(path.join(tmpdir(), `${name}-`));
-  const client = queueLocalWrites(createClient({ url: `file:${path.join(dir, "test.db")}` }));
+  const url = `file:${path.join(dir, "test.db")}`;
+  const client = queueLocalWrites(createClient({ url }));
   const db = drizzle(client, { schema });
 
   // Rows are loosely typed, as a test reads back whatever columns it asked for.
@@ -30,12 +31,27 @@ export function testDatabase(name: string) {
     return { rows: r.rows.map((row) => Object.fromEntries(r.columns.map((c) => [c, row[c]]))) };
   }
 
+  /**
+   * The plan SQLite chooses for `sql` (`EXPLAIN QUERY PLAN`), one `detail` line per step. Read on a
+   * throwaway connection of its own: an EXPLAIN run on the test's connection leaves it holding a
+   * lock that fails the next transaction with SQLITE_BUSY.
+   */
+  async function explain(sql: string, params: readonly unknown[] = []): Promise<string[]> {
+    const probe = createClient({ url });
+    try {
+      const r = await probe.execute({ sql: `EXPLAIN QUERY PLAN ${sql}`, args: params.map(toArg) });
+      return r.rows.map((row) => String(row.detail));
+    } finally {
+      probe.close();
+    }
+  }
+
   function close() {
     client.close();
     rmSync(dir, { recursive: true, force: true });
   }
 
-  return { client, db, query, close };
+  return { client, db, query, explain, close };
 }
 
 function toArg(v: unknown): InValue {

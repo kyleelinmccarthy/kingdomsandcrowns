@@ -4,7 +4,12 @@ import { KEEP_YARD } from "@/lib/realm/keep-yard";
 import { IMPROVEMENT_IDS, IMPROVEMENTS } from "@/lib/realm/improvements";
 import { HERO_RADIUS } from "./collision";
 import { improvementPlacements } from "./improvement-spots";
-import { buildSpots, edgeDistance, pickSpot, CHRONICLE_TARGET, PLANS_TARGET, RIDDLE_LABEL, RIDDLE_VERB, siteLabel } from "./interact";
+import { buildSpots, edgeDistance, lockSpot, makeNearMemo, nearChanged, pickSpot, CHRONICLE_TARGET, PLANS_TARGET, RIDDLE_LABEL, RIDDLE_VERB, siteLabel, TOWER_TARGET } from "./interact";
+import { interactVerb } from "./frame";
+import { PUZZLE_TOWER } from "@/lib/realm/puzzle-tower";
+import { RIDDLE_STONE_SPOTS } from "@/lib/realm/riddle-stones";
+import { LOCK_SPOT } from "@/lib/realm/world-objects";
+import { worldCanvas, type LockSpotView } from "@/lib/realm/world-state";
 
 const layout = buildWorldLayout({
   castleType: "castle",
@@ -192,5 +197,155 @@ describe("the plaques", () => {
   it("is let go once the hero walks on", () => {
     const i = at("well-house");
     expect(pickSpot(withPlaques, placements[0].plaque.x + 7, placements[0].plaque.z + 7, i)).not.toBe(i);
+  });
+});
+
+describe("the world's locks", () => {
+  const all = buildWorldLayout({
+    castleType: "castle",
+    buildings: ["well", "mill", "bridge", "chapel", "market", "library", "watchtower", "garden"].map((id) => ({ id, done: 5, total: 5, complete: true })),
+  });
+  const locks = worldCanvas({ locksOn: true, open: ["chest:east-lane", "door:longwater"], decor: [], tower: [] }).locks;
+  const withLocks = buildSpots({ props: all.props, sitePlan: 1.5, landmarks: [], castle: null, locks });
+  const at = (l: LockSpotView) => withLocks.findIndex((s) => s.target.kind === "lock" && s.target.id === l.id);
+
+  it("adds one round spot per lock, at the lock, the size of its footprint", () => {
+    expect(withLocks.filter((s) => s.target.kind === "lock")).toHaveLength(locks.length);
+    for (const l of locks) {
+      const s = withLocks[at(l)];
+      expect(s, l.id).toMatchObject({ x: l.x, z: l.z, round: true, hw: LOCK_SPOT.radius, hd: LOCK_SPOT.radius, reach: LOCK_SPOT.reach });
+      expect(s).toEqual(lockSpot(l));
+    }
+  });
+
+  it("says Open at a shut lock, Look in at an open chest and Look through at an open vault door", () => {
+    const target = (id: string) => withLocks[at(locks.find((l) => l.id === id)!)].target;
+    expect(target("chest:west-lane")).toEqual({ kind: "lock", id: "chest:west-lane", label: "the old chest", verb: "Open" });
+    expect(target("door:ringstones")).toEqual({ kind: "lock", id: "door:ringstones", label: "the vault door", verb: "Open" });
+    expect(target("chest:east-lane")).toEqual({ kind: "lock", id: "chest:east-lane", label: "the old chest", verb: "Look in" });
+    expect(target("door:longwater")).toEqual({ kind: "lock", id: "door:longwater", label: "the vault door", verb: "Look through" });
+  });
+
+  it("is what E acts on when the hero walks up to it, from any side", () => {
+    const d = LOCK_SPOT.radius + 1.2;
+    for (const l of locks) {
+      for (const [dx, dz] of [[0, d], [d, 0], [0, -d], [-d, 0]]) {
+        expect(withLocks[pickSpot(withLocks, l.x + dx, l.z + dz, -1)]?.target.id, `${l.id} from ${dx},${dz}`).toBe(l.id);
+      }
+    }
+  });
+
+  it("lets go once the hero walks on", () => {
+    for (const l of locks) expect(pickSpot(withLocks, l.x + 7, l.z + 7, at(l)), l.id).not.toBe(at(l));
+  });
+
+  it("has none when none are given", () => {
+    expect(spots.some((s) => s.target.kind === "lock")).toBe(false);
+    expect(buildSpots({ props: [], sitePlan: 1.5, landmarks: [], castle: null, locks: [] })).toEqual([]);
+  });
+
+  it("no spot's reach holds another spot's centre: every lock, riddle stone, the plans board, the lectern and every plaque at level 3 (F19)", () => {
+    const placements = improvementPlacements(Object.fromEntries(IMPROVEMENT_IDS.map((id) => [id, 3])), () => 0);
+    const plaques = placements.map((p) => ({ id: p.id, label: IMPROVEMENTS[p.id].label, ...p.plaque }));
+    const set = buildSpots({ props: [], sitePlan: 1.5, landmarks: [], castle: null, locks, stones: RIDDLE_STONE_SPOTS, plans: KEEP_YARD.plansBoard, chronicle: KEEP_YARD.lectern, plaques });
+    expect(set).toHaveLength(locks.length + RIDDLE_STONE_SPOTS.length + 2 + plaques.length);
+    const held: string[] = [];
+    for (const a of set) {
+      for (const b of set) {
+        if (a !== b && edgeDistance(a, b.x, b.z) <= a.reach) held.push(`${a.target.kind} ${a.target.id} holds ${b.target.kind} ${b.target.id}`);
+      }
+    }
+    expect(held).toEqual([]);
+  });
+});
+
+describe("the Puzzle Tower", () => {
+  const door = PUZZLE_TOWER.door;
+  const withTower = buildSpots({ props: layout.props, sitePlan: 1.5, landmarks, castle: null, tower: door });
+  const towerAt = () => withTower.findIndex((s) => s.target.kind === "tower");
+
+  it("adds exactly one spot, at its door, with its own words", () => {
+    expect(withTower.filter((s) => s.target.kind === "tower")).toHaveLength(1);
+    expect(withTower[towerAt()].target).toEqual(TOWER_TARGET);
+    expect(TOWER_TARGET).toEqual({ kind: "tower", id: "puzzle-tower", label: "the Puzzle Tower", verb: "Climb" });
+    expect(withTower[towerAt()]).toMatchObject({ x: door.x, z: door.z, hw: 0.7, hd: 0.9, round: false, reach: 1.4, bias: 0.4 });
+  });
+
+  it("is what E acts on from the west, where the hero comes from", () => {
+    expect(pickSpot(withTower, door.x - 1.2, door.z, -1)).toBe(towerAt());
+    expect(pickSpot(withTower, door.x - 0.5, door.z + 0.6, -1)).toBe(towerAt());
+  });
+
+  it("lets go once the hero walks on", () => {
+    expect(pickSpot(withTower, door.x - 6, door.z, towerAt())).not.toBe(towerAt());
+  });
+
+  it("has none when the locks are off (null) or nothing is given", () => {
+    expect(buildSpots({ props: layout.props, sitePlan: 1.5, landmarks, castle: null, tower: null }).some((s) => s.target.kind === "tower")).toBe(false);
+    expect(buildSpots({ props: layout.props, sitePlan: 1.5, landmarks, castle: null }).some((s) => s.target.kind === "tower")).toBe(false);
+    expect(spots.some((s) => s.target.kind === "tower")).toBe(false);
+  });
+
+  it("no spot's reach holds another spot's centre: with every lock, riddle stone, the board, the lectern and every plaque at level 3 (F19)", () => {
+    const placements = improvementPlacements(Object.fromEntries(IMPROVEMENT_IDS.map((id) => [id, 3])), () => 0);
+    const plaques = placements.map((p) => ({ id: p.id, label: IMPROVEMENTS[p.id].label, ...p.plaque }));
+    const locks = worldCanvas({ locksOn: true, open: [], decor: [], tower: [] }).locks;
+    const set = buildSpots({ props: [], sitePlan: 1.5, landmarks: [], castle: null, locks, stones: RIDDLE_STONE_SPOTS, plans: KEEP_YARD.plansBoard, chronicle: KEEP_YARD.lectern, plaques, tower: door });
+    expect(set).toHaveLength(locks.length + RIDDLE_STONE_SPOTS.length + 2 + plaques.length + 1);
+    const held: string[] = [];
+    for (const a of set) {
+      for (const b of set) {
+        if (a !== b && edgeDistance(a, b.x, b.z) <= a.reach) held.push(`${a.target.kind} ${a.target.id} holds ${b.target.kind} ${b.target.id}`);
+      }
+    }
+    expect(held).toEqual([]);
+  });
+});
+
+describe("a visiting grown-up's words at the locks and the Tower (smoke bug 3)", () => {
+  const locks = worldCanvas({ locksOn: true, open: ["chest:east-lane", "door:longwater"], decor: [], tower: [] }).locks;
+  const prompts = (viewer?: "child" | "parent") =>
+    buildSpots({ props: [], sitePlan: 1.5, landmarks: [], castle: null, locks, tower: PUZZLE_TOWER.door, viewer })
+      .filter((s) => s.target.kind === "lock" || s.target.kind === "tower")
+      .map((s) => interactVerb(s.target));
+
+  it("asks a grown-up to look, never to open or climb, at every chest, vault door and the Tower, open or shut", () => {
+    const said = prompts("parent");
+    expect(said.length).toBe(locks.length + 1);
+    for (const p of said) expect(p).toMatch(/^Look at (the old chest|the vault door|the Puzzle Tower)$/);
+    expect(said).toContain("Look at the Puzzle Tower");
+  });
+
+  it("keeps the hero's own verbs, and a viewer left out is the hero", () => {
+    expect(prompts("child")).toEqual(prompts());
+    expect(prompts("child")).toContain("Open the old chest");
+    expect(prompts("child")).toContain("Climb the Puzzle Tower");
+  });
+});
+
+describe("announcing what E will act on", () => {
+  const shut = { kind: "lock" as const, id: "chest:library", label: "the old chest", verb: "Open" };
+
+  it("announces the first target, then nothing while the same one stays in reach", () => {
+    const memo = makeNearMemo();
+    expect(nearChanged(memo, 2, shut)).toBe(true);
+    expect(nearChanged(memo, 2, shut)).toBe(false);
+    expect(nearChanged(memo, 2, { ...shut })).toBe(false);
+  });
+
+  it("announces a new index, and nothing in reach", () => {
+    const memo = makeNearMemo();
+    nearChanged(memo, 2, shut);
+    expect(nearChanged(memo, -1, null)).toBe(true);
+    expect(nearChanged(memo, -1, null)).toBe(false);
+    expect(nearChanged(memo, 3, shut)).toBe(true);
+  });
+
+  it("announces the same index once its words change: a chest solved under the hero's nose", () => {
+    const memo = makeNearMemo();
+    nearChanged(memo, 2, shut);
+    expect(nearChanged(memo, 2, { ...shut, verb: "Look in" })).toBe(true);
+    expect(memo.target?.verb).toBe("Look in");
+    expect(nearChanged(memo, 2, { ...shut, verb: "Look in", label: "the vault door" })).toBe(true);
   });
 });

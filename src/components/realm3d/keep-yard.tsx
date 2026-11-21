@@ -13,37 +13,23 @@
  */
 
 import { useEffect, useMemo } from "react";
-import * as THREE from "three";
 import { KEEP_YARD } from "@/lib/realm/keep-yard";
 import type { MaterialId } from "@/lib/realm/materials";
 import { heapBoxes, LECTERN_BOXES, LECTERN_YAW, PLANS_BOARD_BOXES, PLANS_BOARD_YAW, stockpileHeaps, type YardBox } from "@/lib/realm3d/keep-yard-boxes";
-import { litMaterial, merge, paint } from "./geo-kit";
-
-/** Sunk a little, so a heap or a post on a slope never shows daylight under its downhill side. */
-const SINK = 0.05;
-
-/** Each box painted, turned by `yaw` about its spot and set down at (x, y, z). */
-function placed(boxes: readonly YardBox[], x: number, y: number, z: number, yaw: number): THREE.BufferGeometry[] {
-  return boxes.map((b) =>
-    paint(new THREE.BoxGeometry(b.sx, b.sy, b.sz), b.color)
-      .translate(b.x, b.y, b.z)
-      .rotateY(yaw)
-      .translate(x, y, z),
-  );
-}
+import { groundHost, litMaterial, mergeBoxHosts, type BoxHost } from "./geo-kit";
 
 export function KeepYard({ stockpile, heightAt }: { stockpile?: Readonly<Record<MaterialId, number>>; heightAt: (x: number, z: number) => number }) {
   const heaps = useMemo(() => (stockpile ? stockpileHeaps(stockpile) : []), [stockpile]);
   const geometry = useMemo(() => {
     const { x, z } = KEEP_YARD.plansBoard;
-    const parts = placed(PLANS_BOARD_BOXES, x, heightAt(x, z) - SINK, z, PLANS_BOARD_YAW);
     const lectern = KEEP_YARD.lectern;
-    parts.push(...placed(LECTERN_BOXES, lectern.x, heightAt(lectern.x, lectern.z) - SINK, lectern.z, LECTERN_YAW));
-    // Square to the world, as `heapBoxes` keeps them inside their spots.
-    for (const h of heaps) parts.push(...placed(heapBoxes(h.size).map((b) => ({ ...b, color: h.color })), h.x, heightAt(h.x, h.z) - SINK, h.z, 0));
-    const merged = merge(parts);
-    for (const p of parts) p.dispose();
-    return merged;
+    const at = (spot: { x: number; z: number }, boxes: readonly YardBox[], yaw: number): BoxHost => groundHost(boxes, spot.x, spot.z, yaw, heightAt);
+    return mergeBoxHosts([
+      at({ x, z }, PLANS_BOARD_BOXES, PLANS_BOARD_YAW),
+      at(lectern, LECTERN_BOXES, LECTERN_YAW),
+      // Square to the world, as `heapBoxes` keeps them inside their spots.
+      ...heaps.map((h) => at(h, heapBoxes(h.size).map((b) => ({ ...b, color: h.color })), 0)),
+    ])!;
   }, [heaps, heightAt]);
   const material = useMemo(() => litMaterial(), []);
   useEffect(() => () => geometry.dispose(), [geometry]);

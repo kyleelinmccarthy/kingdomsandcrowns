@@ -30,13 +30,17 @@ import { loadWorks } from "@/lib/services/realm-materials";
 import { loadHallDrawings, loadRecentQuests } from "@/lib/services/realm-chronicle";
 import type { RecentQuest } from "@/lib/realm/mentions";
 import { nowInZone } from "@/lib/services/realm-clock";
-import { DEFAULT_TIMEZONE } from "@/lib/services/family-timezone";
+import { usableTimeZone } from "@/lib/services/family-timezone";
+import { loadWorldRaw } from "@/lib/services/realm-world-state";
+import { EMPTY_WORLD_STATE, worldStateView, type WorldStateView } from "@/lib/realm/world-state";
+import { towerBands, towerFloors } from "@/lib/realm/puzzle-tower";
 import { HALL_FRAMES_PER_LEVEL } from "@/lib/realm/improvements";
 import type { Drawing } from "@/lib/utils/drawing";
 import { EMPTY_WORKS, type Works } from "@/lib/realm/works-state";
 import { loadFocusSkillIds } from "@/lib/services/learning-focus";
 import { focusAreasOf } from "@/lib/utils/focus";
 import type { SkillArea } from "@/lib/utils/skills";
+import type { Grade } from "@/lib/utils/grade-levels";
 import type { RecessRecord } from "@/lib/realm/recess/record";
 import type { RealmAccessMode } from "@/lib/utils/realm-access";
 import type { EarningSettings } from "@/lib/realm/spells/bounty";
@@ -145,19 +149,32 @@ export type RealmBundle = {
   recentQuests?: RecentQuest[];
   /** The server's day in the hero's family's time zone (YYYY-MM-DD), never the device's: the key of "said today". */
   today?: string;
+  /**
+   * The world's locks (`worldStateView`): which chests and vault doors stand open on the server's
+   * day, the decorations found, the Tower's visible floors, and whether the grown-up's "Solving
+   * logic locks" switch offers any. `EMPTY_WORLD_STATE` when the read fails. Read for whoever is
+   * looking: a grown-up's visit sees it and opens nothing. Optional only so hand-built bundles in
+   * tests need not carry it; `getRealmBundle` always sets it.
+   */
+  worldState?: WorldStateView;
 };
 
 const VILLAGERS_RESTING = "The villagers are resting. Try again.";
 
-async function loadKingdomState(childId: string): Promise<KingdomState> {
+/**
+ * The kingdom, and beside it the hero's per-strand grades from the same overview read (RG-e): the
+ * bundle builds the Tower's floors from them with no second read, and only the kingdom goes to the
+ * page, so the grades stay on the server (final f3).
+ */
+async function loadKingdom(childId: string): Promise<{ kingdom: KingdomState; grades: Record<SkillArea, Grade> }> {
   const overview = await loadKingdomOverview(childId);
-  return { tone: overview.tone, buildings: overview.buildings };
+  return { kingdom: { tone: overview.tone, buildings: overview.buildings }, grades: overview.grades };
 }
 
 /** The kingdom alone, for the HUD's retry after a failed bundle load. */
 export async function getRealmKingdom(childId: string): Promise<KingdomState> {
   await requireChildAccess(childId);
-  return loadKingdomState(childId);
+  return (await loadKingdom(childId)).kingdom;
 }
 
 /** Everything the Realm page needs, in one round of parallel reads. A hero may read their own. */
@@ -218,6 +235,14 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     console.error("Realm recent quests failed to load", err);
     return [] as RecentQuest[];
   });
+  // The world's locks, on the same access: the hero's world-state rows and the bands they have 3
+  // stars at (two queries, in parallel, `loadWorldRaw`). The view is built once the child's row has
+  // given the zone and the kingdom's overview the grades, at no extra read; the grades stay here.
+  // A failed read draws no lock and offers none (`EMPTY_WORLD_STATE`), never a closed Realm.
+  const worldRead = loadWorldRaw(childId).catch((err: unknown) => {
+    console.error("Realm world state failed to load", err);
+    return null;
+  });
   // Also hands back the flags it read (post-update), so the parallel batch below does not
   // pay a second `loadRealmFlags` round trip just to read `helpSeenAt`. On the (rare) failure
   // path, fall back to a direct read so a starter-spell hiccup never misreports `helpSeen`.
@@ -238,9 +263,9 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     // Memoized per request; loadKingdomOverview below reads the same row for the hero's grades.
     loadLearningProfileRow(childId),
     settingsRead.then(settingsFromRow),
-    loadKingdomState(childId).then((kingdom) => ({ kingdom, error: undefined as string | undefined })).catch((err: unknown) => {
+    loadKingdom(childId).then(({ kingdom, grades }) => ({ kingdom, grades: grades as Record<SkillArea, Grade> | null, error: undefined as string | undefined })).catch((err: unknown) => {
       console.error("Realm kingdom failed to load", err);
-      return { kingdom: { tone: "gentle" as const, buildings: [] }, error: VILLAGERS_RESTING };
+      return { kingdom: { tone: "gentle" as const, buildings: [] }, grades: null, error: VILLAGERS_RESTING };
     }),
     loadSpellbookPages(childId),
     loadUnlockedMountIds(childId),
@@ -266,6 +291,14 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     : null;
   const wornCrown = avatarConfig?.crown ? crownById(avatarConfig.crown) : null;
   const helpSeen = flags.helpSeenAt !== null;
+  // The Realm's one clock (`realmNow`): an unusable stored zone (a legacy "Denver") reads as the default.
+  const zone = usableTimeZone(child.timezone);
+  const today = nowInZone(zone).date;
+  const { grades } = kingdomResult;
+  const raw = await worldRead;
+  const worldState = raw
+    ? worldStateView(raw.rows, grades ? towerFloors(raw.starred, towerBands(grades)) : [], { today, zone }, settings.mechanics.lock)
+    : EMPTY_WORLD_STATE;
 
   return {
     heroName: child.displayName,
@@ -303,8 +336,8 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     works: await worksRead,
     hallDrawings: await hallDrawingsRead,
     recentQuests: await recentRead,
-    // The Realm's one clock (`realmNow`): an unusable stored zone (a legacy "Denver") reads as the default.
-    today: nowInZone(child.timezone ?? DEFAULT_TIMEZONE).date,
+    today,
+    worldState,
     earning: {
       enabled: settings.enabled,
       accessMode: settings.accessMode,

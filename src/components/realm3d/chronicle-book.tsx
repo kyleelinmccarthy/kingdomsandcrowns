@@ -11,6 +11,10 @@
  * book, and one who may seal (`canSeal`: edit access, never the hero) presses or lifts a seal on any
  * page here, since the quest card is gone from the board once its day has passed. After a seal the
  * book reads its pages again, staying on the same week.
+ *
+ * "Found pages" (a button, only once the hero has found one) turns from the weeks to the lore pages
+ * the world's chests and vault doors gave, in the order they were found: a title and its text, as
+ * text, the same for a grown-up visiting. "Back to the weeks" turns back.
  */
 
 import "./chronicle-book.css";
@@ -24,6 +28,8 @@ import type { ChronicleEntry, ChronicleWeek } from "@/lib/services/realm-chronic
 import { Panel } from "./frame-hud";
 
 const BACK = "Back to the Realm";
+const FOUND_PAGES = "Found pages";
+const BACK_TO_WEEKS = "Back to the weeks";
 const OPENING = "Opening the Chronicle…";
 const FAILED = "The Chronicle would not open.";
 
@@ -35,7 +41,8 @@ export function weekLabel(weekStart: string, now: Date): string {
   return `Week of ${d} ${MONTHS[m - 1]}${y === now.getFullYear() ? "" : ` ${y}`}`;
 }
 
-type Load = { state: "loading" } | { state: "error" } | { state: "ready"; weeks: ChronicleWeek[]; canSeal: boolean };
+type FoundPage = { id: string; title: string; text: string };
+type Load = { state: "loading" } | { state: "error" } | { state: "ready"; weeks: ChronicleWeek[]; canSeal: boolean; lore: FoundPage[] };
 
 export function ChronicleBook({
   childId,
@@ -55,16 +62,17 @@ export function ChronicleBook({
   const [today] = useState(() => now ?? new Date());
   const [load, setLoad] = useState<Load>({ state: "loading" });
   const [page, setPage] = useState(0);
+  const [showFound, setShowFound] = useState(false);
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let live = true;
     getChronicle(childId).then(
-      ({ weeks, canSeal }) => {
+      ({ weeks, canSeal, lore }) => {
         if (!live) return;
         // Reading the pages again after a seal keeps the reader on the same week.
         setPage((p) => Math.min(p, Math.max(0, weeks.length - 1)));
-        setLoad({ state: "ready", weeks, canSeal });
+        setLoad({ state: "ready", weeks, canSeal, lore });
       },
       () => live && setLoad({ state: "error" }),
     );
@@ -84,6 +92,8 @@ export function ChronicleBook({
   const weeks = load.state === "ready" ? load.weeks : [];
   const week = weeks[page];
   const canSeal = load.state === "ready" && load.canSeal;
+  const lore = load.state === "ready" ? load.lore : [];
+  const onFound = showFound && lore.length > 0;
 
   return (
     <Panel title={title} label={title} wide icon={<GameIcon name="scroll" className="r3-board-icon" />} onClose={onClose}>
@@ -102,12 +112,25 @@ export function ChronicleBook({
           </button>
         </>
       )}
-      {load.state === "ready" && !week && (
+      {load.state === "ready" && onFound && (
+        <>
+          <h3 className="r3-chron-week">{FOUND_PAGES}</h3>
+          <ul className="r3-chron-entries">
+            {lore.map((p) => (
+              <li key={p.id} className="r3-chron-entry">
+                <h4 className="r3-chron-title">{p.title}</h4>
+                <p className="r3-chron-notes">{p.text}</p>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      {load.state === "ready" && !onFound && !week && (
         <p className="r3-chron-empty">
           {isHero ? "Your Chronicle is waiting. Tell the Scribe about a quest: write it or draw it, and it will appear here." : `${heroName}'s Chronicle is waiting for its first page.`}
         </p>
       )}
-      {week && (
+      {week && !onFound && (
         <>
           <div className="r3-chron-nav">
             <button type="button" className="r3-chron-turn" disabled={page >= weeks.length - 1} onClick={() => setPage(page + 1)}>
@@ -126,6 +149,17 @@ export function ChronicleBook({
         </>
       )}
       <div className="r3-board-foot">
+        {onFound ? (
+          <button type="button" className="r3-menu-item" onClick={() => setShowFound(false)}>
+            {BACK_TO_WEEKS}
+          </button>
+        ) : (
+          lore.length > 0 && (
+            <button type="button" className="r3-menu-item" onClick={() => setShowFound(true)}>
+              {FOUND_PAGES}
+            </button>
+          )
+        )}
         <button type="button" className="r3-menu-item" onClick={onClose}>
           {BACK}
         </button>

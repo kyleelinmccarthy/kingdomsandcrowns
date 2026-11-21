@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { objectiveState } from "@/lib/realm/objective";
 import { villagerById } from "@/lib/realm/villagers";
 import type { ClientTask } from "@/lib/tasks/types";
-import { attemptFeedback, deedToast, finishLabel, resultBuildingLine, resultHeadline, resultMinutesLine, resultStarsLine, starsLabel, starsLeftLine, talkCopy, type SiteState } from "./talk";
+import { CHEST_EMPTY, worldRewardLine } from "@/lib/utils/world-lock-copy";
+import { attemptFeedback, deedToast, finishLabel, fragmentToast, leaveWhat, resultBuildingLine, resultHeadline, resultMinutesLine, resultStarsLine, starsLabel, starsLeftLine, talkCopy, type SiteState } from "./talk";
 
 const bram = villagerById("bram")!;
 const well: SiteState = { id: "well", label: "Village Well", done: 0, total: 5, complete: false, stars: 0, maxStars: 9 };
@@ -204,6 +205,120 @@ describe("a world run's result (Puzzle practice)", () => {
     expect(finishLabel("challenge")).toBe("Finish side quest");
     expect(finishLabel("review")).toBe("Finish review");
     expect(finishLabel("build")).toBe("Finish building");
+  });
+});
+
+describe("a lock's run words (RG-m)", () => {
+  it("a chest's or vault door's run finishes with Done, Puzzle practice and the Tower with Finish puzzles", () => {
+    expect(finishLabel("world", "chest:west-lane")).toBe("Done");
+    expect(finishLabel("world", "door:ringstones")).toBe("Done");
+    expect(finishLabel("world", "practice")).toBe("Finish puzzles");
+    expect(finishLabel("world")).toBe("Finish puzzles");
+    expect(finishLabel("tower")).toBe("Finish puzzles");
+    // An id that only looks like an object's is not one.
+    expect(finishLabel("world", "chest:nowhere")).toBe("Finish puzzles");
+  });
+  it("leaves the lock, the puzzles, the review, the build or the side quest", () => {
+    expect(leaveWhat("world", "chest:west-lane")).toBe("lock");
+    expect(leaveWhat("world", "practice")).toBe("puzzles");
+    expect(leaveWhat("tower")).toBe("puzzles");
+    expect(leaveWhat("review")).toBe("review");
+    expect(leaveWhat("build")).toBe("build");
+    expect(leaveWhat("deed", "well-water")).toBe("side quest");
+    expect(leaveWhat("challenge")).toBe("side quest");
+  });
+});
+
+describe("a chest's or vault door's result", () => {
+  const world = { correctCount: 1, total: 1, flawless: true, kind: "world" as const };
+  const chest = (rewards: Parameters<typeof worldRewardLine>[0]["rewards"]) => ({ ...world, world: { objectId: "chest:west-lane", opened: true, rewards } });
+
+  it("says the chest opens, and what was inside", () => {
+    expect(resultHeadline(chest([{ kind: "decor", id: "stone-bench" }]), "The old chest")).toEqual({ title: "The chest opens!", line: "Inside: a stone bench. Look for it in the village." });
+    expect(resultHeadline(chest([{ kind: "lore", id: "the-first-lock" }]), "The old chest")).toEqual({ title: "The chest opens!", line: "Inside: a page for your Chronicle, \u201cThe First Lock\u201d." });
+  });
+
+  it("says an emptied chest opens with nothing new, in exactly the owner's words", () => {
+    expect(resultHeadline(chest([]), "The old chest")).toEqual({ title: "The chest opens!", line: "You've found everything in this chest." });
+    expect(CHEST_EMPTY).toBe("You've found everything in this chest.");
+  });
+
+  it("says the vault door swings open, on a map and a page", () => {
+    const door = { ...world, world: { objectId: "door:ringstones", opened: true, rewards: [{ kind: "fragment" as const, placeId: "summit-7" }, { kind: "lore" as const, id: "ringstones-map" as const }] } };
+    expect(resultHeadline(door, "The vault door")).toEqual({ title: "The vault door swings open!", line: "Inside: a map and a page for your Chronicle." });
+  });
+
+  it("says the lock holds on a miss, and that a fresh one waits", () => {
+    const missed = { ...world, correctCount: 0, flawless: false, world: { objectId: "chest:west-lane", opened: false, reason: "missed" as const, rewards: [] } };
+    expect(resultHeadline(missed, "The old chest")).toEqual({ title: "The lock holds.", line: "Try again with a fresh lock." });
+  });
+
+  it("says it was already open, with nothing more", () => {
+    const already = { ...world, world: { objectId: "door:ringstones", opened: false, reason: "already-open" as const, rewards: [] } };
+    expect(resultHeadline(already, "The vault door")).toEqual({ title: "It was already open.", line: "" });
+  });
+
+  it("never names a grade, a band, stars or minutes", () => {
+    for (const rewards of [[], [{ kind: "decor" as const, id: "sundial" as const }]]) {
+      const head = resultHeadline(chest(rewards), "The old chest");
+      expect(`${head.title} ${head.line}`).not.toMatch(/grade|band|star|minute|behind|ahead/i);
+    }
+  });
+});
+
+describe("a Tower floor's result", () => {
+  const tower = { correctCount: 1, total: 1, flawless: true, kind: "tower" as const };
+  const solved = { ...tower, tower: { band: "g23" as const, solved: 2, solvedNow: true } };
+  const held = { ...tower, correctCount: 0, flawless: false, tower: { band: "g23" as const, solved: 2, solvedNow: false } };
+
+  it("says the floor is solved, with nothing more", () => {
+    expect(resultHeadline(solved, "The Puzzle Tower")).toEqual({ title: "Floor solved!", line: "" });
+  });
+
+  it("says the puzzle holds on a miss, and that every climb helps", () => {
+    expect(resultHeadline(held, "The Puzzle Tower")).toEqual({ title: "The puzzle holds.", line: "Every climb makes you sharper." });
+  });
+
+  it("is told from a chest's or practice's result by the run's kind", () => {
+    expect(resultHeadline({ ...tower, world: { objectId: "chest:west-lane", opened: true, rewards: [] } }, "x").title).not.toBe("The chest opens!");
+    expect(resultHeadline({ correctCount: 2, total: 3, flawless: false, kind: "world" }, "Puzzle practice").title).not.toBe("Floor solved!");
+  });
+
+  it("never names a grade, a band, stars or minutes", () => {
+    for (const s of [solved, held]) {
+      const head = resultHeadline(s, "The Puzzle Tower");
+      expect(`${head.title} ${head.line}`).not.toMatch(/grade|band|star|minute|behind|ahead|k1|g23/i);
+    }
+  });
+
+  it("finishes its puzzles and leaves the puzzles, as Puzzle practice does (RG-m)", () => {
+    expect(finishLabel("tower", "tower:g23")).toBe(finishLabel("world", "practice"));
+    expect(leaveWhat("tower", "tower:g23")).toBe("puzzles");
+  });
+});
+
+describe("a map fragment's toast", () => {
+  it("says a map to the place was found, and where to look, with the map icon and no pips", () => {
+    expect(fragmentToast("Thunder Head")).toEqual({
+      title: "You found a map to Thunder Head!",
+      line: "Look for it on your map.",
+      done: 0,
+      total: 0,
+      rose: false,
+      icon: "map",
+      spoken: "You found a map to Thunder Head! Look for it on your map.",
+    });
+  });
+
+  it("names every place when one opening gave several maps (G4 m3)", () => {
+    expect(fragmentToast("Thunder Head", "Driftwood Cove").title).toBe("You found maps to Thunder Head and Driftwood Cove!");
+    expect(fragmentToast("A", "B", "C").spoken).toBe("You found maps to A, B and C! Look for them on your map.");
+    expect(fragmentToast("A", "B").line).toBe("Look for them on your map.");
+  });
+
+  it("never names a grade, a band or a count", () => {
+    const t = fragmentToast("a far place");
+    expect(`${t.title} ${t.line}`).not.toMatch(/grade|band|star|minute|behind|ahead/i);
   });
 });
 

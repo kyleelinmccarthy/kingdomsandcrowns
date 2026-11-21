@@ -4,10 +4,10 @@ import { testDatabase } from "@/test/libsql-test-db";
 import { DEFAULT_REALM_SETTINGS } from "@/lib/utils/realm-settings";
 import { CLOSED, PRACTICE_HERO_ONLY, PRACTICE_OFF } from "@/lib/utils/deed-refusals";
 import { PUZZLE_PRACTICE } from "@/lib/utils/practice-copy";
-import { TASK_CODECS } from "@/lib/tasks/codecs";
-import { TASK_KINDS, isTaskCorrect, kindOf } from "@/lib/tasks/registry";
-import type { LockTask, Task } from "@/lib/tasks/types";
-import { KINGDOM_PROGRESS_DDL, REALM_ACCESS_DDL, REALM_LEDGER_DDL, REALM_SETTINGS_DDL } from "@/test/realm-db-ddl";
+import { kindOf } from "@/lib/tasks/registry";
+import type { Task } from "@/lib/tasks/types";
+import { DEED_RUN_DDL, KINGDOM_PROGRESS_DDL, REALM_ACCESS_DDL, REALM_LEDGER_DDL, REALM_SETTINGS_DDL, SKILL_MASTERY_DDL } from "@/test/realm-db-ddl";
+import { lockRight as right, lockWrong as wrong } from "@/test/lock-answers";
 
 /**
  * Puzzle practice against a REAL libsql database (R-F8, R-F9): a `world` run of three logic locks
@@ -52,20 +52,8 @@ const { loadHeroLevels } = await import("@/lib/services/deeds");
 const { loadRealmSettings, paySideQuest } = await import("@/lib/services/realm-play");
 
 const DDL = [
-  `CREATE TABLE deed_run (
-    id text PRIMARY KEY NOT NULL, child_id text NOT NULL, deed_id text, source_ref text, skill_ids text NOT NULL,
-    band text NOT NULL, questions text NOT NULL, responses text DEFAULT '[]' NOT NULL,
-    mastery_start text DEFAULT '{}' NOT NULL, correct_count integer DEFAULT 0 NOT NULL,
-    flawless integer DEFAULT false NOT NULL, started_at integer NOT NULL, completed_at integer,
-    created_at integer NOT NULL, updated_at integer NOT NULL,
-    second_tries text DEFAULT '[]' NOT NULL, stars integer DEFAULT 0 NOT NULL,
-    kind text DEFAULT 'deed' NOT NULL, second_chances integer DEFAULT false NOT NULL)`,
-  `CREATE TABLE skill_mastery (
-    id text PRIMARY KEY NOT NULL, child_id text NOT NULL, skill_id text NOT NULL,
-    level integer DEFAULT 0 NOT NULL, recent_results text DEFAULT '[]' NOT NULL,
-    correct_total integer DEFAULT 0 NOT NULL, attempt_total integer DEFAULT 0 NOT NULL,
-    last_practiced_at integer, created_at integer NOT NULL, updated_at integer NOT NULL)`,
-  `CREATE UNIQUE INDEX skill_mastery_child_skill_idx ON skill_mastery (child_id, skill_id)`,
+  ...DEED_RUN_DDL,
+  ...SKILL_MASTERY_DDL,
   ...KINGDOM_PROGRESS_DDL,
   ...REALM_SETTINGS_DDL,
   ...REALM_LEDGER_DDL,
@@ -82,19 +70,6 @@ const count = async (sql: string): Promise<number> => Number((await client.query
 const runs = () => count("SELECT count(*) AS n FROM deed_run");
 async function storedTasks(runId: string): Promise<Task[]> {
   return JSON.parse((await client.query("SELECT questions FROM deed_run WHERE id = ?1", [runId])).rows[0].questions as string) as Task[];
-}
-const right = (t: Task): string => TASK_CODECS.lock.encode((t as LockTask).solution);
-/** A response the lock accepts as well formed that is still wrong: its own solution with one cell changed. */
-function wrong(t: Task): string {
-  const { puzzle, cells } = (t as LockTask).solution;
-  for (const [i, c] of cells.entries()) {
-    for (let v = 0; v <= 9; v++) {
-      if (v === c) continue;
-      const s = TASK_CODECS.lock.encode({ puzzle, cells: cells.map((x, j) => (j === i ? v : x)) } as LockTask["solution"]);
-      if (TASK_KINDS.lock.parseResponse(s, t as LockTask) !== null && !isTaskCorrect(t, s)) return s;
-    }
-  }
-  throw new Error(`no wrong response for ${t.id}`);
 }
 
 beforeAll(async () => {
