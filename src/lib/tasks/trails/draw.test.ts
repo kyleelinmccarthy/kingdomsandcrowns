@@ -320,6 +320,7 @@ describe("a trail task (R-H5, F-20)", () => {
 describe("drawFromPool", () => {
   it("draws from the pool it is given, whatever the registry holds", () => {
     const pool = cloneTrailPool("g45");
+    __setTrailPoolsForTest([]);
     expect(trailPoolFor("read-g4")).toBeUndefined();
     const tasks = drawFromPool(pool, 2, 4, seededRng(1), none, none);
     expect(tasks).toHaveLength(4);

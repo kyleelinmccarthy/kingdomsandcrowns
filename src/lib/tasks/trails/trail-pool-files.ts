@@ -8,10 +8,10 @@
  * test fails if the folder and this list disagree, so a pool cannot ship unloaded by accident.
  *
  *   import trailK1 from "@/content/trails/trail-k1.json";
-import trailG23 from "@/content/trails/trail-g23.json";
- *   export const TRAIL_POOL_FILES: readonly unknown[] = [trailK1, trailG23];
+ *   export const TRAIL_POOL_FILES: readonly unknown[] = [trailK1];
  */
 import trailK1 from "@/content/trails/trail-k1.json";
 import trailG23 from "@/content/trails/trail-g23.json";
+import trailG45 from "@/content/trails/trail-g45.json";
 
-export const TRAIL_POOL_FILES: readonly unknown[] = [trailK1, trailG23];
+export const TRAIL_POOL_FILES: readonly unknown[] = [trailK1, trailG23, trailG45];

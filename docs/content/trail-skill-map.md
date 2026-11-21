@@ -17,7 +17,7 @@ say, and how it is read, depends on the band; the validator (`src/lib/content/tr
 |---|---|---|---|---|
 | 1 | `read-g1` | `trail-k1` | Literal and decodable. The clue may name its place ("Go to the mill."). Every clue has a narration form. | written (H5); blind pass pending (H6) |
 | 3 | `read-g3` | `trail-g23` | Main idea: a 2-3 sentence note whose main idea is the place. It never names the place. | written (H5); blind pass pending (H6) |
-| 4 | `read-g4` | `trail-g45` | Inference and vocabulary in context. `why` says what the answer rests on. | pool pending (H5) |
+| 4 | `read-g4` | `trail-g45` | Inference and vocabulary in context. `why` says what the answer rests on. | written (H5); blind pass pending (H6) |
 | 6 | `read-g6` | `trail-g68` | Purpose and point of view: a villager's note whose purpose, with two or more facts (`parts`), fits exactly one place. | pool pending (H5) |
 | 9 | `read-g9` | `trail-g912` | Tone and word choice: figurative or precise wording that must be read for meaning, combined with facts (`parts`). | pool pending (H5) |
 

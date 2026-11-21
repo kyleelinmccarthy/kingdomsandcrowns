@@ -1,0 +1,1243 @@
+{
+  "poolId": "trail-g45",
+  "skillId": "read-g4",
+  "band": "g45",
+  "trails": [
+    {
+      "id": "l0-mill-well",
+      "level": 0,
+      "clues": [
+        {
+          "text": "Bring the empty sack back to the place where grain is ground into flour.",
+          "answer": "landmark:mill",
+          "redirect": "No grain is ground into flour here. Read the clue again.",
+          "why": "Grain is ground into flour at a mill."
+        },
+        {
+          "text": "Old Bram needs help winding up the rope. Every kitchen in the village is waiting for a full pail.",
+          "answer": "landmark:well",
+          "redirect": "Old Bram does not fill pails here. Which words in the clue tell you the most?",
+          "redirects": {
+            "object:water-trough": "This trough is for the animals. Which words in the clue tell you the most?"
+          },
+          "why": "Old Bram winds up a rope to fill the village's pails at the well."
+        }
+      ]
+    },
+    {
+      "id": "l0-bridge-chapel-market",
+      "level": 0,
+      "clues": [
+        {
+          "text": "The river is too deep to wade across. Go to the crossing Carpenter Aldo keeps safe.",
+          "answer": "landmark:bridge",
+          "redirect": "This does not take you over the river. Think about what the clue's harder words mean.",
+          "why": "A crossing over a deep river is the bridge, and Carpenter Aldo looks after it."
+        },
+        {
+          "text": "Sister Wren is about to ring for evening prayers. Wait for her where people sit still and listen.",
+          "answer": "landmark:chapel",
+          "redirect": "This is not where the bell rings. Read the clue again.",
+          "why": "Sister Wren rings the bell at the chapel, a quiet place."
+        },
+        {
+          "text": "You need a fresh loaf and a cheerful song. Go where Crier Pip calls out.",
+          "answer": "landmark:market",
+          "redirect": "There are no stalls here. Which words in the clue tell you the most?",
+          "why": "Songs, the smell of bread and Crier Pip are all at the market."
+        }
+      ]
+    },
+    {
+      "id": "l0-library-watch",
+      "level": 0,
+      "clues": [
+        {
+          "text": "Hesper has lost track of a heavy old book. Help her search the long rows of shelves.",
+          "answer": "landmark:library",
+          "redirect": "There are no shelves of books here. Think about what the clue's harder words mean.",
+          "redirects": {
+            "object:notice-board": "Signs are pinned up on this. Think about what the clue's harder words mean."
+          },
+          "why": "Hesper keeps the shelves of the library."
+        },
+        {
+          "text": "Mason Gerd needs someone to keep an eye on the hills tonight. Climb up to his lookout.",
+          "answer": "landmark:watchtower",
+          "redirect": "No lantern looks out over the hills from here. Read the clue again.",
+          "redirects": {
+            "landmark:puzzle-tower": "This tall place is full of puzzles. Read the clue again."
+          },
+          "why": "A lookout over the hills, kept by Mason Gerd, is the watchtower."
+        }
+      ]
+    },
+    {
+      "id": "l0-garden-gate-ptower",
+      "level": 0,
+      "clues": [
+        {
+          "text": "Keeper Ivy needs fresh mint for her soup. Go where it grows near a bench in the sun.",
+          "answer": "landmark:garden",
+          "redirect": "No herbs grow here. Which words in the clue tell you the most?",
+          "redirects": {
+            "object:beehives": "These hives are homes for buzzing workers. Which words in the clue tell you the most?"
+          },
+          "why": "Mint is an herb, and herbs grow in the garden beside its sunny bench."
+        },
+        {
+          "text": "Visitors to the keep must walk to the north end of the road to be let in.",
+          "answer": "landmark:castle-gate",
+          "redirect": "This is not where the road ends. Think about what the clue's harder words mean.",
+          "why": "The way into the castle, at the north end of the road, is the castle gate."
+        },
+        {
+          "text": "You finished your work and still want a brain-teaser. Climb to where the bonus puzzles wait.",
+          "answer": "landmark:puzzle-tower",
+          "redirect": "There are no bonus puzzles here. Read the clue again.",
+          "redirects": {
+            "landmark:watchtower": "This is Mason Gerd's lookout over the hills. Read the clue again."
+          },
+          "why": "Bonus puzzles wait in the Puzzle Tower."
+        }
+      ]
+    },
+    {
+      "id": "l0-board-trough",
+      "level": 0,
+      "clues": [
+        {
+          "text": "Someone has lost a goat and wants the whole village to know. Find where people pin up their signs.",
+          "answer": "object:notice-board",
+          "redirect": "No signs are pinned up here. Which words in the clue tell you the most?",
+          "redirects": {
+            "landmark:library": "This is where Hesper keeps her shelves of books. Which words in the clue tell you the most?"
+          },
+          "why": "People pin up signs for everyone to see at the notice board."
+        },
+        {
+          "text": "The farm horses are parched after ploughing. Lead them where the animals stop to slurp.",
+          "answer": "object:water-trough",
+          "redirect": "This is not where the animals stop for a sip. Think about what the clue's harder words mean.",
+          "redirects": {
+            "landmark:well": "Old Bram fills pails for the houses here. Think about what the clue's harder words mean."
+          },
+          "why": "Parched means very thirsty, and animals drink at the water trough."
+        }
+      ]
+    },
+    {
+      "id": "l0-hives-cart-well",
+      "level": 0,
+      "clues": [
+        {
+          "text": "Mind the stingers! Go to the buzzing wooden boxes at the south-west edge.",
+          "answer": "object:beehives",
+          "redirect": "No little wooden homes are here. Read the clue again.",
+          "redirects": {
+            "landmark:garden": "This is Keeper Ivy's place of herbs. Read the clue again."
+          },
+          "why": "Stingers and buzzing boxes at the south-west edge mean the beehives."
+        },
+        {
+          "text": "The farmer forked dry hay high onto his wagon. Go and find the load at the east edge.",
+          "answer": "object:hay-cart",
+          "redirect": "There is no hay here. Which words in the clue tell you the most?",
+          "why": "A wagon piled with hay at the east edge is the hay cart."
+        },
+        {
+          "text": "Every doorstep in the village needs a fresh pail before supper. Go where Old Bram lowers his rope.",
+          "answer": "landmark:well",
+          "redirect": "Old Bram does not fill pails here. Think about what the clue's harder words mean.",
+          "redirects": {
+            "object:water-trough": "This trough is for the animals. Think about what the clue's harder words mean."
+          },
+          "why": "Old Bram lowers a rope to fill pails for every doorstep: that is the well."
+        }
+      ]
+    },
+    {
+      "id": "l0-mill-bridge",
+      "level": 0,
+      "clues": [
+        {
+          "text": "The baker's ovens are cold because his flour bin is empty. Find the place that refills it.",
+          "answer": "landmark:mill",
+          "redirect": "No grain is ground into flour here. Read the clue again.",
+          "why": "Flour for the baker's ovens comes from the mill."
+        },
+        {
+          "text": "A traveller is stuck on the riverbank. Show her the safe way across.",
+          "answer": "landmark:bridge",
+          "redirect": "This does not take you over the river. Which words in the clue tell you the most?",
+          "why": "The safe way across the river is the bridge."
+        }
+      ]
+    },
+    {
+      "id": "l0-chapel-market-library",
+      "level": 0,
+      "clues": [
+        {
+          "text": "A soft bell calls everyone to a calm, hushed room. Follow its sound.",
+          "answer": "landmark:chapel",
+          "redirect": "This is not where the bell rings. Think about what the clue's harder words mean.",
+          "why": "A bell that calls people to a quiet place is the chapel's."
+        },
+        {
+          "text": "Stall-keepers are setting out their goods for the morning. Go and help them.",
+          "answer": "landmark:market",
+          "redirect": "There are no stalls here. Read the clue again.",
+          "why": "Stalls full of goods stand in the market square."
+        },
+        {
+          "text": "You want a book about faraway lands. Go where Hesper keeps rows of them safe.",
+          "answer": "landmark:library",
+          "redirect": "There are no shelves of books here. Which words in the clue tell you the most?",
+          "redirects": {
+            "object:notice-board": "Signs are pinned up on this. Which words in the clue tell you the most?"
+          },
+          "why": "Hesper keeps the library's books shelved and safe."
+        }
+      ]
+    },
+    {
+      "id": "l0-watch-garden",
+      "level": 0,
+      "clues": [
+        {
+          "text": "When night falls, someone must light the lantern high above the village. Go and help.",
+          "answer": "landmark:watchtower",
+          "redirect": "No lantern looks out over the hills from here. Think about what the clue's harder words mean.",
+          "redirects": {
+            "landmark:puzzle-tower": "This tall place is full of puzzles. Think about what the clue's harder words mean."
+          },
+          "why": "The watchtower has a lantern at night."
+        },
+        {
+          "text": "Rest on the bench in the sun, among rows of sage and thyme.",
+          "answer": "landmark:garden",
+          "redirect": "No herbs grow here. Read the clue again.",
+          "redirects": {
+            "object:beehives": "These hives are homes for buzzing workers. Read the clue again."
+          },
+          "why": "Sage and thyme are herbs; the garden grows herbs and has a bench in the sun."
+        }
+      ]
+    },
+    {
+      "id": "l0-hives-trough-cart",
+      "level": 0,
+      "clues": [
+        {
+          "text": "Small striped insects fly home all day long. Their wooden homes stand at the south-west edge.",
+          "answer": "object:beehives",
+          "redirect": "No little wooden homes are here. Which words in the clue tell you the most?",
+          "redirects": {
+            "landmark:garden": "This is Keeper Ivy's place of herbs. Which words in the clue tell you the most?"
+          },
+          "why": "The homes of small striped insects at the south-west edge are the beehives."
+        },
+        {
+          "text": "The goats are bleating at the south edge of the village. Lead them to their long wooden box.",
+          "answer": "object:water-trough",
+          "redirect": "This is not where the animals stop for a sip. Think about what the clue's harder words mean.",
+          "redirects": {
+            "landmark:well": "Old Bram fills pails for the houses here. Think about what the clue's harder words mean."
+          },
+          "why": "The long wooden box where animals drink, at the south edge, is the water trough."
+        },
+        {
+          "text": "The pony wants a snack of dry hay. Fetch a bundle from the heaped wagon at the east edge.",
+          "answer": "object:hay-cart",
+          "redirect": "There is no hay here. Read the clue again.",
+          "why": "The wagon heaped with hay at the east edge is the hay cart."
+        }
+      ]
+    },
+    {
+      "id": "l1-mill-well",
+      "level": 1,
+      "clues": [
+        {
+          "text": "Tessa's stones rumble as they turn, and her apron is dusted white. Bring her the next sack of grain.",
+          "answer": "landmark:mill",
+          "redirect": "No grain is ground into flour here. Read the clue again.",
+          "why": "Turning stones and white dust mean grain is ground into flour: the mill, where Miller Tessa works."
+        },
+        {
+          "text": "Old Bram's arms ache from cranking all morning. Every kettle in the village was filled by him today.",
+          "answer": "landmark:well",
+          "redirect": "Old Bram does not fill pails here. Which words in the clue tell you the most?",
+          "redirects": {
+            "object:water-trough": "This trough is for the animals. Which words in the clue tell you the most?"
+          },
+          "why": "Cranking up a rope to fill every kettle is drawing from the well, which Old Bram looks after."
+        }
+      ]
+    },
+    {
+      "id": "l1-bridge-chapel-market",
+      "level": 1,
+      "clues": [
+        {
+          "text": "The river is swollen after the storm, too high to ford. Cross it the way Carpenter Aldo keeps safe.",
+          "answer": "landmark:bridge",
+          "redirect": "This does not take you over the river. Think about what the clue's harder words mean.",
+          "why": "To ford is to wade across. When you can't, you cross the river on the bridge, which Aldo keeps safe."
+        },
+        {
+          "text": "When the bell's peal rolls over the rooftops, Sister Wren opens her doors and voices drop to a hush.",
+          "answer": "landmark:chapel",
+          "redirect": "This is not where the bell rings. Read the clue again.",
+          "why": "A peal is the ringing of a bell; the bell and Sister Wren are at the chapel."
+        },
+        {
+          "text": "Vendors shout about their wares, and the smell of warm bread drifts past every stall.",
+          "answer": "landmark:market",
+          "redirect": "There are no stalls here. Which words in the clue tell you the most?",
+          "why": "Vendors selling wares at stalls, with the smell of bread, means the market."
+        }
+      ]
+    },
+    {
+      "id": "l1-library-watch",
+      "level": 1,
+      "clues": [
+        {
+          "text": "Hesper is searching for a tome, a big heavy book, that someone put back on the wrong shelf.",
+          "answer": "landmark:library",
+          "redirect": "There are no shelves of books here. Think about what the clue's harder words mean.",
+          "redirects": {
+            "object:notice-board": "Signs are pinned up on this. Think about what the clue's harder words mean."
+          },
+          "why": "A tome is a big book, and Hesper keeps the library's shelves."
+        },
+        {
+          "text": "A sentry must stand high above the roofs tonight and keep an eye on the hills. Go to the post.",
+          "answer": "landmark:watchtower",
+          "redirect": "No lantern looks out over the hills from here. Read the clue again.",
+          "redirects": {
+            "landmark:puzzle-tower": "This tall place is full of puzzles. Read the clue again."
+          },
+          "why": "A sentry is a guard, and the watchtower keeps eyes on the hills."
+        }
+      ]
+    },
+    {
+      "id": "l1-garden-gate-ptower",
+      "level": 1,
+      "clues": [
+        {
+          "text": "Keeper Ivy has dried too few sprigs of thyme. Go where more grow in neat beds.",
+          "answer": "landmark:garden",
+          "redirect": "No herbs grow here. Which words in the clue tell you the most?",
+          "redirects": {
+            "object:beehives": "These hives are homes for buzzing workers. Which words in the clue tell you the most?"
+          },
+          "why": "Thyme is an herb, and Keeper Ivy grows herbs in the garden."
+        },
+        {
+          "text": "Travellers who wish to enter the keep must walk to the far north end of the road and wait to be let in.",
+          "answer": "landmark:castle-gate",
+          "redirect": "This is not where the road ends. Think about what the clue's harder words mean.",
+          "why": "The way into the castle is at the north end of the road: the castle gate."
+        },
+        {
+          "text": "If you crave a brain-teaser the day did not give you, go to the tall stone place at the south-east edge.",
+          "answer": "landmark:puzzle-tower",
+          "redirect": "There are no bonus puzzles here. Read the clue again.",
+          "redirects": {
+            "landmark:watchtower": "This is Mason Gerd's lookout over the hills. Read the clue again."
+          },
+          "why": "Bonus puzzles fill the Puzzle Tower at the south-east edge."
+        }
+      ]
+    },
+    {
+      "id": "l1-board-trough",
+      "level": 1,
+      "clues": [
+        {
+          "text": "A poster about the harvest fair flutters on its pin. It was put up by the southern way into the village.",
+          "answer": "object:notice-board",
+          "redirect": "No signs are pinned up here. Which words in the clue tell you the most?",
+          "redirects": {
+            "landmark:library": "This is where Hesper keeps her shelves of books. Which words in the clue tell you the most?"
+          },
+          "why": "Posters are pinned up at the notice board, by the southern entrance."
+        },
+        {
+          "text": "The oxen have hauled stones all day. Lead the weary beasts where animals slurp at the south edge.",
+          "answer": "object:water-trough",
+          "redirect": "This is not where the animals stop for a sip. Think about what the clue's harder words mean.",
+          "redirects": {
+            "landmark:well": "Old Bram fills pails for the houses here. Think about what the clue's harder words mean."
+          },
+          "why": "Animals drink at the water trough, at the south edge."
+        }
+      ]
+    },
+    {
+      "id": "l1-hives-cart-well",
+      "level": 1,
+      "clues": [
+        {
+          "text": "Mind the stingers! The striped insects there are busy building their combs at the south-west edge.",
+          "answer": "object:beehives",
+          "redirect": "No little wooden homes are here. Read the clue again.",
+          "redirects": {
+            "landmark:garden": "This is Keeper Ivy's place of herbs. Read the clue again."
+          },
+          "why": "Stinging striped insects building combs at the south-west edge live in the beehives."
+        },
+        {
+          "text": "The farmer forked the fodder into a high heap on his wagon. The heap waits at the east edge.",
+          "answer": "object:hay-cart",
+          "redirect": "There is no hay here. Which words in the clue tell you the most?",
+          "why": "Fodder is food for animals, such as hay; a wagon heaped with hay is the hay cart."
+        },
+        {
+          "text": "Old Bram's rope is fraying, and the houses still need their pails filled before dusk. Bring him a new coil.",
+          "answer": "landmark:well",
+          "redirect": "Old Bram does not fill pails here. Think about what the clue's harder words mean.",
+          "redirects": {
+            "object:water-trough": "This trough is for the animals. Think about what the clue's harder words mean."
+          },
+          "why": "Old Bram's rope fills the houses' pails at the well."
+        }
+      ]
+    },
+    {
+      "id": "l1-mill-bridge",
+      "level": 1,
+      "clues": [
+        {
+          "text": "The baker's sacks are empty. Go to the place that will grind the harvest into what he needs.",
+          "answer": "landmark:mill",
+          "redirect": "No grain is ground into flour here. Read the clue again.",
+          "why": "The baker needs flour, and the mill grinds grain into flour."
+        },
+        {
+          "text": "Aldo is hammering down a loose plank, high above the rushing current. Bring him more nails.",
+          "answer": "landmark:bridge",
+          "redirect": "This does not take you over the river. Which words in the clue tell you the most?",
+          "why": "Planks above a rushing current belong to the bridge, which Carpenter Aldo looks after."
+        }
+      ]
+    },
+    {
+      "id": "l1-chapel-market-library",
+      "level": 1,
+      "clues": [
+        {
+          "text": "Sister Wren asks you to tread softly and speak in whispers once you step inside.",
+          "answer": "landmark:chapel",
+          "redirect": "This is not where the bell rings. Think about what the clue's harder words mean.",
+          "why": "Sister Wren looks after the chapel, a quiet place."
+        },
+        {
+          "text": "Crier Pip is bellowing out today's prices between the busy rows of stands.",
+          "answer": "landmark:market",
+          "redirect": "There are no stalls here. Read the clue again.",
+          "why": "Bellowing means shouting loudly; Crier Pip calls out prices at the market."
+        },
+        {
+          "text": "Hesper whispers that every volume must go back to its proper shelf.",
+          "answer": "landmark:library",
+          "redirect": "There are no shelves of books here. Which words in the clue tell you the most?",
+          "redirects": {
+            "object:notice-board": "Signs are pinned up on this. Which words in the clue tell you the most?"
+          },
+          "why": "A volume is a book, and Hesper shelves the library's books."
+        }
+      ]
+    },
+    {
+      "id": "l1-watch-garden",
+      "level": 1,
+      "clues": [
+        {
+          "text": "Gerd's lantern burns all night so the hills are never left unwatched. Bring him more oil.",
+          "answer": "landmark:watchtower",
+          "redirect": "No lantern looks out over the hills from here. Think about what the clue's harder words mean.",
+          "redirects": {
+            "landmark:puzzle-tower": "This tall place is full of puzzles. Think about what the clue's harder words mean."
+          },
+          "why": "Mason Gerd's lantern burns at night over the hills, at the watchtower."
+        },
+        {
+          "text": "Ivy is snipping sage for the inn's kitchen. Help her where the herbs grow.",
+          "answer": "landmark:garden",
+          "redirect": "No herbs grow here. Read the clue again.",
+          "redirects": {
+            "object:beehives": "These hives are homes for buzzing workers. Read the clue again."
+          },
+          "why": "Sage is an herb, and Keeper Ivy grows herbs in the garden."
+        }
+      ]
+    },
+    {
+      "id": "l1-hives-trough-cart",
+      "level": 1,
+      "clues": [
+        {
+          "text": "A swarm hums around its wooden homes at the south-west edge of the village. Stand still and watch.",
+          "answer": "object:beehives",
+          "redirect": "No little wooden homes are here. Which words in the clue tell you the most?",
+          "redirects": {
+            "landmark:garden": "This is Keeper Ivy's place of herbs. Which words in the clue tell you the most?"
+          },
+          "why": "A swarm is a crowd of flying insects; their wooden homes at the south-west edge are the beehives."
+        },
+        {
+          "text": "A thirsty donkey brays beside the long wooden basin at the south edge. Lead him to it.",
+          "answer": "object:water-trough",
+          "redirect": "This is not where the animals stop for a sip. Think about what the clue's harder words mean.",
+          "redirects": {
+            "landmark:well": "Old Bram fills pails for the houses here. Think about what the clue's harder words mean."
+          },
+          "why": "A long wooden basin where animals drink, at the south edge, is the water trough."
+        },
+        {
+          "text": "Your pony nickers for something dry and crunchy. Fetch a bundle from the loaded wagon at the east edge.",
+          "answer": "object:hay-cart",
+          "redirect": "There is no hay here. Read the clue again.",
+          "why": "Dry, crunchy food for a pony is hay, and the loaded wagon at the east edge is the hay cart."
+        }
+      ]
+    },
+    {
+      "id": "l2-chapel-well",
+      "level": 2,
+      "clues": [
+        {
+          "text": "Sister Wren's rope is frayed, and her bell may soon fall silent. Bring her a new rope.",
+          "answer": "landmark:chapel",
+          "redirect": "This is not where the bell rings. Read the clue again.",
+          "why": "Sister Wren and her bell are at the chapel."
+        },
+        {
+          "text": "Old Bram says the rope went down so deep that he heard a splash far below. Help him haul it up.",
+          "answer": "landmark:well",
+          "redirect": "Old Bram does not fill pails here. Which words in the clue tell you the most?",
+          "redirects": {
+            "object:water-trough": "This trough is for the animals. Which words in the clue tell you the most?"
+          },
+          "why": "A rope that goes down deep to a splash, with Old Bram at the top, is the well."
+        }
+      ]
+    },
+    {
+      "id": "l2-mill-bridge-market",
+      "level": 2,
+      "clues": [
+        {
+          "text": "The harvest is in. Carry the sacks of kernels to Tessa so the baker will have plenty to work with.",
+          "answer": "landmark:mill",
+          "redirect": "No grain is ground into flour here. Think about what the clue's harder words mean.",
+          "why": "Kernels are grains; Miller Tessa grinds them into flour for the baker at the mill."
+        },
+        {
+          "text": "Carpenter Aldo says the planks over the current are slick with rain. Take him some sand to scatter.",
+          "answer": "landmark:bridge",
+          "redirect": "This does not take you over the river. Read the clue again.",
+          "why": "Planks over the current are the bridge, which Carpenter Aldo looks after."
+        },
+        {
+          "text": "Pip needs a crowd for his new song. Go where people come to barter and buy.",
+          "answer": "landmark:market",
+          "redirect": "There are no stalls here. Which words in the clue tell you the most?",
+          "why": "To barter is to trade; people trade and buy at the market, where Crier Pip sings."
+        }
+      ]
+    },
+    {
+      "id": "l2-library-watch",
+      "level": 2,
+      "clues": [
+        {
+          "text": "Hesper says a careless visitor folded the corner of a precious book. Bring her a ribbon to mark pages instead.",
+          "answer": "landmark:library",
+          "redirect": "There are no shelves of books here. Think about what the clue's harder words mean.",
+          "redirects": {
+            "object:notice-board": "Signs are pinned up on this. Think about what the clue's harder words mean."
+          },
+          "why": "Hesper looks after the library's books."
+        },
+        {
+          "text": "The beacon at the top must be lit before dusk. Climb to Gerd's high post over the hills.",
+          "answer": "landmark:watchtower",
+          "redirect": "No lantern looks out over the hills from here. Read the clue again.",
+          "redirects": {
+            "landmark:puzzle-tower": "This tall place is full of puzzles. Read the clue again."
+          },
+          "why": "A beacon is a signal light; the watchtower's lantern burns at night over the hills."
+        }
+      ]
+    },
+    {
+      "id": "l2-garden-gate-ptower",
+      "level": 2,
+      "clues": [
+        {
+          "text": "Ivy's seedlings need shade from the noon sun. Take her a cloth to cover the herb beds.",
+          "answer": "landmark:garden",
+          "redirect": "No herbs grow here. Which words in the clue tell you the most?",
+          "redirects": {
+            "object:beehives": "These hives are homes for buzzing workers. Which words in the clue tell you the most?"
+          },
+          "why": "Seedlings are young plants, and Keeper Ivy's herb beds are in the garden."
+        },
+        {
+          "text": "The road runs north past every house and ends at heavy doors that guard the keep. Wait there.",
+          "answer": "landmark:castle-gate",
+          "redirect": "This is not where the road ends. Think about what the clue's harder words mean.",
+          "why": "Heavy doors at the north end of the road are the castle gate."
+        },
+        {
+          "text": "A riddle-lover has a tip. The trickiest bonus brain-teasers wait up the stone steps at the south-east edge.",
+          "answer": "landmark:puzzle-tower",
+          "redirect": "There are no bonus puzzles here. Read the clue again.",
+          "redirects": {
+            "landmark:watchtower": "This is Mason Gerd's lookout over the hills. Read the clue again."
+          },
+          "why": "Bonus brain-teasers are the Puzzle Tower's puzzles, at the south-east edge."
+        }
+      ]
+    },
+    {
+      "id": "l2-board-trough",
+      "level": 2,
+      "clues": [
+        {
+          "text": "The baker wants everyone to know about his sale. Help him tack a sign where the south road comes in.",
+          "answer": "object:notice-board",
+          "redirect": "No signs are pinned up here. Which words in the clue tell you the most?",
+          "redirects": {
+            "landmark:library": "This is where Hesper keeps her shelves of books. Which words in the clue tell you the most?"
+          },
+          "why": "To tack is to pin; signs are pinned up at the notice board by the southern entrance."
+        },
+        {
+          "text": "The goats have been grazing in the hot sun. Lead them to the long basin at the south edge.",
+          "answer": "object:water-trough",
+          "redirect": "This is not where the animals stop for a sip. Think about what the clue's harder words mean.",
+          "redirects": {
+            "landmark:well": "Old Bram fills pails for the houses here. Think about what the clue's harder words mean."
+          },
+          "why": "Hot goats need a drink, and the long basin at the south edge is the water trough."
+        }
+      ]
+    },
+    {
+      "id": "l2-hives-cart-well",
+      "level": 2,
+      "clues": [
+        {
+          "text": "Wear a veil before you visit the buzzing boxes at the south-west edge of the village.",
+          "answer": "object:beehives",
+          "redirect": "No little wooden homes are here. Read the clue again.",
+          "redirects": {
+            "landmark:garden": "This is Keeper Ivy's place of herbs. Read the clue again."
+          },
+          "why": "A veil keeps stings off your face near the buzzing boxes at the south-west edge: the beehives."
+        },
+        {
+          "text": "The barn is full, so the rest of the dry grass from the harvest waits on wheels at the east edge.",
+          "answer": "object:hay-cart",
+          "redirect": "There is no hay here. Which words in the clue tell you the most?",
+          "why": "Dry grass on wheels at the east edge is the hay cart."
+        },
+        {
+          "text": "Every cook in the village has an empty kettle. Go where Old Bram can fill them all.",
+          "answer": "landmark:well",
+          "redirect": "Old Bram does not fill pails here. Think about what the clue's harder words mean.",
+          "redirects": {
+            "object:water-trough": "This trough is for the animals. Think about what the clue's harder words mean."
+          },
+          "why": "Old Bram fills the village's kettles at the well."
+        }
+      ]
+    },
+    {
+      "id": "l2-mill-bridge",
+      "level": 2,
+      "clues": [
+        {
+          "text": "Clouds of white powder puff from the doorway while heavy stones grind inside. Go there.",
+          "answer": "landmark:mill",
+          "redirect": "No grain is ground into flour here. Read the clue again.",
+          "why": "Heavy grinding stones and white powder mean flour is made here: the mill."
+        },
+        {
+          "text": "Without this crossing, the people on the far bank would need a boat. Go and stand on it.",
+          "answer": "landmark:bridge",
+          "redirect": "This does not take you over the river. Which words in the clue tell you the most?",
+          "why": "A crossing to the far bank of the river is the bridge."
+        }
+      ]
+    },
+    {
+      "id": "l2-chapel-market-library",
+      "level": 2,
+      "clues": [
+        {
+          "text": "Wait where a bell that carries far calls the village to come and be still.",
+          "answer": "landmark:chapel",
+          "redirect": "This is not where the bell rings. Think about what the clue's harder words mean.",
+          "why": "The chapel's bell carries, and it is a quiet place."
+        },
+        {
+          "text": "Follow your nose to the smell of fresh loaves and the sound of cheerful songs.",
+          "answer": "landmark:market",
+          "redirect": "There are no stalls here. Read the clue again.",
+          "why": "The smell of bread and songs fill the market."
+        },
+        {
+          "text": "Hesper is cataloguing a new shipment of books for her long shelves.",
+          "answer": "landmark:library",
+          "redirect": "There are no shelves of books here. Which words in the clue tell you the most?",
+          "redirects": {
+            "object:notice-board": "Signs are pinned up on this. Which words in the clue tell you the most?"
+          },
+          "why": "Cataloguing means listing and sorting; Hesper does that for the library's shelves."
+        }
+      ]
+    },
+    {
+      "id": "l2-watch-garden",
+      "level": 2,
+      "clues": [
+        {
+          "text": "Gerd squints across the hills from high above the rooftops. Bring him his spyglass.",
+          "answer": "landmark:watchtower",
+          "redirect": "No lantern looks out over the hills from here. Think about what the clue's harder words mean.",
+          "redirects": {
+            "landmark:puzzle-tower": "This tall place is full of puzzles. Think about what the clue's harder words mean."
+          },
+          "why": "Looking out over the hills from up high, Mason Gerd is at the watchtower."
+        },
+        {
+          "text": "Find the place where rosemary, sage and mint grow side by side, beside a bench that soaks up the sun.",
+          "answer": "landmark:garden",
+          "redirect": "No herbs grow here. Read the clue again.",
+          "redirects": {
+            "object:beehives": "These hives are homes for buzzing workers. Read the clue again."
+          },
+          "why": "Rosemary, sage and mint are herbs; the garden grows herbs and has a bench in the sun."
+        }
+      ]
+    },
+    {
+      "id": "l2-trough-cart-ptower",
+      "level": 2,
+      "clues": [
+        {
+          "text": "The plough horse is hot and dusty. Lead it where the animals take a long, cool slurp.",
+          "answer": "object:water-trough",
+          "redirect": "This is not where the animals stop for a sip. Which words in the clue tell you the most?",
+          "redirects": {
+            "landmark:well": "Old Bram fills pails for the houses here. Which words in the clue tell you the most?"
+          },
+          "why": "Animals drink at the water trough."
+        },
+        {
+          "text": "One more forkful and the wagon at the east edge will be heaped to the brim with dry grass.",
+          "answer": "object:hay-cart",
+          "redirect": "There is no hay here. Think about what the clue's harder words mean.",
+          "why": "A wagon heaped with dry grass at the east edge is the hay cart."
+        },
+        {
+          "text": "Extra puzzles are waiting for clever heroes. Find the tall stone place at the south-east edge.",
+          "answer": "landmark:puzzle-tower",
+          "redirect": "There are no bonus puzzles here. Read the clue again.",
+          "redirects": {
+            "landmark:watchtower": "This is Mason Gerd's lookout over the hills. Read the clue again."
+          },
+          "why": "Extra puzzles at the south-east edge are in the Puzzle Tower."
+        }
+      ]
+    },
+    {
+      "id": "l3-mill-well",
+      "level": 3,
+      "clues": [
+        {
+          "text": "Grist is grain brought to be ground. Carry this sack of grist to Tessa's place of work.",
+          "answer": "landmark:mill",
+          "redirect": "No grain is ground into flour here. Read the clue again.",
+          "why": "Grist goes to the mill to be ground into flour, and Miller Tessa works there."
+        },
+        {
+          "text": "The village's kettles depend on one old man and a long rope. Go and lend Old Bram a hand.",
+          "answer": "landmark:well",
+          "redirect": "Old Bram does not fill pails here. Which words in the clue tell you the most?",
+          "redirects": {
+            "object:water-trough": "This trough is for the animals. Which words in the clue tell you the most?"
+          },
+          "why": "Old Bram and his long rope fill the village's kettles at the well."
+        }
+      ]
+    },
+    {
+      "id": "l3-bridge-chapel",
+      "level": 3,
+      "clues": [
+        {
+          "text": "The timbers spanning the river groan in the wind, yet they never give way. Go and see Aldo's work.",
+          "answer": "landmark:bridge",
+          "redirect": "This does not take you over the river. Think about what the clue's harder words mean.",
+          "why": "To span is to stretch across; timbers that span the river and hold in any weather are the bridge."
+        },
+        {
+          "text": "A solemn chime drifts over the village at dusk, and those who answer it sit in silence. Go where it comes from.",
+          "answer": "landmark:chapel",
+          "redirect": "This is not where the bell rings. Read the clue again.",
+          "why": "A solemn chime is a serious bell; the chapel's bell carries, and people sit quietly there."
+        }
+      ]
+    },
+    {
+      "id": "l3-market-library-watch",
+      "level": 3,
+      "clues": [
+        {
+          "text": "Haggling voices, fiddles and the aroma of fresh loaves all mingle in one busy square. Go there.",
+          "answer": "landmark:market",
+          "redirect": "There are no stalls here. Which words in the clue tell you the most?",
+          "why": "Haggling is arguing over prices; songs, bread and buying are all at the market."
+        },
+        {
+          "text": "Hesper guards hundreds of volumes, each with its own place on the shelves. Go and help her.",
+          "answer": "landmark:library",
+          "redirect": "There are no shelves of books here. Think about what the clue's harder words mean.",
+          "redirects": {
+            "object:notice-board": "Signs are pinned up on this. Think about what the clue's harder words mean."
+          },
+          "why": "Volumes are books; Hesper keeps them shelved and safe in the library."
+        },
+        {
+          "text": "From the top of Gerd's lookout, a sentry can spot a rider while she is still far off in the hills.",
+          "answer": "landmark:watchtower",
+          "redirect": "No lantern looks out over the hills from here. Read the clue again.",
+          "redirects": {
+            "landmark:puzzle-tower": "This tall place is full of puzzles. Read the clue again."
+          },
+          "why": "A lookout that sees far over the hills, kept by Mason Gerd, is the watchtower."
+        }
+      ]
+    },
+    {
+      "id": "l3-garden-gate",
+      "level": 3,
+      "clues": [
+        {
+          "text": "Ivy is drying bunches of fragrant herbs on the warm bench. Help her gather more from her beds.",
+          "answer": "landmark:garden",
+          "redirect": "No herbs grow here. Which words in the clue tell you the most?",
+          "redirects": {
+            "object:beehives": "These hives are homes for buzzing workers. Which words in the clue tell you the most?"
+          },
+          "why": "Fragrant means sweet-smelling; Keeper Ivy grows herbs by a sunny bench in the garden."
+        },
+        {
+          "text": "To enter the keep, go to the end of the road. There the portcullis is raised each morning.",
+          "answer": "landmark:castle-gate",
+          "redirect": "This is not where the road ends. Think about what the clue's harder words mean.",
+          "why": "A portcullis is a heavy grate that guards a way in; the castle gate stands at the end of the road."
+        }
+      ]
+    },
+    {
+      "id": "l3-ptower-board-trough",
+      "level": 3,
+      "clues": [
+        {
+          "text": "Feeling clever? An array of bonus brain-teasers fills the tall stone place at the south-east edge.",
+          "answer": "landmark:puzzle-tower",
+          "redirect": "There are no bonus puzzles here. Read the clue again.",
+          "redirects": {
+            "landmark:watchtower": "This is Mason Gerd's lookout over the hills. Read the clue again."
+          },
+          "why": "An array is a big set; the bonus puzzles fill the Puzzle Tower at the south-east edge."
+        },
+        {
+          "text": "The harvest fair is announced on a sheet tacked up by the southern way into the village. Go and see it.",
+          "answer": "object:notice-board",
+          "redirect": "No signs are pinned up here. Which words in the clue tell you the most?",
+          "redirects": {
+            "landmark:library": "This is where Hesper keeps her shelves of books. Which words in the clue tell you the most?"
+          },
+          "why": "Sheets are tacked up for everyone at the notice board, by the southern entrance."
+        },
+        {
+          "text": "Weary livestock gather at a long wooden basin on the south edge to quench their thirst.",
+          "answer": "object:water-trough",
+          "redirect": "This is not where the animals stop for a sip. Think about what the clue's harder words mean.",
+          "redirects": {
+            "landmark:well": "Old Bram fills pails for the houses here. Think about what the clue's harder words mean."
+          },
+          "why": "Livestock are farm animals and to quench is to end a thirst; they drink at the water trough."
+        }
+      ]
+    },
+    {
+      "id": "l3-hives-cart",
+      "level": 3,
+      "clues": [
+        {
+          "text": "Wear a veil, move slowly and never swat. The colony at the south-west edge does not like to be bothered.",
+          "answer": "object:beehives",
+          "redirect": "No little wooden homes are here. Read the clue again.",
+          "redirects": {
+            "landmark:garden": "This is Keeper Ivy's place of herbs. Read the clue again."
+          },
+          "why": "A colony is a big family of insects; the stinging colony at the south-west edge lives in the beehives."
+        },
+        {
+          "text": "The fodder for the winter is heaped high on wheels at the east edge. Fetch a bundle for the pony.",
+          "answer": "object:hay-cart",
+          "redirect": "There is no hay here. Which words in the clue tell you the most?",
+          "why": "Fodder is animal food such as hay; the hay heaped on wheels at the east edge is the hay cart."
+        }
+      ]
+    },
+    {
+      "id": "l3-well-mill",
+      "level": 3,
+      "clues": [
+        {
+          "text": "Old Bram's crank squeaks as the pail rises from the cold, dark depths. Bring him some grease.",
+          "answer": "landmark:well",
+          "redirect": "Old Bram does not fill pails here. Think about what the clue's harder words mean.",
+          "redirects": {
+            "object:water-trough": "This trough is for the animals. Think about what the clue's harder words mean."
+          },
+          "why": "A pail cranked up from the depths by Old Bram comes from the well."
+        },
+        {
+          "text": "Tessa's grinding stones have worn smooth. Take her a chisel so the baker's flour stays fine.",
+          "answer": "landmark:mill",
+          "redirect": "No grain is ground into flour here. Read the clue again.",
+          "why": "Grinding stones that make the baker's flour turn at the mill, where Miller Tessa works."
+        }
+      ]
+    },
+    {
+      "id": "l3-bridge-chapel-market",
+      "level": 3,
+      "clues": [
+        {
+          "text": "Storms washed the stepping stones away, but Aldo's crossing over the river still stands firm. Go there.",
+          "answer": "landmark:bridge",
+          "redirect": "This does not take you over the river. Which words in the clue tell you the most?",
+          "why": "Carpenter Aldo's crossing over the river, firm in any weather, is the bridge."
+        },
+        {
+          "text": "Sister Wren polishes the bronze bell until it gleams, then waits for the hour to ring it. Go and keep her company.",
+          "answer": "landmark:chapel",
+          "redirect": "This is not where the bell rings. Think about what the clue's harder words mean.",
+          "why": "Sister Wren and her bell are at the chapel."
+        },
+        {
+          "text": "Crier Pip calls out the price of apples to a jostling crowd of shoppers. Join them.",
+          "answer": "landmark:market",
+          "redirect": "There are no stalls here. Read the clue again.",
+          "why": "Jostling means pushing and crowding; Crier Pip calls prices to shoppers at the market."
+        }
+      ]
+    },
+    {
+      "id": "l3-library-watch",
+      "level": 3,
+      "clues": [
+        {
+          "text": "Hesper lends books, but she insists that each one comes back to the same shelf, safe and dry.",
+          "answer": "landmark:library",
+          "redirect": "There are no shelves of books here. Which words in the clue tell you the most?",
+          "redirects": {
+            "object:notice-board": "Signs are pinned up on this. Which words in the clue tell you the most?"
+          },
+          "why": "Hesper keeps the library's books shelved and safe."
+        },
+        {
+          "text": "At dusk, the lantern high above the rooftops flickers to life. Mason Gerd begins his vigil over the hills.",
+          "answer": "landmark:watchtower",
+          "redirect": "No lantern looks out over the hills from here. Think about what the clue's harder words mean.",
+          "redirects": {
+            "landmark:puzzle-tower": "This tall place is full of puzzles. Think about what the clue's harder words mean."
+          },
+          "why": "A vigil is a night of keeping watch; Mason Gerd keeps it with his lantern at the watchtower."
+        }
+      ]
+    },
+    {
+      "id": "l3-garden-gate-board",
+      "level": 3,
+      "clues": [
+        {
+          "text": "A bench sits in a patch of sunshine, surrounded by beds of savoury herbs. Ivy tends them all. Go there.",
+          "answer": "landmark:garden",
+          "redirect": "No herbs grow here. Read the clue again.",
+          "redirects": {
+            "object:beehives": "These hives are homes for buzzing workers. Read the clue again."
+          },
+          "why": "A sunny bench among herbs, tended by Keeper Ivy, is in the garden."
+        },
+        {
+          "text": "Riders heading for the keep go north along the road until it ends at a pair of heavy doors.",
+          "answer": "landmark:castle-gate",
+          "redirect": "This is not where the road ends. Which words in the clue tell you the most?",
+          "why": "The heavy doors at the north end of the road are the castle gate."
+        },
+        {
+          "text": "Lost: one grey kitten. A sheet pinned up by the southern way into the village asks everyone to search their sheds.",
+          "answer": "object:notice-board",
+          "redirect": "No signs are pinned up here. Think about what the clue's harder words mean.",
+          "redirects": {
+            "landmark:library": "This is where Hesper keeps her shelves of books. Think about what the clue's harder words mean."
+          },
+          "why": "Sheets about lost things are pinned up at the notice board, by the southern entrance."
+        }
+      ]
+    },
+    {
+      "id": "l4-chapel-mill",
+      "level": 4,
+      "clues": [
+        {
+          "text": "The tolling begins at dusk, slow and steady. Sister Wren lights a candle as the village falls silent.",
+          "answer": "landmark:chapel",
+          "redirect": "This is not where the bell rings. Read the clue again.",
+          "why": "Tolling is the slow ringing of a bell; the bell and Sister Wren are at the chapel."
+        },
+        {
+          "text": "Before the baker can knead a single loaf, golden kernels must be crushed into a fine white powder. Go where that happens.",
+          "answer": "landmark:mill",
+          "redirect": "No grain is ground into flour here. Which words in the clue tell you the most?",
+          "why": "Kernels crushed into fine white powder become flour, and flour is made at the mill."
+        }
+      ]
+    },
+    {
+      "id": "l4-well-bridge",
+      "level": 4,
+      "clues": [
+        {
+          "text": "Generations of villagers have lowered pails into the same deep shaft. Today, Old Bram is the one who tends it.",
+          "answer": "landmark:well",
+          "redirect": "Old Bram does not fill pails here. Think about what the clue's harder words mean.",
+          "redirects": {
+            "object:water-trough": "This trough is for the animals. Think about what the clue's harder words mean."
+          },
+          "why": "A deep shaft that pails are lowered into, tended by Old Bram, is the well."
+        },
+        {
+          "text": "The river once cut the village in two. Now sturdy timbers span the current, and Aldo makes sure they hold in every storm.",
+          "answer": "landmark:bridge",
+          "redirect": "This does not take you over the river. Read the clue again.",
+          "why": "Timbers that span the river and hold in every storm are the bridge, kept by Carpenter Aldo."
+        }
+      ]
+    },
+    {
+      "id": "l4-market-library",
+      "level": 4,
+      "clues": [
+        {
+          "text": "Merchants display their wares beneath striped awnings, and a crier's voice rises above the bustle.",
+          "answer": "landmark:market",
+          "redirect": "There are no stalls here. Which words in the clue tell you the most?",
+          "why": "Wares are goods for sale and awnings are cloth roofs over stalls; a crier calls out at the market."
+        },
+        {
+          "text": "Knowledge from every corner of the realm is shelved and kept safe from damp. Hesper is its guardian.",
+          "answer": "landmark:library",
+          "redirect": "There are no shelves of books here. Think about what the clue's harder words mean.",
+          "redirects": {
+            "object:notice-board": "Signs are pinned up on this. Think about what the clue's harder words mean."
+          },
+          "why": "Knowledge kept on shelves, guarded by Hesper, is the library."
+        }
+      ]
+    },
+    {
+      "id": "l4-watch-garden-gate",
+      "level": 4,
+      "clues": [
+        {
+          "text": "Raiders could creep over the hills at night. Who would spot them first? The one who keeps the lantern burning up high.",
+          "answer": "landmark:watchtower",
+          "redirect": "No lantern looks out over the hills from here. Read the clue again.",
+          "redirects": {
+            "landmark:puzzle-tower": "This tall place is full of puzzles. Read the clue again."
+          },
+          "why": "The watchtower keeps eyes on the hills and a lantern at night."
+        },
+        {
+          "text": "Ivy says a pinch of rosemary cures any dull stew. Gather some where the fragrant beds bask in the sun.",
+          "answer": "landmark:garden",
+          "redirect": "No herbs grow here. Which words in the clue tell you the most?",
+          "redirects": {
+            "object:beehives": "These hives are homes for buzzing workers. Which words in the clue tell you the most?"
+          },
+          "why": "Rosemary is an herb, and Keeper Ivy's herb beds lie in the sun in the garden."
+        },
+        {
+          "text": "The heavy portcullis rumbles up at dawn. It lets visitors into the keep from the north end of the road.",
+          "answer": "landmark:castle-gate",
+          "redirect": "This is not where the road ends. Think about what the clue's harder words mean.",
+          "why": "A portcullis guards a way in; the way into the castle at the north end of the road is the castle gate."
+        }
+      ]
+    },
+    {
+      "id": "l4-ptower-board",
+      "level": 4,
+      "clues": [
+        {
+          "text": "The day's quests are done, yet your mind still itches for a challenge. Seek the stone steps at the south-east edge.",
+          "answer": "landmark:puzzle-tower",
+          "redirect": "There are no bonus puzzles here. Read the clue again.",
+          "redirects": {
+            "landmark:watchtower": "This is Mason Gerd's lookout over the hills. Read the clue again."
+          },
+          "why": "A challenge for your mind means a puzzle, and the bonus puzzles wait in the Puzzle Tower at the south-east edge."
+        },
+        {
+          "text": "Lost goats, harvest feasts, new babies. Every announcement ends up tacked by the southern way into the village.",
+          "answer": "object:notice-board",
+          "redirect": "No signs are pinned up here. Which words in the clue tell you the most?",
+          "redirects": {
+            "landmark:library": "This is where Hesper keeps her shelves of books. Which words in the clue tell you the most?"
+          },
+          "why": "Announcements are tacked up at the notice board, beside the southern entrance."
+        }
+      ]
+    },
+    {
+      "id": "l4-trough-hives",
+      "level": 4,
+      "clues": [
+        {
+          "text": "Muddy hoofprints lead to a long wooden basin at the south edge, where the village's beasts stop to slurp.",
+          "answer": "object:water-trough",
+          "redirect": "This is not where the animals stop for a sip. Think about what the clue's harder words mean.",
+          "redirects": {
+            "landmark:well": "Old Bram fills pails for the houses here. Think about what the clue's harder words mean."
+          },
+          "why": "Hoofprints lead animals to the long wooden basin at the south edge: the water trough."
+        },
+        {
+          "text": "The colony at the south-west edge works from dawn to dusk. A careless visitor may earn a painful sting.",
+          "answer": "object:beehives",
+          "redirect": "No little wooden homes are here. Read the clue again.",
+          "redirects": {
+            "landmark:garden": "This is Keeper Ivy's place of herbs. Read the clue again."
+          },
+          "why": "A stinging colony at the south-west edge lives in the beehives."
+        }
+      ]
+    },
+    {
+      "id": "l4-cart-well-mill",
+      "level": 4,
+      "clues": [
+        {
+          "text": "A rickety wagon groans under its load of dried grass at the east edge. The farmer will need it for winter.",
+          "answer": "object:hay-cart",
+          "redirect": "There is no hay here. Which words in the clue tell you the most?",
+          "why": "Rickety means shaky; the wagon loaded with dried grass at the east edge is the hay cart."
+        },
+        {
+          "text": "Every doorstep owes its full kettle to one deep shaft and the patient old man who winds its rope.",
+          "answer": "landmark:well",
+          "redirect": "Old Bram does not fill pails here. Think about what the clue's harder words mean.",
+          "redirects": {
+            "object:water-trough": "This trough is for the animals. Think about what the clue's harder words mean."
+          },
+          "why": "A deep shaft with a rope, wound by Old Bram, fills every doorstep's kettle: the well."
+        },
+        {
+          "text": "Grist goes in one end, and fine powder for the baker comes out the other. Tessa oversees it all, her hair dusted white.",
+          "answer": "landmark:mill",
+          "redirect": "No grain is ground into flour here. Read the clue again.",
+          "why": "Grist is grain to be ground; turning it into flour for the baker happens at the mill."
+        }
+      ]
+    },
+    {
+      "id": "l4-bridge-chapel",
+      "level": 4,
+      "clues": [
+        {
+          "text": "Aldo checks each plank that arches over the fast current. Thanks to him, no traveller gets wet feet.",
+          "answer": "landmark:bridge",
+          "redirect": "This does not take you over the river. Which words in the clue tell you the most?",
+          "why": "Timbers arching over the current, kept by Carpenter Aldo, are the bridge."
+        },
+        {
+          "text": "Inside, the only sounds are soft footsteps and the creak of old pews. Above, a bell waits for Sister Wren's hand.",
+          "answer": "landmark:chapel",
+          "redirect": "This is not where the bell rings. Think about what the clue's harder words mean.",
+          "why": "Pews are long seats in a quiet place; the bell above and Sister Wren mean the chapel."
+        }
+      ]
+    },
+    {
+      "id": "l4-market-library-1",
+      "level": 4,
+      "clues": [
+        {
+          "text": "Pip's voice carries over the clatter of crates and the chatter of buyers at the stalls.",
+          "answer": "landmark:market",
+          "redirect": "There are no stalls here. Read the clue again.",
+          "why": "Buyers at stalls, with Crier Pip calling out, are at the market."
+        },
+        {
+          "text": "Hesper keeps a lamp burning low so no one squints at the pages. Every volume rests on its proper shelf.",
+          "answer": "landmark:library",
+          "redirect": "There are no shelves of books here. Which words in the clue tell you the most?",
+          "redirects": {
+            "object:notice-board": "Signs are pinned up on this. Which words in the clue tell you the most?"
+          },
+          "why": "Pages, volumes and shelves, kept by Hesper, mean the library."
+        }
+      ]
+    },
+    {
+      "id": "l4-watch-garden-trough",
+      "level": 4,
+      "clues": [
+        {
+          "text": "Gerd's post is lonely, but from up there he can see every road that winds over the hills.",
+          "answer": "landmark:watchtower",
+          "redirect": "No lantern looks out over the hills from here. Think about what the clue's harder words mean.",
+          "redirects": {
+            "landmark:puzzle-tower": "This tall place is full of puzzles. Think about what the clue's harder words mean."
+          },
+          "why": "Mason Gerd's high post with a view of the hills is the watchtower."
+        },
+        {
+          "text": "Ivy's bench catches the afternoon sun, and the air around it smells of thyme and lavender.",
+          "answer": "landmark:garden",
+          "redirect": "No herbs grow here. Read the clue again.",
+          "redirects": {
+            "object:beehives": "These hives are homes for buzzing workers. Read the clue again."
+          },
+          "why": "Thyme and lavender are herbs; Keeper Ivy's sunny bench is in the garden."
+        },
+        {
+          "text": "After a long day of hauling, the oxen plod to the south edge. A long wooden basin waits for them there.",
+          "answer": "object:water-trough",
+          "redirect": "This is not where the animals stop for a sip. Which words in the clue tell you the most?",
+          "redirects": {
+            "landmark:well": "Old Bram fills pails for the houses here. Which words in the clue tell you the most?"
+          },
+          "why": "The long wooden basin for animals at the south edge is the water trough."
+        }
+      ]
+    }
+  ]
+}
