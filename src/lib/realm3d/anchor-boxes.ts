@@ -12,9 +12,19 @@ import { ANCHOR_SPOT, type ObjectAnchorId } from "@/lib/realm/anchors";
 import { IMPROVEMENT_COLORS } from "@/lib/realm/improvements";
 import type { YardBox } from "./keep-yard-boxes";
 
-const { stone: STONE, timber: TIMBER, plaster: PLASTER, roof: ROOF, cloth: CLOTH, water: WATER } = IMPROVEMENT_COLORS;
+const { stone: STONE, timber: TIMBER, plaster: PLASTER, roof: ROOF } = IMPROVEMENT_COLORS;
 const DARK_TIMBER = "#6f4f2c";
 const STRAW = "#d8b45a";
+/** The top of a heap of hay, caught by the light. */
+const STRAW_LIGHT = "#e6c873";
+/** A trough's inside face, a shade darker than its timber. */
+const WET_TIMBER = "#76552f";
+/** Still water in a trough: blue, greyed, never the bright pool blue. */
+const TROUGH_WATER = "#7d97a8";
+/** A stake's ribbon, tied round its post: pale, so a search spot never reads as a site's post. */
+const RIBBON = "#dcebf2";
+/** A stake's sign, an open book in light parchment. */
+const PARCHMENT = "#f3e6c4";
 /** What a stake's flag and cap turn to once the clue is resolved and this was the answer: "It was here." */
 const GOLD = "#e8b84a";
 
@@ -22,16 +32,19 @@ const GOLD = "#e8b84a";
 const box = (color: string, x: number, z: number, sx: number, sz: number, y0: number, sy: number): YardBox => ({ x, y: y0 + sy / 2, z, sx, sy, sz, color });
 
 /**
- * The search stake: a stone footing, a post, a cloth flag and a cap, round the spot's centre and
- * inside `ANCHOR_SPOT.radius`. Revealed (the answer, on a miss), the flag and cap are gold; nothing
- * else about it changes.
+ * The search stake: a stone footing, a post with a pale ribbon tied round it, a parchment sign (an
+ * open book) and a cap, round the spot's centre and inside `ANCHOR_SPOT.radius`. Pale and never red,
+ * so a search spot does not read as a building site's posts from a distance (H10 look pass); it is
+ * drawn only while a walk is on, and all fourteen are alike. Revealed (the answer, on a miss), the
+ * sign and cap are gold; nothing else about it changes.
  */
 export function stakeBoxes(revealed: boolean): YardBox[] {
   const r = ANCHOR_SPOT.radius;
   return [
     box(STONE, 0, 0, 0.4, 0.4, 0, 0.12),
     box(DARK_TIMBER, 0, 0, 0.1, 0.1, 0.12, 1.18),
-    box(revealed ? GOLD : CLOTH, r * 0.34, 0, 0.24, 0.03, 0.95, 0.28),
+    box(RIBBON, 0, 0, 0.14, 0.14, 0.74, 0.08),
+    box(revealed ? GOLD : PARCHMENT, r * 0.34, 0, 0.24, 0.03, 0.95, 0.28),
     box(revealed ? GOLD : DARK_TIMBER, 0, 0, 0.16, 0.16, 1.3, 0.1),
   ];
 }
@@ -45,11 +58,19 @@ const NOTICE_BOARD: readonly YardBox[] = [
   box(PLASTER, 0.25, 0.05, 0.3, 0.02, 1.05, 0.3),
 ];
 
+/**
+ * A long open box on a low plinth: timber sides and ends to a rim, a darker inside face on its long
+ * sides, and blue-grey water a hand below the rim (H10 look pass: it read as a bench).
+ */
 const WATER_TROUGH: readonly YardBox[] = [
-  box(TIMBER, 0, 0, 1.5, 0.55, 0.25, 0.35),
-  box(WATER, 0, 0, 1.3, 0.4, 0.55, 0.04),
-  box(DARK_TIMBER, -0.55, 0, 0.12, 0.45, 0, 0.25),
-  box(DARK_TIMBER, 0.55, 0, 0.12, 0.45, 0, 0.25),
+  box(DARK_TIMBER, 0, 0, 1.56, 0.62, 0, 0.08),
+  box(TIMBER, 0, -0.27, 1.5, 0.06, 0.08, 0.54),
+  box(TIMBER, 0, 0.27, 1.5, 0.06, 0.08, 0.54),
+  box(TIMBER, -0.72, 0, 0.06, 0.48, 0.08, 0.54),
+  box(TIMBER, 0.72, 0, 0.06, 0.48, 0.08, 0.54),
+  box(WET_TIMBER, 0, -0.22, 1.38, 0.04, 0.08, 0.5),
+  box(WET_TIMBER, 0, 0.22, 1.38, 0.04, 0.08, 0.5),
+  box(TROUGH_WATER, 0, 0, 1.38, 0.4, 0.44, 0.08),
 ];
 
 const BEEHIVES: readonly YardBox[] = [
@@ -62,12 +83,16 @@ const BEEHIVES: readonly YardBox[] = [
   box(ROOF, 0.35, 0, 0.56, 0.56, 0.98, 0.1),
 ];
 
+/**
+ * A cart on two wheels (each a spoked cross, 0.7 across) with its bed, a heap of hay in two tiers and
+ * the shaft out front (H10 look pass: it read as a small brown box).
+ */
 const HAY_CART: readonly YardBox[] = [
-  box(TIMBER, 0, 0, 1.1, 1.4, 0.35, 0.3),
-  box(STRAW, 0, 0, 0.9, 1.2, 0.65, 0.55),
-  box(DARK_TIMBER, -0.58, 0, 0.1, 0.5, 0, 0.5),
-  box(DARK_TIMBER, 0.58, 0, 0.1, 0.5, 0, 0.5),
-  box(DARK_TIMBER, 0, 0.6, 0.08, 0.4, 0.35, 0.06),
+  ...[-0.7, 0.7].flatMap((x) => [box(DARK_TIMBER, x, 0, 0.08, 0.24, 0, 0.7), box(DARK_TIMBER, x, 0, 0.08, 0.7, 0.23, 0.24)]),
+  box(TIMBER, 0, 0, 1.2, 1.4, 0.4, 0.14),
+  box(STRAW, 0, -0.05, 1.1, 1.25, 0.54, 0.4),
+  box(STRAW_LIGHT, 0, -0.08, 0.8, 0.95, 0.94, 0.3),
+  box(DARK_TIMBER, 0, 0.74, 0.08, 0.12, 0.42, 0.06),
 ];
 
 const OBJECT_BOXES: Readonly<Record<ObjectAnchorId, readonly YardBox[]>> = {
