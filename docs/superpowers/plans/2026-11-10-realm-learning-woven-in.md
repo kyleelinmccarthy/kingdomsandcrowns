@@ -2743,10 +2743,10 @@ Part F's constraints still apply, plus:
 - **R-H10: a trail side quest is half the grown-up's length (planner call).**
   - The reading deeds take `questionCount: TRAIL_CLUES` (4), so `deedRunLength` gives 8 → 4, 12 → 6 and 4 → 2, only when the run draws trails. Choice keeps the whole length (RF-j's rule, unchanged).
   - *Why:* each clue is a walk across the village (20–40 s) plus a longer read. Four clues take about as long as the old eight taps. Stars on four tasks are the rule science already lives with (RF-j, accepted).
-- **R-H11: a week without repeats (planner call).**
-  - The drawer passes over trails met in the hero's last `TRAIL_MEMORY_RUNS = 7` reading side quests (`loadRecentTrailIds`). It uses them only after every other trail at every level is used.
-  - Pools hold at least 15 trails, so 7 runs at the default length (at most 2 trails each) never repeat a trail.
-  - At longer lengths, a repeat may come sooner. That is accepted.
+- **R-H11: a week without repeats (planner call; sized by RH-a / F-11).**
+  - The drawer passes over trails met in the hero's last `TRAIL_MEMORY_RUNS = 21` reading side quests (`loadRecentTrailIds`): a week of three reading side quests a day, one per reading deed. It uses them only after every other trail at every level is used.
+  - At the default length, a run uses at most 2 trails, so 21 runs use at most 42. Pools hold at least 45 trails and 100 clues, with at least 9 trails at every level, so a week of three reading side quests a day never repeats a trail. This is tested on the database path in H7.
+  - A fourth reading run a day (a Crown Challenge, or a replay), or a longer side-quest length (up to 3 trails a run at 12), may bring a repeat sooner. That is accepted.
 - **R-H12: trail pools** (`src/content/trails/trail-<band>.json`, validated, blind-passed). Each band's pool credits one skill:
 
   | Band | Pool | Skill |
@@ -2757,8 +2757,8 @@ Part F's constraints still apply, plus:
   | g68 | `trail-g68` | `read-g6` |
   | g912 | `trail-g912` | `read-g9` |
 
-  - A trail is 2–4 clues (k1: 2–3).
-  - Every clue can be answered from its own text alone. The blind sheet shuffles clues across trails to prove it.
+  - A trail is 2–4 clues (k1: 2–3). A pool holds at least 45 trails and 100 clues (R-H11).
+  - Every clue can be answered from its own text alone, and by one anchor only (RH-a / F-6). The blind sheet shuffles clues across trails to prove it.
 - **R-H13: comprehension by band (planner call: the spec's level, served through the credited skill's map line).**
   - **k1 (`read-g1`):** literal and decodable. The clue may name its place ("Go to the mill.").
   - **g23 (`read-g3`, main idea):** a 2–3 sentence note whose main idea is the place. It never names the place.
@@ -2802,6 +2802,46 @@ Part F's constraints still apply, plus:
   - A non-presented focus skill that is only due, in a run that stays a trail, is left out like any due task of another kind.
   - Length: `drawsMechanic` is then false, so the run is the grown-up's whole length (RF-j's fix: half only when the run actually draws the hands-on kind).
   - A focus skill a trail does present (`read-g4` for a grade-3 hero) leaves the run a trail.
+
+### Controller rulings (pre-flight scan, 2026-11-21; findings in `.superpowers/sdd/2026-11-10-realm-learning-woven-in/part-h-preflight.md`)
+
+**RH-a: the scan's own suggested ruling is adopted for every finding, F-1 to F-23, except where the controller gave a specific; the specific wins.** Each is folded into the tasks named.
+
+- **F-1 (controller, RH-a / F-1):** the drill blind-pass gate skips every non-drill sheet. One shared list, `NON_DRILL_SHEET_PREFIXES = ["sort-", "trail-"]` in `blind-pass.ts`, drives `poolsWithSheets()`. A test holds that drill sheets never list `trail-*` (H4).
+- **F-2 (controller, RH-a / F-2):** a sheet's per-clue code fingerprints what the reader sees (`clueCode`: pool id and the normalised text), following `itemCode`/`normLabel`. It never uses the identity hash (`opaqueClueId` is for task ids only). `carryTrailForward` keeps every unchanged answer on a re-extract and blanks an edited clue's. Both are tested (H4); H6 uses them.
+- **F-3 (controller, RH-a / F-3):** on the board and the page, a trail task speaks its second-chance line (`attemptFeedback(...).text`, "Not here." and the redirect) and its miss line through `autoSpeaks`, as the tracker does. Other kinds' speech is unchanged. Tested per surface (H8).
+- **F-4 (controller, RH-a / F-4):** building stakes start 2.2 past the drawn site's north edge, at least 2.0 and at most 3.5. H1 runs the full-village "no spot holds a stake, no stake holds a spot" check itself, so the catalog is final at H1. H9 re-runs it through `buildSpots` and adds `trail-map.test.ts` to its commands.
+- **F-5 (controller, RH-a / F-5):** H3's candidate tests use a local fixture, `{ ...findDeed("well-signs")!, mechanic: "choice" }`, and define `ALL_ON`. H7 adds the trail-mechanic cases.
+- **F-6 (controller, RH-a / F-6):**
+  - The sheet takes an anchor id, `both` (with the ids that also fit) or `?`, as the sort sheets do; `both` and `?` each flag an ambiguity.
+  - `CONFUSABLE_ANCHORS` (H1) names the overlaps: the well and the water trough, the garden and the beehives, the notice board and the library. A clue that uses a pair's shared word must carry `parts` that rule the partner out (H4's validator), and H5's authoring rule is "no clue fits two anchors".
+- **F-7 (controller, RH-a / F-7):** H4 rewrites H2's `presents` assertion under `__setTrailPoolsForTest([])`. H7 and H8 land together before any manual play or bisect run, since between them a trail run would render H2's null presenter.
+- **F-8 (controller, RH-a / F-8):** `walked` is cleared whenever the overlay leaves `interact`, by Esc, the dim, or a board's own close (one effect in `use-trail-walk.ts`, keyed on the overlay kind). Tested: Esc, then a second talk shows the normal board (H9).
+- **F-9 (controller, RH-a / F-9):** H1's spec edit also fixes three lines:
+  - §4.6's narration line ("for k1") becomes R-H17's (K always; others on request or with read-aloud);
+  - "notes in rooms" becomes "in the village";
+  - §8's slice-5 dependency on `realm_world_state` is struck (R-H19).
+- **F-10 (controller, RH-a / F-10):** H7 adds the forged-anchor list through `answerDeedQuestion`, and a resumed start's JSON checked against the stored answers.
+- **F-11 (controller, RH-a / F-11):** the no-repeats bar is tested on the database path: 7 days of three reading side quests a day, per band. The numbers are `TRAIL_MEMORY_RUNS = 21`, at least 45 trails, 100 clues and 9 trails per level (R-H11).
+- **F-12 (controller, RH-a / F-12):** one shared skill-map parser (`src/test/skill-map.ts`'s `mapRows`) and shared blind-pass helpers (`src/lib/content/sheet-kit.ts`, moved out of `sort-blind-pass.ts`). No copies (H4).
+- **F-13 (controller, RH-a / F-13):** the map's controls are real HTML `<button>`s, absolutely positioned over the map picture (an `<svg>` drawn underneath, `aria-hidden`), never inside the `<svg>`. They keep keyboard and screen-reader access and fit 390 px (H8).
+- **F-14 (controller, RH-a / F-14):** H3's Files list `skills.test.ts`'s "resolvable sources" branch and `content-review.tsx`.
+- **F-15 (controller, RH-a / F-15):** H5 commits no sheets. H6 cuts, answers and settles them (4a's F7/F8 pattern), so the gate is never red at an H5 commit. "Every pool has a sheet" is H6's test.
+- **F-16 (controller, RH-a / F-16):** grade words are matched on word boundaries, `/grades?|kindergarten/i`, so "gradually" and "upgrade" pass (H1's facts test, H4's validator).
+- **F-17 (controller, RH-a / F-17):** `TrailWalk` passes `result.reveal` on only when `isAnchorId` holds (H9).
+- **F-18 (controller, RH-a / F-18):**
+  - H2 tests that, with second chances off, a first wrong place resolves a miss with its reveal;
+  - H9 tests that E while the clue is resolved does nothing.
+- **F-19 (controller, RH-a / F-19):** H1 tests that the backdrop's plots fit the map. A building stake stands on its slot's own x (a catalog convention, not "centred" on the drawn rect).
+- **F-20 (controller, RH-a / F-20):** a clue with no `why` gets the band's generic line, `TRAIL_GENERIC_WHY[band]`, as its `explain` (H4's `trailTaskOf`), so a resolved miss never falls back to the skill hint.
+- **F-21 (controller, RH-a / F-21):**
+  - H4 implements the trail sample in `sample.ts`/`content-review.tsx`;
+  - `simulateTrailWeek` lives in `src/test/trail-week.ts`;
+  - `bandTopGrade` (`grade-levels.ts`) gives the readability ceiling;
+  - `TRAIL_MEMORY_RUNS` lives in `deed-run-store.ts`;
+  - `avoid` reaches the refill draw too.
+- **F-22 (controller, RH-a / F-22):** H5 and H6 each start red: the expected-pool list (H5), then "every pool has a sheet" (H6). H3's grade-7 `deeds-db` case is a regression guard, green before and after, and is marked so.
+- **F-23 (controller, RH-a / F-23):** the validator tests a `redirects[...]` value that names the answer.
 
 ## Global constraints for Part H
 
@@ -2862,7 +2902,7 @@ Parts F and G's constraints still apply, plus:
 
    Pinned in H2 and H9.
 
-**Execution order:** H1, H2, H3, H4, H5, then H6 and H7 side by side (H6 only reads sheets and H7 touches no content), then H8, H9, H10.
+**Execution order:** H1, H2, H3, H4, H5, then H6 and H7 side by side (H6 only touches sheets, resolutions and clue text, and H7 touches no content), then H8, H9, H10. H7 and H8 land together before any manual play or bisect run (F-7): between them, a trail run renders H2's null presenter.
 
 ## File map (Part H)
 
@@ -2875,13 +2915,15 @@ Parts F and G's constraints still apply, plus:
 | `src/lib/tasks/trail-copy.ts` | Part H's copy |
 | `src/lib/tasks/narration.ts` | `autoSpeaks`, the one rule for unprompted speech (R-H17) |
 | **New, tooling** | |
-| `src/lib/content/trail-anchor-facts.ts` | the always-true facts authors and blind readers work from |
+| `src/lib/content/trail-anchor-facts.ts` | the always-true facts authors and blind readers work from, and `CONFUSABLE_ANCHORS` |
 | `src/lib/content/trail-pools.ts`, `trail-blind-pass.ts`, `trail-blind-pass-cli.ts` | format, validator, blind pass |
+| `src/lib/content/sheet-kit.ts` | the blind-pass helpers sort and trail sheets share, moved out of `sort-blind-pass.ts` (F-12) |
+| `src/test/skill-map.ts`, `src/test/trail-week.ts` | the shared skill-map parser (F-12); the week harness (F-21) |
 | **New, server** | |
 | `src/lib/tasks/trail.ts` | `trailKind` |
 | `src/lib/tasks/trails/{index,draw,trail-pool-files}.ts` | the loader, `trailPoolFor`, `drawTrailClues` |
 | **New, content and docs** | |
-| `src/content/trails/trail-{k1,g23,g45,g68,g912}.json`; `src/content/review/trail-*.blind.md` | the pools and their sheets |
+| `src/content/trails/trail-{k1,g23,g45,g68,g912}.json` (H5); `src/content/review/trail-*.blind.md` and `trail-*.resolved.json` (H6) | the pools; their sheets and resolutions |
 | `docs/content/trail-skill-map.md` | the band → pool → skill map, read by its test |
 | **New, client** | |
 | `src/components/tasks/trail-presenter.tsx`, `trail-map.tsx`, `trail-demo.tsx`, `trail.css` | Set off, the picture run, the demo |
@@ -2889,12 +2931,13 @@ Parts F and G's constraints still apply, plus:
 | `src/components/realm3d/use-trail-walk.ts`, `trail-walk.tsx`, `trail-walk.css` | the walk's state and its tracker |
 | **Modified** | |
 | `src/lib/tasks/types.ts`, `registry.ts`, `codecs.ts`, `kinds.ts`, `draw.ts`, `demos.ts`, `lock.ts`, `client-boundary.test.ts` | the kind; `reveal`/`retryLine`; walking kinds; the run drawer; the demo key |
-| `src/lib/utils/skills.ts`, `band-skill.ts` (new), `world-lock-run.ts`, `deed-engine.ts`, `review-run.ts`, `deeds.ts`, `skill-hints.ts`, `app/dev/content/sample.ts` | trail skills, candidates, walking runs, reading deeds |
+| `src/lib/utils/skills.ts`, `band-skill.ts` (new), `world-lock-run.ts`, `deed-engine.ts`, `review-run.ts`, `deeds.ts`, `skill-hints.ts`, `grade-levels.ts`, `app/dev/content/sample.ts`, `content-review.tsx` | trail skills, candidates, walking runs, reading deeds, `bandTopGrade`, the content page's trail sample |
+| `src/lib/content/blind-pass.ts`, `sort-blind-pass.ts`, `src/content/review/README.md` | `NON_DRILL_SHEET_PREFIXES` (F-1); sort onto `sheet-kit.ts` (F-12) |
 | `src/lib/actions/deeds.ts`, `src/lib/services/deed-run-store.ts`, `src/lib/utils/deed-run-types.ts` | `resultFor`, the start's order, `loadRecentTrailIds`, `resumedStart`'s hint, `demoAt`, `RunStart.narrateClues` |
 | `src/components/deed-player.tsx` | the page's unprompted speech through `autoSpeaks` |
 | `src/lib/realm3d/talk.ts`, `interact.ts`, `hud-bus.ts` | feedback words; anchor spots; the union |
 | `src/components/tasks/presenters.tsx`, `task-demo.tsx`, `src/components/realm3d/deed-board.tsx`, `spike-scene.tsx`, `realm-game.tsx`, `src/app/(app)/settings/realm-settings-panel.tsx` | wiring |
-| `docs/content/ela-science-skill-map.md`, `src/lib/utils/skills.test.ts` | `read-g6`/`read-g9` status, and the unwritten-pool list |
+| `docs/content/ela-science-skill-map.md`, `src/lib/utils/skills.test.ts` | `read-g6`/`read-g9` status, the unwritten-pool list, the "resolvable sources" branch, and `mapRows` imported from `src/test/skill-map.ts` |
 
 ## Tasks
 
@@ -2905,7 +2948,12 @@ Parts F and G's constraints still apply, plus:
 - Create `src/lib/realm/trail-map.ts` + `trail-map.test.ts`.
 - Create `src/lib/realm3d/anchor-boxes.ts` + `anchor-boxes.test.ts`.
 - Create `src/lib/content/trail-anchor-facts.ts` (tested in `anchors.test.ts`).
-- Spec §2a: add "Calls settled for slice 5 (2026-11-21)", with the owner's answers and R-H1–R-H22, one line each. Spec §4.6: strike the `place:longwater` example and say "village only (owner, 2026-11-21)".
+- Spec §2a: add "Calls settled for slice 5 (2026-11-21)", with the owner's answers, R-H1–R-H22 and RH-a's F-1–F-23, one line each.
+- Spec §4.6:
+  - strike the `place:longwater` example and say "village only (owner, 2026-11-21)";
+  - "notes in rooms" becomes "in the village" (F-9);
+  - the narration line becomes "a Kindergarten hero always hears every clue; others hear it on request, or with read-aloud on" (F-9).
+- Spec §8: slice 5's "Depends on" loses `realm_world_state` (F-9, R-H19).
 
 **Interfaces (produces):**
 - `type AnchorId`: the 14 ids below.
@@ -2918,26 +2966,37 @@ Parts F and G's constraints still apply, plus:
 - `ANCHOR_SPOTS: readonly { id: AnchorId; label: string; x: number; z: number }[]`, a module constant with one identity.
 - `nearAnchors(id: AnchorId, within = 10): AnchorId[]`, nearest first, excluding itself.
 - `TRAIL_ANCHOR_FACTS: Readonly<Record<AnchorId, readonly string[]>>`.
+- `CONFUSABLE_ANCHORS: readonly { anchors: readonly [AnchorId, AnchorId]; shared: readonly string[] }[]` (F-6), at least these:
+
+  | anchors | shared words |
+  |---|---|
+  | `landmark:well`, `object:water-trough` | water, drink, drinks, bucket |
+  | `landmark:garden`, `object:beehives` | bee, bees, honey, flower, flowers |
+  | `object:notice-board`, `landmark:library` | note, notes, read, reading, scroll, scrolls, news |
 - `TRAIL_MAP_VIEW = { w: 360, h: number }`, with `h` fitted to the anchors' extent plus a margin.
 - `TRAIL_MAP_HIT = 20`.
 - `trailMapPoint(x: number, z: number): { x: number; y: number }`: north is up, and the scale is uniform.
-- `trailMapBackdrop(): { road: { x1: number; y1: number; x2: number; y2: number }[]; plots: { id: string; x: number; y: number; w: number; h: number }[] }`. The plots are the 8 `BUILDING_SLOTS`, the castle and the Tower; the road runs from `SPAWN` to the castle.
+- `trailMapBackdrop(): { road: { x1: number; y1: number; x2: number; y2: number }[]; plots: { id: string; x: number; y: number; w: number; h: number }[] }`.
+  - The plots are the 8 `BUILDING_SLOTS`, the castle as a fixed 8 × 4 block at its south front (the map is the village, not the compound), and the Tower's 8 × 8 plot.
+  - The road runs from `SPAWN` to the castle's block.
+  - The view's extent covers the anchors and every plot (F-19).
 - `stakeBoxes(revealed: boolean): YardBox[]`; `trailObjectBoxes(id: ObjectAnchorId): YardBox[]`.
 
 **The catalog.** The points are starting points, and the tests arbitrate.
-- A building stake starts 1.2 north of its drawn site (`drawnSite(id)`), centred: never on the front, where the villager stands.
-- If a point fails, move to the nearest passing point on a 0.25 grid, any side but the front, at most 3.5 from what it names. Record each move in the commit.
+- A building stake starts 2.2 past the north edge of its drawn site (`drawnSite(id)`), on the slot's own x: a catalog convention (F-19). It is never on the front, where the villager stands.
+  - At 2.2 a site's own E spot (half-width 2.385, reach 1.7) cannot hold it (F-4).
+- If a point fails, move to the nearest passing point on a 0.25 grid, any side but the front, at least 2.0 and at most 3.5 from the drawn site (other anchors: at most 3.5 from what they name). Record each move in the commit.
 
 | id | label | names | icon | stake (x, z) | object (x, z, ry) |
 |---|---|---|---|---|---|
-| `landmark:well` | the well | well | box | (−4.55, 5.6) | |
-| `landmark:mill` | the mill | mill | compass | (5.05, 5.1) | |
-| `landmark:bridge` | the bridge | bridge | link | (−14.55, −3.5) | |
-| `landmark:chapel` | the chapel | chapel | temple | (14.05, −14.0) | |
-| `landmark:market` | the market | market | gift | (−7.55, −7.0) | |
-| `landmark:library` | the library | library | book | (8.55, −8.5) | |
-| `landmark:watchtower` | the watchtower | watchtower, watch tower | watchtower | (−11.0, −12.7) | |
-| `landmark:garden` | the garden | garden | flower | (13.55, −2.0) | |
+| `landmark:well` | the well | well | box | (−4.5, 4.6) | |
+| `landmark:mill` | the mill | mill | compass | (5.0, 4.1) | |
+| `landmark:bridge` | the bridge | bridge | link | (−14.5, −4.5) | |
+| `landmark:chapel` | the chapel | chapel | temple | (14.0, −15.0) | |
+| `landmark:market` | the market | market | gift | (−7.5, −8.0) | |
+| `landmark:library` | the library | library | book | (8.5, −9.5) | |
+| `landmark:watchtower` | the watchtower | watchtower, watch tower | watchtower | (−11.0, −13.7) | |
+| `landmark:garden` | the garden | garden | flower | (13.5, −3.0) | |
 | `landmark:castle-gate` | the castle gate | castle gate, castle | castle | (3.2, −11.4) | |
 | `landmark:puzzle-tower` | the Puzzle Tower | puzzle tower | lock | (25.5, 18.8) | |
 | `object:notice-board` | the notice board | notice board, board | scroll | (6.5, 16.6) | (6.5, 15.5, 0) |
@@ -2965,7 +3024,7 @@ Parts F and G's constraints still apply, plus:
     - no anchor's name occurs as a whole word in another anchor's label;
     - each label contains one of its own names as a whole word, case-insensitively ("the mill" contains "mill").
   - "a stake stands by what it names":
-    - a building's stake: `0.6 <= distToRect(drawnSite(id), p) <= 3.5`, and its z is not greater than the drawn site's `z1`, so it is not on the front;
+    - a building's stake: `2.0 <= distToRect(drawnSite(id), p) <= 3.5`, and its z is not greater than the drawn site's `z1`, so it is not on the front;
     - the castle gate's stake is within 3.5 of `CASTLE_POSITION` plus `castlePlan(type).gate`, for every type in `CASTLE_TIER_IDS`;
     - the Tower's stake is within 3.5 of `rectAt(25.5, 23.5, 6, 6)`;
     - an object's stake is within 1.6 of its object.
@@ -2977,20 +3036,28 @@ Parts F and G's constraints still apply, plus:
     - it is more than 1.4 from every `VILLAGE_TRACKS` segment (`segmentDistance`).
   - "no stake stands in anything solid": each stake point lies outside every footprint grown by 0.3. The footprints are each `colliders` entry (position ± size / 2) of `buildWorldLayout({ castleType, buildings: every building complete })`, for every castle type, plus `towerColliders(() => 0)`.
   - "nearAnchors": `nearAnchors("landmark:well")` excludes the well, is sorted by distance, and every result is within 10.
-  - "facts": every anchor has 1–3 facts, each at most 120 characters. None matches `/grade|kindergarten/i`, `/\b(behind|ahead)\b/i` or `/</`.
+  - "facts": every anchor has 1–3 facts, each at most 120 characters. None matches `/\bgrades?\b|\bkindergarten\b/i` (F-16), `/\b(behind|ahead)\b/i` or `/</`.
+  - "confusable pairs" (F-6): every pair names two distinct anchors, each shared word is lower case, and at least the three pairs above are present.
+  - "no spot in the village holds a stake, and no stake holds a spot" (F-4, F-19's reach rule, so the catalog is final here). Each stake is a pseudo-spot: round, radius `ANCHOR_SPOT.radius`, reach `ANCHOR_SPOT.reach`. The other spots come from `buildSpots` (no anchors yet) with:
+    - `props` from `buildWorldLayout` with every building complete, and again with none;
+    - the castle gate for every `CASTLE_TIER_IDS` type;
+    - every lock, every riddle stone, the plans board, the lectern, every plaque at level 3 and the Tower's door;
+    - `arch: { x: ARCH.x, z: ARCH.z, halfSpan: ARCH_HALF_SPAN }` and `posts: [{ id: "village", ...VILLAGE_POST }]`.
+
+    For every pair holding a stake, `edgeDistance(a, b.x, b.z) <= a.reach` must not hold, either way. Stakes are checked against each other too.
 
   **`trail-map.test.ts`:**
   - every anchor's point lies within `[TRAIL_MAP_HIT, w − TRAIL_MAP_HIT] × [TRAIL_MAP_HIT, h − TRAIL_MAP_HIT]`;
   - every two anchors' points are at least `2 * TRAIL_MAP_HIT` (40) apart, so the buttons never overlap at 360 wide;
   - north is up: `trailMapPoint(0, -14).y < trailMapPoint(0, 15).y`;
   - `h <= 480`;
-  - the backdrop has 10 plots and one road line.
+  - the backdrop has 10 plots and one road line, and every plot lies inside `[0, w] × [0, h]` (F-19).
 
   **`anchor-boxes.test.ts`:**
   - every stake box lies inside `ANCHOR_SPOT.radius` and stands at most 1.6 tall;
   - `stakeBoxes(true)` differs from `stakeBoxes(false)` only in colour, to the gold `#e8b84a`;
   - every object has 2–8 boxes, each inside a 1.6 × 1.6 footprint, at most 2.2 tall.
-- [ ] **Step 2:** `npx vitest run src/lib/realm/anchors.test.ts src/lib/realm/trail-map.test.ts src/lib/realm3d/anchor-boxes.test.ts --maxWorkers=2`. Expected: FAIL, "Cannot find module".
+- [ ] **Step 2:** `npx vitest run src/lib/realm/anchors.test.ts src/lib/realm/trail-map.test.ts src/lib/realm3d/anchor-boxes.test.ts --maxWorkers=2`. Expected: FAIL, "Cannot find module". (`anchors.test.ts` imports `buildSpots` and `edgeDistance` from the pure `interact.ts`; no `three`.)
 - [ ] **Step 3: Implement.** Move any failing point as described above. If `trail-map.test`'s spacing fails, prefer moving an object, never a building's stake.
 - [ ] **Step 4:** the same command, then `npx tsc --noEmit`. Expected: PASS, 0 errors.
 - [ ] **Step 5: Commit.** `feat(realm): fourteen places in the village a clue can lead to`.
@@ -3020,7 +3087,8 @@ Parts F and G's constraints still apply, plus:
   - `resultFor` sets `reveal` through `def.reveal` and drops `question.kind === "lock"`;
   - its open branch uses `secondChanceHint(question, firstPick)`.
 - **`services/deed-run-store.ts`:** `resumedStart`'s `pending.hint` uses `secondChanceHint(questions[at], attempts[at].first)`.
-- **`skill-hints.ts`:** `taskHint` gives `GENERIC_TRAIL_HINT` for a trail task.
+- **`skill-hints.ts`:** `taskHint` gives `GENERIC_TRAIL_HINT` for a trail task, pinned in `skill-hints.test.ts`.
+- **`components/tasks/presenters.tsx`:** the `trail` stub (Step 3).
 - **`talk.ts`:** `attemptFeedback`:
   - a `wrong_place` second chance leads with `TRAIL_RETRY_LEAD`;
   - a resolved trail miss is a sentence (`result.answer` as is), like a lock's.
@@ -3090,7 +3158,8 @@ Parts F and G's constraints still apply, plus:
   **`deeds-db.test.ts`** (with a stub trail run inserted by SQL):
   - "a trail's first wrong place is a second chance with that place's redirect": the result is `{ correct: false, secondChance: true, hint: "That is where water is drawn.", feedback: "wrong_place", firstPick: "landmark:well" }`, with no `answer` and no `reveal`.
   - "the same place again is refused": `retryDeedQuestion(…, "landmark:well")` rejects `TRY_DIFFERENT`, and `second_tries` is unchanged (Review Focus 5).
-  - "the second wrong place reveals the answer": `{ correct: false, secondChance: false, answer: "It was the mill.", reveal: "landmark:mill" }`.
+  - "the second wrong place reveals the answer": the result `toMatchObject`s `{ correct: false, secondChance: false, answer: "It was the mill.", reveal: "landmark:mill" }`.
+  - "with second chances off, the first wrong place is a miss with its reveal" (F-18): on a run with `second_chances = 0`, `answerDeedQuestion(…, "landmark:well")` `toMatchObject`s `{ correct: false, secondChance: false, answer: "It was the mill.", reveal: "landmark:mill" }`.
   - "a lock's reveal is unchanged": the existing lock reveal test stays green.
   - "a resumed open second chance carries the redirect": `startDeedRun` on the open run gives `pending.hint === "That is where water is drawn."`.
   - "a forged anchor writes nothing": `answerDeedQuestion(run, 0, "toString")` rejects `PICK_SHOWN`; `responses` is unchanged and there is no `skill_mastery` row.
@@ -3100,9 +3169,9 @@ Parts F and G's constraints still apply, plus:
   - a trail miss with `answer: "It was the mill."` and `explain: "Flour is ground at the mill."` gives `"It was the mill. Flour is ground at the mill."`.
 
   **`realm-settings-panel.test.tsx`:** the switch "Reading trails" with its hint, on by default. **`realm-settings.test.ts`:** a stored `{"measure":true,"lock":true}` reads `trail: true`.
-- [ ] **Step 2:** `npx vitest run src/lib/tasks/trail.test.ts src/lib/tasks/registry.test.ts src/lib/tasks/client-boundary.test.ts src/lib/actions/deeds-db.test.ts src/lib/realm3d/talk.test.ts src/lib/utils/realm-settings.test.ts "src/app/(app)/settings/realm-settings-panel.test.tsx" --maxWorkers=2`. Expected: FAIL.
+- [ ] **Step 2:** `npx vitest run src/lib/tasks/trail.test.ts src/lib/tasks/registry.test.ts src/lib/tasks/client-boundary.test.ts src/lib/actions/deeds-db.test.ts src/lib/realm3d/talk.test.ts src/lib/utils/skill-hints.test.ts src/lib/utils/realm-settings.test.ts "src/app/(app)/settings/realm-settings-panel.test.tsx" --maxWorkers=2`. Expected: FAIL.
 - [ ] **Step 3: Implement to the interfaces.**
-  - `TASK_PRESENTERS.trail` is a stub that renders `null` until H8. It is unreachable while `presents` is empty.
+  - `TASK_PRESENTERS.trail` is a stub that renders `null` until H8 (F-7: H7 and H8 land together).
   - `demoKeyOf` returns `null` for trail until H8.
 - [ ] **Step 4:** the same command, plus `src/lib/tasks/lock.test.ts src/lib/actions/world-locks-db.test.ts`, then `npx tsc --noEmit`. Expected: PASS, 0 errors.
 - [ ] **Step 5: Commit.** `feat(tasks): the trail kind — a clue answered by a place, with a gentle redirect and the place shown after a miss`.
@@ -3125,7 +3194,8 @@ Parts F and G's constraints still apply, plus:
   - `loadRealmSettings` moves into the first `Promise.all` (no extra round trip);
   - `enabledKinds` is computed before `runCandidates`, which receives it.
 - **`review-run.ts:37`:** `skill && choiceDrawable(skill)`.
-- **`app/dev/content/sample.ts`:** a trail-source skill samples "trail pool (see H4)", with no throw.
+- **`app/dev/content/sample.ts` and `src/app/dev/content/content-review.tsx` (F-14):** a trail-source skill gives `{ skill, kind: "trail" }` and the page shows "No sample yet", with no throw. H4 replaces it with a sampled clue (F-21).
+- **`skills.test.ts` (F-14):** the "has unique ids and resolvable sources" test reads `source.poolId` only for a `pool` source, and accepts `trail`.
 - **`skill-hints.ts`:** hints for the two rows, following the hint rules.
 - **Docs:**
   - `docs/content/ela-science-skill-map.md`: the `read-g6` and `read-g9` Status becomes "new — played as reading trails; no multiple-choice pool yet";
@@ -3150,8 +3220,8 @@ Parts F and G's constraints still apply, plus:
 
   **`world-lock-run.test.ts`:** unchanged and green (RG-o's cases).
 
-  **`deed-engine.test.ts`:**
-  - "reading stays multiple choice where trails cannot play": for every grade 6–12, `runCandidates(readingDeed, g, [], ALL_ON).map(id)` is `["read-g4"]`;
+  **`deed-engine.test.ts`** (F-5): define `const ALL_ON = new Set(HANDS_ON_KINDS)` and a local fixture `const choiceReading = { ...findDeed("well-signs")!, mechanic: "choice" as const }`, so H7's flip of the real deed leaves these cases alone:
+  - "reading stays multiple choice where trails cannot play": for every grade 6–12, `runCandidates(choiceReading, g, [], ALL_ON).map(id)` is `["read-g4"]`;
   - K gives `["sight-k1"]` and 2 gives `["sight-g23"]` (Review Focus 3);
   - "math, science and language candidates are unchanged at every grade": `runCandidates(d, g, [], ALL_ON)` equals `chooseSkills(d, g)` for one deed of each area and every grade;
   - "a choice draw of a trail skill is empty, never a throw": `drawForSkill(read-g6, 0, 4, rng, [], new Set(), new Set())` is `[]`;
@@ -3159,7 +3229,7 @@ Parts F and G's constraints still apply, plus:
 
   **`review-run.test.ts`:** a hero with a `read-g6` mastery row is never offered it as review.
 
-  **`deeds-db.test.ts`:** "a grade-7 reading side quest is `read-g4` multiple choice, eight questions" (red before the filter: `NONE_READY`).
+  **`deeds-db.test.ts`:** "a grade-7 reading side quest is `read-g4` multiple choice, eight questions". This is a regression guard (F-22): green before the change, and it must stay green once the rows land (without the filter it would give `NONE_READY`). Check it by adding the rows first, watching it fail, then adding the filter.
 - [ ] **Step 2:** `npx vitest run src/lib/utils/skills.test.ts src/lib/utils/band-skill.test.ts src/lib/utils/world-lock-run.test.ts src/lib/utils/deed-engine.test.ts src/lib/utils/review-run.test.ts src/lib/actions/deeds-db.test.ts --maxWorkers=2`. Expected: FAIL.
 - [ ] **Step 3:** implement.
 - [ ] **Step 4:** the same command, plus `src/lib/utils/focus.test.ts src/lib/utils/deeds.test.ts`, then `npx tsc --noEmit`. Expected: PASS.
@@ -3168,20 +3238,39 @@ Parts F and G's constraints still apply, plus:
 ### Task H4: Trail pools — format, validator, blind pass, drawer
 
 **Files:**
-- Create `src/lib/content/trail-pools.ts` + `trail-pools.test.ts`.
-- Create `src/lib/content/trail-blind-pass.ts` + `trail-blind-pass-cli.ts` + `trail-blind-pass.test.ts`. These mirror `sort-blind-pass.ts`: the same `resolved.json` verdicts and `src/content/review/` paths. Add a "Trail pools" section to `src/content/review/README.md`.
-- Create `src/lib/tasks/trails/{index,draw,trail-pool-files}.ts` + `draw.test.ts`. `trail-pool-files.ts` starts as `[]`, with the "ADDING A POOL" comment of `sort-pool-files.ts`.
-- `draw.ts`: `TASK_RUN_DRAWERS.trail = drawTrailClues`; `TASK_DRAWERS.trail` gives `drawTrailClues(skill, level, 1, rng, ∅, ∅)[0] ?? null`.
-- `deed-engine.ts` `drawByKind(kind, skill, level, count, rng, exclude, avoid = ∅)`: `runDrawerFor(kind)`, when present, returns its draw before the per-task loop, so the measure and sort paths are untouched. `drawForSkill` gains a trailing `avoid?: ReadonlySet<string>`.
-- Create `docs/content/trail-skill-map.md`: one table under `## Reading`, with `| Grade | Skill id | Pool | Comprehension | Status |` and the five rows of R-H12/R-H13. `trail-pools.test.ts` reads it with the same row rules as `skills.test.ts`'s `mapRows` (copy the 12-line parser; do not import a test file).
-- Create `src/lib/utils/trails-content.test.ts`:
-  - `EXPECTED_TRAIL_POOLS = []`; H5 fills it;
+- **Create:**
+  - `src/lib/content/trail-pools.ts` + `trail-pools.test.ts`;
+  - `src/lib/content/trail-blind-pass.ts` + `trail-blind-pass-cli.ts` + `trail-blind-pass.test.ts`;
+  - `src/lib/tasks/trails/{index,draw,trail-pool-files}.ts` + `draw.test.ts`. `trail-pool-files.ts` starts as `[]`, with the "ADDING A POOL" comment of `sort-pool-files.ts`.
+- **Shared blind-pass helpers (F-12).** Create `src/lib/content/sheet-kit.ts` from the format-independent parts of `sort-blind-pass.ts`, moved and not copied:
+  - reading an `Answer:` line by its `#code`, including the `both` and `?` words;
+  - carrying answers forward by code (`carryForwardByCode`);
+  - looking up a resolution;
+  - the flag list of a report.
+
+  `sort-blind-pass.ts` uses them, and its tests stay green unchanged. `trail-blind-pass.ts` uses them too.
+- **`blind-pass.ts` (F-1):** `NON_DRILL_SHEET_PREFIXES = ["sort-", "trail-"] as const` is the one list `poolsWithSheets()` excludes. `sort-pools.ts`'s `SORT_POOL_PREFIX` and `trail-pools.ts`'s `TRAIL_POOL_PREFIX` must each be in it (tested). Add a "Trail pools" section to `src/content/review/README.md`.
+- **Shared map parser (F-12):** create `src/test/skill-map.ts` with `mapRows(file)` and `MapRow`, moved from `skills.test.ts`. `skills.test.ts` imports it, unchanged in behaviour, and so does `trail-pools.test.ts`.
+- **`draw.ts`:** `TASK_RUN_DRAWERS.trail = drawTrailClues`; `TASK_DRAWERS.trail` gives `drawTrailClues(skill, level, 1, rng, ∅, ∅)[0] ?? null`.
+- **`deed-engine.ts`:**
+  - `drawByKind(kind, skill, level, count, rng, exclude, avoid = ∅)`: `runDrawerFor(kind)`, when present, returns its draw before the per-task loop, so the measure and sort paths are untouched;
+  - `drawForSkill` gains a trailing `avoid?: ReadonlySet<string>`;
+  - `buildDeedRun` passes the same `avoid` to its fresh, due and refill draws (F-21).
+- **`grade-levels.ts`:** `bandTopGrade(band: ContentBand): Grade`: `"1"`, `"3"`, `"5"`, `"8"`, `"12"` (F-21).
+- **`trail-copy.ts`:** `TRAIL_GENERIC_WHY` (F-20).
+- **`app/dev/content/sample.ts` and `content-review.tsx`:** a trail-source skill samples one clue from its pool through `trailPoolFor`, and shows nothing when there is none. This replaces H3's placeholder (F-21).
+- **`trail.test.ts` (F-7):** H2's `presents("read-g3") === false` becomes `__setTrailPoolsForTest([])` followed by that assertion, and the stub presenter's "unreachable" comment is deleted.
+- **Create `src/test/trail-week.ts` (F-21):** `simulateTrailWeek`, a test harness kept out of production code.
+- **Create `docs/content/trail-skill-map.md`:** one table under `## Reading`, with `| Grade | Skill id | Pool | Comprehension | Status |` and the five rows of R-H12/R-H13. `trail-pools.test.ts` reads it with the shared `mapRows`.
+- **Create `src/lib/utils/trails-content.test.ts`:**
+  - `EXPECTED_TRAIL_POOLS = []` (H5 fills it);
   - the folder and `TRAIL_POOL_FILES` must agree;
-  - every pool passes the validator;
-  - every pool has a sheet.
+  - every pool passes the validator.
+
+  The "every pool has a sheet" check is H6's (F-15).
 
 **Interfaces:**
-- **Consumes:** H1's catalog and facts; H2's `TrailTask`, `RunDrawer` and `runDrawerFor`.
+- **Consumes:** H1's catalog, facts and `CONFUSABLE_ANCHORS`; H2's `TrailTask`, `RunDrawer` and `runDrawerFor`.
 - **Produces:**
 
   ```ts
@@ -3194,28 +3283,50 @@ Parts F and G's constraints still apply, plus:
   export type TrailPool = { poolId: string; skillId: string; band: ContentBand; trails: Trail[] };
   ```
 
+  - `TRAIL_POOL_PREFIX = "trail-"`.
   - `TRAIL_SKILLS: Readonly<Record<ContentBand, string>> = { k1: "read-g1", g23: "read-g3", g45: "read-g4", g68: "read-g6", g912: "read-g9" }`.
+  - `MIN_TRAILS = 45`, `MIN_CLUES = 100`, `MIN_TRAILS_PER_LEVEL = 9` (R-H11, F-11).
   - `validateTrailPool(raw: unknown): Problem[]`; `formatTrailProblems(problems): string`.
-  - `opaqueClueId(poolId: string, trailId: string, index: number): string`: `hash32(\`${poolId}/${trailId}/${index}\`)` as 8 hex characters.
+  - `opaqueClueId(poolId: string, trailId: string, index: number): string`: `hash32(\`${poolId}/${trailId}/${index}\`)` as 8 hex characters. It is used for task ids only, never on a sheet.
+  - `clueCode(poolId: string, clue: Pick<TrailClue, "text">): string` (F-2). It fingerprints what the reader was shown: `hash32([poolId, normLabel(clue.text)].join("\u0000"))` as 8 hex characters. `itemCode`'s pattern: it is not the identity hash, and it does not cover the key.
   - `trailKey(poolId: string, trailId: string): string`: `"<poolId>/<trailId>"`.
   - `loadTrailPools(raws: readonly unknown[], strict = NODE_ENV === "test"): TrailPool[]`: a pool that fails is skipped, and in strict mode it throws.
   - `__setTrailPoolsForTest(raws: readonly unknown[] | null): void`.
   - `trailPoolFor(skillId: string): TrailPool | undefined`.
   - `drawTrailClues(skill: Skill, level: number, count: number, rng: Rng, exclude: ReadonlySet<string>, avoid: ReadonlySet<string>): TrailTask[]`.
-  - `trailTaskOf(pool: TrailPool, trail: Trail, index: number): TrailTask`. The id is `\`${pool.skillId}:trail:${opaqueClueId(…)}\``, `prompt = clue.text`, `explain = clue.why`, and `trail = trailKey(…)`.
-  - `simulateTrailWeek(pool: TrailPool, level: number, seed: number, perRun: number, days = 7): string[][]`: the trail keys of each day's draw, each day avoiding every earlier day's keys. This is a test harness, exported from `draw.ts`.
+  - `trailTaskOf(pool: TrailPool, trail: Trail, index: number): TrailTask`:
+    - the id is `\`${pool.skillId}:trail:${opaqueClueId(…)}\``;
+    - `prompt = clue.text`;
+    - `explain = clue.why ?? TRAIL_GENERIC_WHY[pool.band]` (F-20);
+    - `trail = trailKey(…)`.
+  - `TRAIL_GENERIC_WHY: Readonly<Record<ContentBand, string>>`, exact copy:
+
+    | Band | Line |
+    |---|---|
+    | k1 | "The clue names the place. Read each word slowly." |
+    | g23 | "The clue is mostly about one place. That place is the answer." |
+    | g45 | "Look for what the clue hints at, and the words that point to it." |
+    | g68 | "Put the clue's facts together: only one place fits them all." |
+    | g912 | "Read the clue's words closely: they say more than they seem to." |
+  - `simulateTrailWeek(pool: TrailPool, level: number, seed: number, perRun: number, runs = 21): string[][]` (`src/test/trail-week.ts`): the trail keys of each run's draw, each run avoiding every earlier run's keys.
   - Blind pass:
-    - `extractTrailSheet(pool)`, `renderTrailSheet(sheet)`, `parseTrailSheet(md)`, `compareTrailSheet(pool, answers, resolutions)`, `formatTrailReport(r)`;
+    - `extractTrailSheet(pool)`, `renderTrailSheet(sheet)`, `parseTrailSheet(md)`;
+    - `compareTrailSheet(pool, answers, resolutions)`, `formatTrailReport(r)`;
+    - `carryTrailForward(next: string, existing: string): string` (F-2): a re-extracted sheet keeps every answer whose code is unchanged and leaves an edited clue's answer blank;
     - `runTrailPool(poolId)`, `writeTrailSheet(pool, force)`, `allTrailPoolIds()`, `trailPoolsWithSheets()`.
+  - `NON_DRILL_SHEET_PREFIXES` (`blind-pass.ts`).
+  - `mapRows(file: string): MapRow[]` (`src/test/skill-map.ts`).
+  - `bandTopGrade(band: ContentBand): Grade`.
 
 **The validator** (rule ids in `TRAIL_POOL_RULES`):
 - **Shape and identity:**
-  - `poolId === "trail-" + band`, with `band` in `CONTENT_BANDS`;
+  - `poolId === TRAIL_POOL_PREFIX + band`, with `band` in `CONTENT_BANDS`;
   - `skillId === TRAIL_SKILLS[band]`, and `findSkill(skillId)` exists.
-  - Trail ids are unique and match `[a-z0-9-]{3,40}`. No two clue ids collide (`opaqueClueId`).
-- **Size:**
-  - at least 15 trails and at least 36 clues;
-  - every level 0–4 has at least 3 trails;
+  - Trail ids are unique and match `[a-z0-9-]{3,40}`.
+  - No two clue ids collide (`opaqueClueId`), and no two clues share normalised text, so `clueCode`s are unique.
+- **Size (F-11):**
+  - at least `MIN_TRAILS` (45) trails and `MIN_CLUES` (100) clues;
+  - every level 0–4 has at least `MIN_TRAILS_PER_LEVEL` (9) trails;
   - a trail has 2–4 clues (k1: 2–3), and no trail sends the hero to one anchor twice.
 - **Anchors:** every `answer`, every `redirects` key and every `parts` entry is an anchor id (`isAnchorId`). No `redirects` key is the answer.
 - **Lengths:**
@@ -3229,15 +3340,16 @@ Parts F and G's constraints still apply, plus:
   | g912 | 320 characters |
 
   - A redirect is at most 140 characters; `why` at most 200.
-  - At 12 words or more, readability is at most the band's top grade plus `READABILITY_MAX_ABOVE` (`fleschKincaidGrade`).
+  - At 12 words or more, `fleschKincaidGrade(text)` is at most `gradeIndex(bandTopGrade(band)) + READABILITY_MAX_ABOVE`.
 - **Never naming the answer.**
-  - No redirect, at any band, contains a name of its clue's answer as a whole word, case-insensitively.
+  - No redirect, whether the generic `redirect` or a `redirects` value, contains a name of its clue's answer as a whole word, case-insensitively, at any band.
   - From g23 up, neither the text nor `readAloud` does.
+- **One place only (F-6).** For each `CONFUSABLE_ANCHORS` entry `{ anchors: [a, b], shared }`: a clue whose answer is `a` or `b`, and whose text or `readAloud` holds a `shared` word as a whole word, must carry `parts`. At least one part must list the other anchor, so the intersection rule below proves the clue rules it out. That rule applies at every band, and the k1 and g23 author meets it by not using the shared word.
 - **By band:**
   - k1: every clue has `readAloud`;
   - g45 and up: every clue has `why`;
   - g68 and up: every clue has `parts`, at least 2 of them. Each part lists at least 2 anchors, and the intersection of the parts is exactly `[answer]`.
-- **Words:** no field matches `/grade|kindergarten/i` or `/\b(behind|ahead)\b/i`, and none contains `<`, a backtick or a control character.
+- **Words (F-16):** no field matches `/\bgrades?\b|\bkindergarten\b/i` or `/\b(behind|ahead)\b/i`, and none contains `<`, a backtick or a control character. "Gradually" and "upgrade" pass.
 
 **The drawer:**
 1. The candidates are the pool's trails with no clue id in `exclude`.
@@ -3248,31 +3360,44 @@ Parts F and G's constraints still apply, plus:
    - far and in `avoid`.
 3. Whole trails are taken while they fit in `count`; a trail that does not fit is passed over.
 4. Then the leading clues of the next untaken trail fill what is left.
-5. Clues come back in trail order, never more than `count`.
+5. Clues come back in trail order, never more than `count`. At `count` 4, a run uses at most 2 trails.
 
 **The sheet:**
-- First the anchor list: id, label, the facts, and "near" from `nearAnchors`.
-- Then every clue across the pool, shuffled by a fixed seed, numbered with a code (`opaqueClueId`), with its text only.
-- The reader writes one anchor id per code, or `?` with a note. `compare` must reach 100% once resolutions are applied.
+- **The header:**
+  - the anchor list: id, label, the facts, and "near" from `nearAnchors`;
+  - the `CONFUSABLE_ANCHORS` pairs, named as places "a clue must tell apart".
+- **The clues:** every clue across the pool, shuffled by a seed derived from the pool id, each with its `#clueCode` and its text. It never shows a trail id, a clue's trail, or its neighbours.
+- **The answer line**, in the sort sheets' words (F-6):
+  - an anchor id;
+  - `both`, followed by the ids that also fit ("more than one place fits": it flags an ambiguity);
+  - `?` ("no place fits": it flags too).
+- **Compare:** it reports every disagreement, every `both` and `?`, every unanswered code and every stale code. It must reach 100% once resolutions are applied.
 
 - [ ] **Step 1: Write the failing tests.**
 
-  **`trail-pools.test.ts`:** each rule on a fixture, with one valid pool and one mutation per rule. These include:
+  **`trail-pools.test.ts`**, each rule on a fixture, with one valid pool and one mutation per rule. These include:
   - a g23 clue "Go to the mill." fails `names-answer`, and a k1 one passes;
-  - a redirect "Not the mill." fails at k1;
+  - a generic redirect "Not the mill." fails at k1, and so does a `redirects["landmark:well"]` value "The mill is the one." (F-23);
   - g68 parts `[["landmark:mill","landmark:well"],["landmark:mill","landmark:garden"]]` pass, and `[["landmark:mill"],…]` fails `part-too-narrow`;
+  - a g45 clue answering `object:water-trough` with "Find where the animals drink water." and no `parts` fails `confusable`; the same clue with parts ruling out the well passes (F-6);
+  - "a gradual climb" and "the upgrade" pass, while "a grade" and "kindergarten" fail (F-16);
+  - two clues with the same text differing only in case fail `duplicate-text`;
   - an unknown anchor fails;
-  - 14 trails fail `pool-size`;
-  - a level with 2 trails fails;
-  - the map file parses to the 5 rows of `TRAIL_SKILLS`.
+  - 44 trails fail `pool-size`, and a level with 8 trails fails;
+  - the map file parses (shared `mapRows`) to the 5 rows of `TRAIL_SKILLS`;
+  - `NON_DRILL_SHEET_PREFIXES` contains `SORT_POOL_PREFIX` and `TRAIL_POOL_PREFIX`.
 
   **`trail-blind-pass.test.ts`:**
   - the sheet round-trips;
-  - it holds no answer: the rendered sheet contains no `answer` value outside the anchor list header;
-  - `compare` flags a disagreement and accepts a resolution;
-  - "compare passes every sheet on disk" (vacuous until H5).
+  - it holds no key: no clue's `answer` appears on any clue line, and no trail id appears anywhere in the sheet;
+  - "a code follows the text, not the place in the pool" (F-2): moving a clue to another trail keeps its `clueCode`, and editing its text changes it;
+  - "re-extracting keeps every unchanged answer and blanks an edited clue's" (F-2): `carryTrailForward(nextSheet, answeredSheet)` keeps the answers of unchanged codes and leaves the edited clue's `Answer:` empty;
+  - `compare` flags a disagreement, a `both` with its ids, a `?` and a stale code, and accepts a resolution;
+  - "compare passes every sheet on disk" (vacuous until H6).
 
-  **`draw.test.ts`**, with a fixture pool through `__setTrailPoolsForTest`:
+  **`blind-pass.test.ts` (F-1):** `poolsWithSheets()` never lists a `trail-*` or `sort-*` sheet, given a temp review dir holding `trail-k1.blind.md`, `sort-science-k1.blind.md` and a drill sheet; it lists the drill sheet only.
+
+  **`draw.test.ts`**, with fixture pools through `__setTrailPoolsForTest`:
   - deterministic per seed;
   - whole trails in order (clue indices ascending, trails contiguous);
   - never more than `count`;
@@ -3280,13 +3405,19 @@ Parts F and G's constraints still apply, plus:
   - `exclude` drops a whole trail;
   - `avoid` is used only after the rest is exhausted;
   - ids are opaque: they contain no anchor id and no trail id;
-  - `presents("read-g3")` is true only while the fixture credits it;
-  - `simulateTrailWeek(fixture15, level, seed, 4)` meets no trail key twice, for levels 0–4 and 20 seeds.
+  - `explain` is the clue's `why`, else `TRAIL_GENERIC_WHY[band]` (F-20);
+  - `presents("read-g3")` is true only while the fixture credits it, and `__setTrailPoolsForTest([])` makes it false;
+  - `simulateTrailWeek(fixture45, level, seed, 4)` (21 runs) meets no trail key twice, for levels 0–4 and 20 seeds.
 
-  **`trail-run` in `deed-engine.test.ts`:** a stub mechanic-trail deed with the fixture pool draws 4 clues of kind `"trail"`. A recorded measure run and a recorded science sort run are unchanged (drawByKind's other paths).
-- [ ] **Step 2:** `npx vitest run src/lib/content/trail-pools.test.ts src/lib/content/trail-blind-pass.test.ts src/lib/tasks/trails/draw.test.ts src/lib/utils/trails-content.test.ts src/lib/utils/deed-engine.test.ts src/lib/tasks/client-boundary.test.ts --maxWorkers=2`. Expected: FAIL.
+  **`deed-engine.test.ts`:**
+  - "trail-run": a stub mechanic-trail deed with the fixture pool draws 4 clues of kind `"trail"`;
+  - a recorded measure run and a recorded science sort run are unchanged (drawByKind's other paths);
+  - "the refill passes avoid": with every near trail avoided and a thin near level, the refill draws no avoided trail while others remain.
+
+  **`skills.test.ts`:** green, through the shared `mapRows`.
+- [ ] **Step 2:** `npx vitest run src/lib/content/trail-pools.test.ts src/lib/content/trail-blind-pass.test.ts src/lib/content/blind-pass.test.ts src/lib/content/sort-blind-pass.test.ts src/lib/tasks/trails/draw.test.ts src/lib/tasks/trail.test.ts src/lib/utils/trails-content.test.ts src/lib/utils/deed-engine.test.ts src/lib/utils/skills.test.ts src/lib/tasks/client-boundary.test.ts --maxWorkers=2`. Expected: FAIL.
 - [ ] **Step 3:** implement.
-- [ ] **Step 4:** the same command, then `npx tsc --noEmit`. Expected: PASS.
+- [ ] **Step 4:** the same command, plus `src/lib/utils/sorts-content.test.ts`, then `npx tsc --noEmit`. Expected: PASS, sort tooling unchanged.
 - [ ] **Step 5: Commit.** `feat(content): trail pools — a format, a validator, a blind pass and a drawer that walks whole trails`.
 
 ### Task H5: Trail content
@@ -3294,12 +3425,16 @@ Parts F and G's constraints still apply, plus:
 **Files:**
 - `src/content/trails/trail-{k1,g23,g45,g68,g912}.json`;
 - `trail-pool-files.ts` (five imports);
-- `trails-content.test.ts`: `EXPECTED_TRAIL_POOLS` lists the five, and "a week without repeats" runs per pool.
+- `trails-content.test.ts`: `EXPECTED_TRAIL_POOLS`, a week without repeats and the spread test.
+
+**H5 commits no sheets (F-15).** H6 cuts, answers and settles them, as 4a's F7 and F8 did, so the blind gate is never red at an H5 commit.
 
 **Work from:**
-- `TRAIL_ANCHOR_FACTS` and `nearAnchors` only. A clue may say only what those make true for every child.
+- `TRAIL_ANCHOR_FACTS`, `nearAnchors` and `CONFUSABLE_ANCHORS` only. A clue may say only what those make true for every child.
+- **One place only (F-6):** no clue may fit two anchors. Where a clue's answer has a confusable partner (the well and the water trough; the garden and the beehives; the notice board and the library), the clue either avoids the shared words, or (g68 and up) carries `parts` that rule the partner out. The validator holds the second case.
 - R-H13 for each band's kind of reading.
-- At least 15 trails and 36 clues per band, every level 0–4 with at least 3 trails. Spread the answers over all 14 anchors: no anchor is the answer of more than 15% of a pool's clues.
+- **Size (F-11):** at least 45 trails and 100 clues per band, every level 0–4 with at least 9 trails. Spread the answers over all 14 anchors: no anchor is the answer of more than 15% of a pool's clues, and every anchor is the answer of at least one.
+- **Commits:** a band at a time is allowed, each commit green.
 
 **One model per band** (the author checks each against the facts):
 - **k1, level 0:**
@@ -3319,19 +3454,25 @@ Parts F and G's constraints still apply, plus:
   - why: "An iron tongue that scolds the village awake is a bell, and the quiet house that holds it is the chapel."
 
 **Steps:**
-- [ ] All five pools pass `validateTrailPool`.
-- [ ] `simulateTrailWeek(pool, level, seed, 4)` meets no trail twice, for every pool, level 0–4 and seeds 1–20.
-- [ ] "Answers are spread": in `trails-content.test.ts`, no anchor is the answer of more than 15% of a pool's clues, and every anchor is the answer of at least one clue per pool.
-- [ ] `npx vitest run src/lib/utils/trails-content.test.ts src/lib/content/trail-pools.test.ts src/lib/tasks/trails/draw.test.ts --maxWorkers=2`. Expected: PASS.
-- [ ] Extract the sheets: `npx tsx src/lib/content/trail-blind-pass-cli.ts extract --all`. Commit the sheets unanswered.
-- [ ] **Commit.** `content(trails): reading trails through the village for every band`.
+- [ ] **Step 1 (red first, F-22):** set `EXPECTED_TRAIL_POOLS` to the band's pool id (or all five), with the "week" and "spread" tests:
+  - "a week without repeats": `simulateTrailWeek(pool, level, seed, 4)` over 21 runs meets no trail twice, for level 0–4 and seeds 1–20;
+  - "answers are spread": no anchor answers more than 15% of a pool's clues, and every anchor answers at least one.
+
+  Run `npx vitest run src/lib/utils/trails-content.test.ts --maxWorkers=2`. Expected: FAIL, the folder lacks the pool.
+- [ ] **Step 2:** author the pool(s), and add the imports to `trail-pool-files.ts`.
+- [ ] **Step 3:** `npx vitest run src/lib/utils/trails-content.test.ts src/lib/content/trail-pools.test.ts src/lib/tasks/trails/draw.test.ts --maxWorkers=2`. Expected: PASS.
+- [ ] **Step 4: Commit** (per band, or once). `content(trails): reading trails through the village for every band`.
 
 ### Task H6: Trail blind pass (a different agent from H5's author, who never opens `src/content/trails/` or H5's report)
 
-- [ ] Answer every `src/content/review/trail-*.blind.md` from the sheet alone.
-- [ ] Run `compare --all`. The author (or the controller) resolves each flag in `trail-<band>.resolved.json`, or edits the clue and re-extracts that sheet with `--force`. The reader then re-answers only the changed codes.
-- [ ] Gate: `npx vitest run src/lib/content/trail-blind-pass.test.ts --maxWorkers=2` is green, and `compare --all` passes all five.
-- [ ] **Commit.** `content(trails): blind pass for every trail pool`.
+- [ ] **Step 1 (red first, F-22, F-15):** add "every pool has a sheet" to `trails-content.test.ts`: each `EXPECTED_TRAIL_POOLS` id has `src/content/review/<poolId>.blind.md`. Run `npx vitest run src/lib/utils/trails-content.test.ts --maxWorkers=2`. Expected: FAIL.
+- [ ] **Step 2:** the controller (not the reader) cuts the sheets: `npx tsx src/lib/content/trail-blind-pass-cli.ts extract --all`.
+- [ ] **Step 3:** the reader answers every `trail-*.blind.md` from the sheet alone, writing `both` (with the ids that also fit) or `?` wherever true (F-6).
+- [ ] **Step 4: Settle.** Run `compare --all`. The author or the controller settles each flag:
+  - in `trail-<band>.resolved.json`;
+  - or by editing the clue and running `extract --force`, which carries every unchanged answer forward and blanks the edited ones (F-2). The reader then answers only the blank codes.
+- [ ] **Step 5: Gate:** `npx vitest run src/lib/content/trail-blind-pass.test.ts src/lib/utils/trails-content.test.ts --maxWorkers=2` is green, and `compare --all` passes all five.
+- [ ] **Step 6: Commit** the sheets, the resolutions, any clue edits and the test. `content(trails): blind pass for every trail pool`.
 
 ### Task H7: Reading side quests become trails
 
@@ -3347,7 +3488,7 @@ Parts F and G's constraints still apply, plus:
     - `walking = isWalkingKind(deed.mechanic) && drawsMechanic`, worked out before the review selection;
     - when `walking`, misses and due skills are kept only where `kindOfSkill(id) === deed.mechanic`;
     - the order is `[...questions, ...nonFresh]`, never shuffled.
-- **`deed-run-store.ts`:** `loadRecentTrailIds`.
+- **`deed-run-store.ts`:** `loadRecentTrailIds` and `TRAIL_MEMORY_RUNS` (F-21).
 - **`actions/deeds.ts` `startDeedRun`:**
   - `loadRecentTrailIds` in the second round when `deed.mechanic === "trail" && enabledKinds.has("trail")`, passed as `recentSets`;
   - `narrateClues: true` on the returned start (fresh and resumed, through the same wrapper as `withDemo`) when `grade === "K"` and a question is of kind `"trail"`.
@@ -3362,9 +3503,9 @@ Parts F and G's constraints still apply, plus:
 - **Produces:**
   - `TRAIL_CLUES = 4`.
   - `TRAIL_DEED_IDS: readonly string[]`.
-  - `TRAIL_MEMORY_RUNS = 7`.
+  - `TRAIL_MEMORY_RUNS = 21` (`deed-run-store.ts`; R-H11).
   - `RunStart.narrateClues?: true`: set only for a K hero's run with a trail task (R-H17). Absent otherwise.
-  - `loadRecentTrailIds(childId: string, deedIds: readonly string[]): Promise<string[]>`. One query: the hero's runs with `deed_id IN deedIds`, newest `started_at` first, `LIMIT 7`, any kind and open or not. From each run's questions, it collects the `trail` of every object task of kind `"trail"` whose `trail` is a string. A malformed row is skipped.
+  - `loadRecentTrailIds(childId: string, deedIds: readonly string[]): Promise<string[]>`. One query: the hero's runs with `deed_id IN deedIds`, newest `started_at` first, `LIMIT TRAIL_MEMORY_RUNS`, any kind and open or not. It is called with `TRAIL_DEED_IDS`. From each run's questions, it collects the `trail` of every object task of kind `"trail"` whose `trail` is a string. A malformed row is skipped.
 - **The walking rules in `runCandidates`**, when `isWalkingKind(m) && on(m)`:
   - `base = presented(base)`;
   - if that is empty, `bandSkill(deed.area, grade, presents)?.skill`, else the choice base;
@@ -3382,7 +3523,7 @@ Parts F and G's constraints still apply, plus:
 
     `buildDeedRun` at grade 7 draws `read-g6` clues (the `selectSkills` fallback). Trails off gives H3's choice table (Review Focus 3).
   - "a trail run is four clues, whole trails in order": grade 3, seed 1, the default length. All 4 are kind `"trail"`; same-trail clues are contiguous and ascending; the length is 6 at length 12 and 2 at length 4.
-  - "a walking run takes no other kind": a `sight-g23` choice miss and a due `read-g4` that no trail presents are both absent. A due `read-g4` with trails presenting it is present, last.
+  - "a walking run takes no other kind": a `sight-g23` choice miss and a due `read-g4` that no trail presents (a fixture through `__setTrailPoolsForTest` that credits `read-g3` only) are both absent. With the real pools, where a trail presents `read-g4`, the due `read-g4` clue is present, last.
   - "trails off: eight multiple-choice questions, as before".
   - "the gate is multiple choice": `enabledKinds: ∅` gives choice.
   - "a Crown Challenge is three clues".
@@ -3397,7 +3538,10 @@ Parts F and G's constraints still apply, plus:
   - "a grade-3 reading side quest is four clues, and the start never carries an answer" (Review Focus 1): `JSON.stringify(start)` contains no stored task's `answer`, `trail` or `redirect` value.
   - "a K reader gets `read-g1` trails; a grade-11 reader gets `read-g9`".
   - "the next run passes over the last one's trails": complete run 1, start run 2 (seed mocked), and no trail key is shared.
-  - "`loadRecentTrailIds` reads the last seven reading runs only": 8 seeded runs give 7 runs' keys; a `well-stones` run is ignored; a row with `questions = 'nope'` is skipped.
+  - "`loadRecentTrailIds` reads the last 21 reading runs only": 22 seeded runs give 21 runs' keys; a `well-stones` run is ignored; a row with `questions = 'nope'` is skipped.
+  - "a week of three reading side quests a day never repeats a trail" (F-11, per band). For one hero per band (grades K, 2, 4, 6 and 9, trails on), each day starts `well-signs`, `chapel-scroll` and `library-catalog` in turn, for 7 days. `vi.setSystemTime` steps 8 hours between starts, so no run is resumed, and runs are left open, since the memory reads open runs too. The 21 runs' trail keys are all distinct.
+  - "a forged anchor is refused and writes nothing" (F-10, Review Focus 2): on a real trail start, each of `"landmark:longwater"`, `"toString"`, `"__proto__"`, `42`, `{}`, `""` and `"x".repeat(10_000)` sent through `answerDeedQuestion(runId, 0, …)` rejects `PICK_SHOWN`; `responses` stays all null and no `skill_mastery` row exists.
+  - "a resumed start never carries an answer" (F-10, Review Focus 1): answer clue 1 wrong (so a second chance is open), start again, and `JSON.stringify(resumed)` contains no stored task's `answer`, `trail` or `redirect` value other than the open redirect for the chosen anchor, which is `pending.hint`.
   - "a reading choice run stored before the deploy resumes and completes" (Review Focus 4): a row with `kind`-less choice questions resumes, takes answers and completes with stars.
   - "a right trail run pays by stars as any side quest": `minutesEarned` is `sideQuestPay`'s.
   - "trails off: a grade-7 reader's side quest is `read-g4` choice, eight questions".
@@ -3412,7 +3556,8 @@ Parts F and G's constraints still apply, plus:
 
 **Files:**
 - Create `src/components/tasks/trail-presenter.tsx`, `trail-map.tsx`, `trail-demo.tsx` and `trail.css`. Register `TASK_PRESENTERS.trail = TrailPresenter`.
-- Create `src/lib/tasks/narration.ts` + `narration.test.ts` (R-H17). `DeedRun`'s read-aloud effects (the task or its demo, and the second-chance hint) and `deed-player.tsx`'s use `autoSpeaks(question, profile.readAloud, run.narrateClues === true)` in place of `profile.readAloud`. Nothing else about their speech changes.
+- Create `src/lib/tasks/narration.ts` + `narration.test.ts` (R-H17). `DeedRun`'s read-aloud effects (the task or its demo, and the second-chance hint) and `deed-player.tsx`'s use `autoSpeaks(question, profile.readAloud, run.narrateClues === true)` in place of `profile.readAloud`.
+- **Trail speech on the board and the page (F-3):** for a trail task, the second-chance line spoken is `attemptFeedback(result, …, task).text` ("Not here." and the redirect), and a resolved miss speaks its line ("It was the mill." and the why), both through `autoSpeaks`. Every other kind's speech is unchanged.
 - **`presenters.tsx`:** `PresenterProps.onWalk?: () => void`.
 - **`demos.ts`:**
   - `DemoKey` gains `"trail"`;
@@ -3432,7 +3577,10 @@ Parts F and G's constraints still apply, plus:
 - **Consumes:** H1's `ANCHORS`, `ANCHOR_IDS`, `trailMapPoint`, `trailMapBackdrop`, `TRAIL_MAP_VIEW` and `TRAIL_MAP_HIT`; H2's codec and copy; H7's `RunStart.narrateClues`.
 - **Produces:**
   - `TrailPresenter(props: PresenterProps<"trail">)`: `variant === "board" && onWalk` shows `TrailSetOff`; otherwise `TrailMap`.
-  - `TrailMap({ flow, disabled, onRespond })`: one `<button>` per anchor (`aria-label` is the label, `aria-pressed` the selection), in catalog order, inside an `<svg viewBox="0 0 360 h" width="100%">` with the backdrop.
+  - `TrailMap({ flow, disabled, onRespond })` (F-13). A `position: relative` box with `aspect-ratio: 360 / h` and `width: 100%` holds:
+    - the backdrop, an `<svg viewBox="0 0 360 h" aria-hidden="true">`;
+    - over it, one real HTML `<button>` per anchor, never inside the `<svg>`, absolutely positioned at `left: x / 360 · 100%`, `top: y / h · 100%` from `trailMapPoint`;
+    - each button is at least 40 px square, with `aria-label` the anchor's label and `aria-pressed` the selection, in catalog order (the tab order).
   - `RunResultCard({ run, summary, villagerName, doneLabel, onClose }: { run: RunStart; summary: RunSummary; villagerName?: string; doneLabel?: string; onClose: () => void })`.
   - `deedResultOf(done: RunSummary, deedId: string): DeedResult | null`: `null` for a build run or no building.
   - `DeedRun` prop `onWalk?: (run: RunStart) => void`. It reaches the presenter as `() => onWalk(run)` only when `isWalkingRun(run)`.
@@ -3448,7 +3596,7 @@ Parts F and G's constraints still apply, plus:
 - On a resolved miss, `flow.result.reveal` is marked "It was here."; on a right answer, the pick shows a check.
 - Under the map, the selected label or `TRAIL_MAP_HELP`.
 - Enter and Space keydowns stop propagation; Esc bubbles.
-- 390 px: the SVG scales to its box; hit circles are `TRAIL_MAP_HIT` radius in viewBox units.
+- 390 px: the box scales to its width, the buttons keep their percentage places, and the buttons stay 40 px.
 
 - [ ] **Step 1: Write the failing tests.**
 
@@ -3459,7 +3607,8 @@ Parts F and G's constraints still apply, plus:
   - "Search here" is disabled with no selection;
   - with `flow.ruledOut = ["landmark:well"]`, the well is disabled and reads "Not here";
   - a resolved miss with `reveal: "landmark:mill"` shows "It was here." on the mill only;
-  - the svg has `viewBox="0 0 360 …"` and `width="100%"`;
+  - "the map's buttons are HTML, over the picture" (F-13): every anchor button's `closest("svg")` is `null`; the `<svg>` is `aria-hidden`; each button's inline `left` and `top` are percentages from `trailMapPoint`;
+  - Tab moves through the 14 buttons in catalog order, and Space selects;
   - Enter on a button does not reach a window keydown listener.
 
   **`task-demo.test.tsx`:** the trail demo's copy and steps; Done calls `onDone`.
@@ -3482,11 +3631,14 @@ Parts F and G's constraints still apply, plus:
   - `walked` renders the result card titled by the deed;
   - `deedResultOf` matches the old `handUp` for a deed, a challenge and a build (null);
   - "a K hero hears the clue with read-aloud off": a trail run with `narrateClues: true` and `profile.readAloud: false` calls `speak` with the clue's `readAloud`, and with the hint once a second chance opens;
-  - "a grade-1 hero's clue is not spoken unless asked": the same run without `narrateClues` makes no `speak` call until the read-aloud button is pressed, which speaks the clue.
+  - "a grade-1 hero's clue is not spoken unless asked": the same run without `narrateClues` makes no `speak` call until the read-aloud button is pressed, which speaks the clue;
+  - "the board speaks a trail's second-chance and miss lines" (F-3): with `narrateClues: true` and read-aloud off, a first wrong place speaks "Not here. That is where water is drawn.", and a miss speaks "It was the mill. …";
+  - "other kinds' speech is unchanged": a choice task's second chance speaks only its hint, as before.
 
   **`deed-player.test.tsx`:**
   - a trail task on the page plays on the map and answers through `answerDeedQuestion(runId, 0, "landmark:mill")`;
-  - a K run (`narrateClues: true`) speaks the clue with read-aloud off; the same run without `narrateClues` does not.
+  - a K run (`narrateClues: true`) speaks the clue with read-aloud off; the same run without `narrateClues` does not;
+  - the page speaks a trail's second-chance line and miss line through `autoSpeaks`, as the board does (F-3).
 - [ ] **Step 2:** `npx vitest run src/components/tasks/trail-presenter.test.tsx src/components/tasks/task-demo.test.tsx src/lib/services/deed-run-store-db.test.ts src/components/realm3d/deed-board.test.tsx src/components/deed-player.test.tsx src/components/tasks/presenters.test.tsx src/lib/tasks/narration.test.ts --maxWorkers=2`. Expected: FAIL.
 - [ ] **Step 3:** implement.
 - [ ] **Step 4:** the same command, `npx eslint` on the changed files, then `npx tsc --noEmit`. Expected: PASS, 0 errors.
@@ -3511,9 +3663,9 @@ Parts F and G's constraints still apply, plus:
   - `src/components/realm3d/use-trail-walk.ts`;
   - `src/components/realm3d/trail-walk.tsx` and `trail-walk.css`.
 - **`realm-game.tsx`** (additive):
-  - `const trail = useTrailWalk()`;
+  - `const trail = useTrailWalk(overlay?.kind ?? null)`;
   - `openTarget`'s anchor branch, first after the overlay guard;
-  - `DeedBoard`'s `onWalk` and `walked`, with `trail.clearWalked()` on its close;
+  - `DeedBoard`'s `onWalk` and `walked`; `useTrailWalk(overlay?.kind ?? null)` clears `walked` whenever the overlay leaves `interact` (Esc, the dim, or the board's close; F-8);
   - `<TrailWalk>` mounted while `trail.walk`, with `hidden={overlay !== null}`;
   - `trailOn` and `trailRevealed` passed to the canvas.
 
@@ -3521,7 +3673,7 @@ Parts F and G's constraints still apply, plus:
 - **Consumes:** H1's `ANCHOR_SPOTS`, `ANCHOR_SPOT`, boxes and `isAnchorId`; H8's `deedResultOf`, `RunResultCard`, `DeedBoard`'s `onWalk`/`walked`, `autoSpeaks` and `useDeedFlow`; H7's `RunStart.narrateClues`.
 - **Produces:**
   - `anchorTarget(a): InteractTarget`: `{ kind: "anchor", id: a.id, label: a.label, verb: TRAIL_SEARCH_VERB }`.
-  - `useTrailWalk()`:
+  - `useTrailWalk(overlayKind: string | null)`:
 
     ```ts
     {
@@ -3535,6 +3687,7 @@ Parts F and G's constraints still apply, plus:
       reveal(id: AnchorId | null): void;
       clearWalked(): void;
     }
+    // F-8: useTrailWalk(overlayKind: string | null) clears `walked` in an effect whenever overlayKind is no longer "interact".
     ```
   - `TrailWalk({ walk, profile, calm, numerals, hidden, answerRef, onReveal, onFinished, onLeave })`. It is keyed by `walk.key` and owns `useDeedFlow(walk.run, cue)`. While mounted, it sets `answerRef.current` to its `answer`, and clears it on unmount.
 
@@ -3545,7 +3698,7 @@ Parts F and G's constraints still apply, plus:
   - otherwise it calls `choose(id)`.
 - **After a result:**
   - the line is `attemptFeedback(result, retried, villagerName, task).text`;
-  - a resolved miss also calls `onReveal(result.reveal)`;
+  - a resolved miss also calls `onReveal(result.reveal)`, only when `isAnchorId(result.reveal)` holds (F-17);
   - a resolved clue that is not the last calls `next()` at once, keeping the line on show above the new clue;
   - the last calls `completeDeedRun(runId)` once, then `onFinished(summary)`;
   - a rejected finish shows `deedErrorLine` and a `TRAIL_FINISH` button that retries.
@@ -3582,12 +3735,12 @@ Parts F and G's constraints still apply, plus:
     - the castle gate for every `CASTLE_TIER_IDS` type;
     - every lock, every riddle stone, the plans board, the lectern, every plaque at level 3, the Tower's door, and `anchors: ANCHOR_SPOTS`.
 
-    Only pairs with at least one anchor are checked. A failing stake moves under H1's rule, and H1's tests are re-run.
+    Only pairs with at least one anchor are checked. It re-runs H1's check through the real `buildSpots`. A failing stake moves under H1's rule, and H1's tests are re-run.
 
-  **`anchor-boxes.test.ts`:** unchanged and green after any move.
+  **`anchors.test.ts` and `trail-map.test.ts`:** green after any stake move (F-4).
 
   **`use-trail-walk.test.ts`:**
-  - `begin` sets the walk and bumps `key`;
+  - `begin` sets the walk and bumps `key`; `walked` is cleared once `overlayKind` is no longer `"interact"` (F-8);
   - `finish` moves the run to `walked` and clears `walk`;
   - `leave` clears `walk` and `revealed`.
 
@@ -3601,6 +3754,8 @@ Parts F and G's constraints still apply, plus:
   - the same place again: `TRAIL_LOOKED_HERE`, with no call (Review Focus 5);
   - a second wrong place: `onReveal("landmark:mill")`, "It was the mill.", and clue 2;
   - an answer while a call is in flight makes no second call;
+  - "E while the clue is resolved does nothing" (F-18, Review Focus 5): after the last clue resolves and while its finish is pending, `answerRef.current("landmark:well")` makes no call;
+  - "a reveal that is not an anchor is dropped" (F-17): a miss result with `reveal: "landmark:gone"` does not call `onReveal`;
   - the last clue resolved: `completeDeedRun` is called once, then `onFinished(summary)`;
   - a rejected finish shows "That didn't work." and `TRAIL_FINISH` retries;
   - `TRAIL_LEAVE` calls `onLeave`;
@@ -3613,8 +3768,9 @@ Parts F and G's constraints still apply, plus:
   - "E at a stake with no walk does nothing";
   - "the walk survives the pause menu": open and close it, and clue 2 is still shown;
   - "a finished trail opens the villager's board on its result, and the well rises when it closes": the well's `done` in `handed.props.layout` moves only after the board closes;
-  - "Leave the trail ends the walk: `trailOn` is false".
-- [ ] **Step 2:** `npx vitest run src/lib/realm3d/interact.test.ts src/lib/realm3d/anchor-boxes.test.ts src/lib/realm/anchors.test.ts src/components/realm3d/use-trail-walk.test.ts src/components/realm3d/trail-walk.test.tsx src/components/realm3d/realm-game.test.tsx src/lib/realm3d/hud-bus.test.ts --maxWorkers=2`. Expected: FAIL.
+  - "Leave the trail ends the walk: `trailOn` is false";
+  - "Esc on the result board, then a second talk, shows the normal board" (F-8): after a finished walk's result board is closed with Esc, E at the villager shows the talk panel, not the old result card.
+- [ ] **Step 2:** `npx vitest run src/lib/realm3d/interact.test.ts src/lib/realm3d/anchor-boxes.test.ts src/lib/realm/anchors.test.ts src/lib/realm/trail-map.test.ts src/components/realm3d/use-trail-walk.test.ts src/components/realm3d/trail-walk.test.tsx src/components/realm3d/realm-game.test.tsx src/lib/realm3d/hud-bus.test.ts --maxWorkers=2`. Expected: FAIL.
 - [ ] **Step 3:** implement.
 - [ ] **Step 4:** the same command, `npx eslint` on the changed files, then `npx tsc --noEmit`. Expected: PASS, 0 errors.
 - [ ] **Step 5: Commit.** `feat(realm): a reading trail is walked — a tracker shows the clue, and E at the right place answers it`.
