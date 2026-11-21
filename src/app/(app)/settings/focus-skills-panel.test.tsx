@@ -155,6 +155,14 @@ describe("FocusSkillsPanel", () => {
     expect(new Set(names).size).toBe(names.length);
   });
 
+  it("says a trail-only skill is played only as reading trails, so a pick with trails off is not a surprise (H3)", () => {
+    // A grade-5 hero's reading window holds read-g6 (trail-only) beside read-g4 (multiple choice).
+    const window = focusOptions(focusWindow({ reading: "5" }));
+    render(<FocusSkillsPanel childId="c1" options={window} selected={[]} />);
+    expect(box("Author's purpose and point of view")).toHaveAccessibleDescription(/played only as reading trails/i);
+    expect(box("Reading between the lines")).not.toHaveAccessibleDescription(/reading trails/i);
+  });
+
   it("calls kindergarten by its name", () => {
     const window = focusOptions(focusWindow({ reading: "1" }));
     render(<FocusSkillsPanel childId="c1" options={window} selected={[]} />);

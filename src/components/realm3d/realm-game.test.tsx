@@ -53,7 +53,7 @@ vi.mock("@/lib/actions/avatar", () => ({
   updateAvatarConfig: vi.fn(async () => {}),
 }));
 vi.mock("@/lib/actions/realm-sound", () => ({ saveRealmSound: vi.fn(async () => {}) }));
-vi.mock("@/lib/actions/deeds", () => ({ startDeedRun: vi.fn(), answerDeedQuestion: vi.fn(), completeDeedRun: vi.fn() }));
+vi.mock("@/lib/actions/deeds", () => ({ startDeedRun: vi.fn(), answerDeedQuestion: vi.fn(), retryDeedQuestion: vi.fn(), resolveDeedQuestion: vi.fn(), completeDeedRun: vi.fn() }));
 vi.mock("@/lib/actions/seasons", () => ({ markCeremonySeen: vi.fn(async () => {}) }));
 vi.mock("@/lib/actions/improvements", () => ({ markBuildingsAnnounced: vi.fn(async () => {}), markDeliverySeen: vi.fn(async () => {}), startBuildRun: vi.fn(), pinPlan: vi.fn(async () => {}) }));
 vi.mock("@/lib/actions/realm-chronicle", () => ({ getChronicle: vi.fn(async () => ({ weeks: [], canSeal: false, lore: [] })) }));
@@ -79,7 +79,7 @@ vi.mock("@/lib/realm3d/worldgen", async (orig) => {
   return { ...real, realmWorld: () => world };
 });
 
-import { answerDeedQuestion, completeDeedRun, startDeedRun } from "@/lib/actions/deeds";
+import { answerDeedQuestion, completeDeedRun, retryDeedQuestion, startDeedRun } from "@/lib/actions/deeds";
 import { updateAvatarConfig } from "@/lib/actions/avatar";
 import { getRealmKingdom } from "@/lib/actions/realm";
 import { markRealmHelpSeen, setTutorialStep } from "@/lib/actions/realm-settings";
@@ -1539,5 +1539,240 @@ describe("the villagers have heard about real quests", () => {
     act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
     const says = screen.getByRole("dialog", { name: /Old Bram/ }).textContent ?? "";
     expect(says).toMatch(/Raised by Emma\.\s+\S.*Fractions of a Pizza/);
+  });
+});
+
+/* ------------------------------------------------------------------ a reading trail, walked (H9) */
+
+describe("a reading trail, walked in the Realm (R-H14)", () => {
+  const clue = (n: number, prompt: string) => ({ kind: "trail" as const, id: `read-g1:trail:0000000${n}`, skillId: "read-g1", prompt, view: {} });
+  const trailRun = {
+    runId: "r1",
+    deed: { id: "well-signs", title: "Signs for the Well", story: "The sign-painter left clues.", area: "reading" as const },
+    questions: [clue(1, "Go where the big wheel turns."), clue(2, "Go where the bees make honey.")],
+    responses: [null, null] as (string | null)[],
+    kind: "deed" as const,
+    pending: null,
+  };
+  const RIGHT = { correct: true, secondChance: false };
+  const OPEN = { correct: false, secondChance: true, hint: "That is where water is drawn.", feedback: "wrong_place" as const, firstPick: "landmark:well" };
+  const MISS = { correct: false, secondChance: false, answer: "It was the mill.", explain: "Flour is ground at the mill.", reveal: "landmark:mill" };
+  const walkedSummary = {
+    correctCount: 2, total: 2, flawless: true, masteryChanges: [], stars: 3 as const, previousBest: 0 as const, deedBest: 3 as const, counted: true, crowned: false, kind: "deed" as const,
+    building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 3, maxStars: 3, practice: false }, minutesEarned: 0, sideQuestPayFull: false,
+  };
+  const mill = { kind: "anchor" as const, id: "landmark:mill", label: "the mill", verb: "Search" };
+  const beehives = { kind: "anchor" as const, id: "object:beehives", label: "the beehives", verb: "Search" };
+  const tracker = () => screen.queryByRole("region", { name: "Reading trail" });
+
+  async function setOff(over: Partial<React.ComponentProps<typeof RealmGame>> = {}) {
+    vi.mocked(startDeedRun).mockResolvedValue(trailRun);
+    const { bus, view } = mount(over);
+    act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Set off" })));
+    return { bus, view };
+  }
+
+  it("Set off closes the board, shows the tracker, and hands the canvas trailOn", async () => {
+    mount();
+    expect(handed.props!.trailOn).toBe(false);
+    expect(handed.props!.trailRevealed).toBeNull();
+    cleanup();
+    const { bus, view } = await setOff();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(tracker()).toHaveTextContent("Go where the big wheel turns.");
+    // The column's own child, ahead of the objective card: what the phone layout's `:has(> .trail-walk)` reads (trail-walk.css).
+    expect(view.container.querySelector(".r3-left-stack > .trail-walk + .r3-quest")).not.toBeNull();
+    expect(handed.props!.trailOn).toBe(true);
+    // The world is played, not paused: the clock runs while the hero walks (§4.10).
+    expect(bus.paused).toBe(false);
+  });
+
+  it("E at a stake answers the clue, and no panel opens", async () => {
+    vi.mocked(answerDeedQuestion).mockResolvedValue(RIGHT);
+    const { bus } = await setOff();
+    await act(async () => bus.onInteract(mill));
+    expect(answerDeedQuestion).toHaveBeenCalledWith("r1", 0, "landmark:mill");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(bus.paused).toBe(false);
+    expect(tracker()).toHaveTextContent("Go where the bees make honey.");
+  });
+
+  it("E at a stake with no walk does nothing, and an id that is no anchor is never sent", async () => {
+    const { bus } = mount();
+    await act(async () => bus.onInteract(mill));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(bus.paused).toBe(false);
+    cleanup();
+    const walking = await setOff();
+    await act(async () => walking.bus.onInteract({ ...mill, id: "landmark:longwater" }));
+    await act(async () => walking.bus.onInteract({ ...mill, id: "__proto__" }));
+    expect(answerDeedQuestion).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("the walk survives the pause menu: hidden under it, and clue 2 is still shown after", async () => {
+    vi.mocked(answerDeedQuestion).mockResolvedValue(RIGHT);
+    const { bus } = await setOff();
+    await act(async () => bus.onInteract(mill));
+    esc();
+    expect(bus.paused).toBe(true);
+    expect(tracker()).toBeNull();
+    // E is the scene's while a menu is up: nothing is searched.
+    await act(async () => bus.onInteract(beehives));
+    expect(answerDeedQuestion).toHaveBeenCalledTimes(1);
+    esc();
+    expect(tracker()).toHaveTextContent("Go where the bees make honey.");
+    expect(handed.props!.trailOn).toBe(true);
+  });
+
+  it("a missed clue's answer turns its stake gold; a reveal that is no anchor turns none (F-17)", async () => {
+    vi.mocked(answerDeedQuestion).mockResolvedValue(OPEN);
+    vi.mocked(retryDeedQuestion).mockResolvedValueOnce(MISS);
+    const { bus } = await setOff();
+    await act(async () => bus.onInteract({ ...mill, id: "landmark:well", label: "the well" }));
+    expect(tracker()).toHaveTextContent("Not here. That is where water is drawn.");
+    expect(handed.props!.trailRevealed).toBeNull();
+    await act(async () => bus.onInteract({ ...mill, id: "landmark:garden", label: "the garden" }));
+    expect(handed.props!.trailRevealed).toBe("landmark:mill");
+    expect(tracker()).toHaveTextContent("It was the mill.");
+    cleanup();
+    vi.mocked(retryDeedQuestion).mockResolvedValueOnce({ ...MISS, reveal: "landmark:gone" });
+    const again = await setOff();
+    await act(async () => again.bus.onInteract({ ...mill, id: "landmark:well", label: "the well" }));
+    await act(async () => again.bus.onInteract({ ...mill, id: "landmark:garden", label: "the garden" }));
+    expect(handed.props!.trailRevealed).toBeNull();
+  });
+
+  it("a finished trail opens the villager's board on its result, and the well rises when it closes", async () => {
+    vi.mocked(answerDeedQuestion).mockResolvedValue(RIGHT);
+    vi.mocked(completeDeedRun).mockResolvedValue(walkedSummary);
+    const { bus, view } = await setOff();
+    const doneOf = () => (handed.props!.layout as { villagers: { id: string; done: number }[] }).villagers.find((v) => v.id === "bram")!.done;
+    await act(async () => bus.onInteract(mill));
+    await act(async () => bus.onInteract(beehives));
+    expect(completeDeedRun).toHaveBeenCalledTimes(1);
+    expect(completeDeedRun).toHaveBeenCalledWith("r1");
+    expect(tracker()).toBeNull();
+    expect(handed.props!.trailOn).toBe(false);
+    const board = screen.getByRole("dialog", { name: /Signs for the Well/ });
+    expect(within(board).getByText("Flawless!")).toBeInTheDocument();
+    expect(within(board).getByText("2 of 2 right in Signs for the Well.", { exact: false })).toBeInTheDocument();
+    expect(bus.paused).toBe(true);
+    // Nothing has moved yet: the well rises as the hero comes back to the world.
+    expect(doneOf()).toBe(2);
+    expect(view.container.querySelector(".r3-quest .r3-progress-text")).toHaveTextContent("2 of 5");
+    fireEvent.click(screen.getByRole("button", { name: /Back to the Realm/ }));
+    expect(doneOf()).toBe(3);
+    expect(screen.getByText("The Village Well is rising!")).toBeInTheDocument();
+  });
+
+  it("Esc on the result board, then a second talk, shows the normal board (F-8)", async () => {
+    vi.mocked(answerDeedQuestion).mockResolvedValue(RIGHT);
+    vi.mocked(completeDeedRun).mockResolvedValue(walkedSummary);
+    const { bus } = await setOff();
+    await act(async () => bus.onInteract(mill));
+    await act(async () => bus.onInteract(beehives));
+    expect(screen.getByText("Flawless!")).toBeInTheDocument();
+    esc();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
+    expect(screen.getByRole("dialog", { name: /Old Bram/ })).toBeInTheDocument();
+    expect(screen.queryByText("Flawless!")).toBeNull();
+    expect(screen.getByRole("button", { name: "Begin Count the Well Stones" })).toBeInTheDocument();
+  });
+
+  it("Leave the trail ends the walk: trailOn is false, and a stake searches nothing", async () => {
+    const { bus } = await setOff();
+    fireEvent.click(screen.getByRole("button", { name: "Leave the trail" }));
+    expect(tracker()).toBeNull();
+    expect(handed.props!.trailOn).toBe(false);
+    await act(async () => bus.onInteract(mill));
+    expect(answerDeedQuestion).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("the villager picks a left walk back up: Begin resumes the open run, and Set off walks it from where it was", async () => {
+    vi.mocked(answerDeedQuestion).mockResolvedValue(RIGHT);
+    const { bus } = await setOff();
+    await act(async () => bus.onInteract(mill));
+    fireEvent.click(screen.getByRole("button", { name: "Leave the trail" }));
+    vi.mocked(startDeedRun).mockResolvedValue({ ...trailRun, responses: ["landmark:mill", null] });
+    act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Set off" })));
+    expect(tracker()).toHaveTextContent("Go where the bees make honey.");
+    await act(async () => bus.onInteract(beehives));
+    expect(answerDeedQuestion).toHaveBeenLastCalledWith("r1", 1, "object:beehives");
+  });
+
+  it("a walk picked back up on an open second chance: the line is on show, the place already searched is refused, another is the retry", async () => {
+    vi.mocked(retryDeedQuestion).mockResolvedValue(MISS);
+    const { bus } = await setOff();
+    fireEvent.click(screen.getByRole("button", { name: "Leave the trail" }));
+    vi.mocked(startDeedRun).mockResolvedValue({ ...trailRun, pending: { index: 0, ruledOut: "landmark:well", hint: "That is where water is drawn." } });
+    act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Set off" })));
+    expect(tracker()).toHaveTextContent("Not here. That is where water is drawn.");
+    expect(within(tracker()!).getByRole("button", { name: "Show me" })).toBeInTheDocument();
+    await act(async () => bus.onInteract({ ...mill, id: "landmark:well", label: "the well" }));
+    expect(tracker()).toHaveTextContent("You searched here already. Try somewhere else.");
+    expect(answerDeedQuestion).not.toHaveBeenCalled();
+    expect(retryDeedQuestion).not.toHaveBeenCalled();
+    await act(async () => bus.onInteract({ ...mill, id: "landmark:garden", label: "the garden" }));
+    expect(retryDeedQuestion).toHaveBeenCalledWith("r1", 0, "landmark:garden");
+    expect(handed.props!.trailRevealed).toBe("landmark:mill");
+    expect(tracker()).toHaveTextContent("Go where the bees make honey.");
+  });
+
+  it("Leave the trail waits while the finish is out, and the result board still opens", async () => {
+    vi.mocked(answerDeedQuestion).mockResolvedValue(RIGHT);
+    let settle!: (s: typeof walkedSummary) => void;
+    vi.mocked(completeDeedRun).mockReturnValue(new Promise((r) => (settle = r)) as never);
+    const { bus } = await setOff();
+    await act(async () => bus.onInteract(mill));
+    await act(async () => bus.onInteract(beehives));
+    fireEvent.click(screen.getByRole("button", { name: "Leave the trail" }));
+    expect(tracker()).not.toBeNull();
+    await act(async () => settle(walkedSummary));
+    expect(screen.getByRole("dialog", { name: /Signs for the Well/ })).toHaveTextContent("Flawless!");
+  });
+
+  it("a finish landing on another villager's open run shows the walk's result, never that run under the walk's villager (M1)", async () => {
+    const withMill = {
+      ...realm,
+      kingdom: {
+        ...realm.kingdom,
+        buildings: realm.kingdom.buildings.map((b) => (b.id === "mill" ? { ...b, done: 1, deeds: [{ id: "mill-sacks", title: "Count the Sacks", story: "Sacks everywhere.", area: "math" as const, bestStars: 0 as const, crowned: false }] } : b)),
+      },
+    };
+    const sacks = { ...run, runId: "run-2", deed: { ...run.deed, id: "mill-sacks", title: "Count the Sacks" } };
+    vi.mocked(answerDeedQuestion).mockResolvedValue(RIGHT);
+    let settle!: (s: typeof walkedSummary) => void;
+    vi.mocked(completeDeedRun).mockReturnValue(new Promise((r) => (settle = r)) as never);
+    const { bus } = await setOff({ realm: withMill });
+    vi.mocked(startDeedRun).mockImplementation(async (_c, deedId) => (deedId === "mill-sacks" ? sacks : trailRun));
+    await act(async () => bus.onInteract(mill));
+    await act(async () => bus.onInteract(beehives));
+    // The finish is out; the hero talks to the miller and begins her side quest before it lands.
+    act(() => bus.onInteract({ kind: "villager", id: "tessa", label: "Miller Tessa" }));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Sacks" })));
+    expect(screen.getByText("What is 2 + 3?")).toBeInTheDocument();
+    await act(async () => settle(walkedSummary));
+    const board = screen.getByRole("dialog", { name: /Signs for the Well/ });
+    expect(within(board).getByText("Flawless!")).toBeInTheDocument();
+    expect(screen.queryByText("What is 2 + 3?")).toBeNull();
+    expect(screen.queryByRole("dialog", { name: /Count the Sacks/ })).toBeNull();
+  });
+
+  it("walks in the quiet world too: a side quest is how minutes are earned, and the quiet clock charges nothing", async () => {
+    vi.mocked(answerDeedQuestion).mockResolvedValue(RIGHT);
+    const { bus, view } = await setOff({ entry: { minutes: 0, visit: null, source: "quiet" } });
+    expect(tracker()).toHaveTextContent("Go where the big wheel turns.");
+    expect(view.container.querySelector(".r3-clock-text")).toHaveTextContent("Earn play time with a side quest");
+    await act(async () => bus.onInteract(mill));
+    expect(answerDeedQuestion).toHaveBeenCalledWith("r1", 0, "landmark:mill");
   });
 });

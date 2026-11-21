@@ -1,0 +1,173 @@
+/* A reading trail's surfaces (trail-presenter.tsx, trail-map.tsx, trail-demo.tsx): Set off on the
+   Realm's board, the village map off it, and Pip's worked clue. Two coats, as the bench and the lock
+   have: `trail--board` is the Realm board's timber and gold, `trail--page` the Side Quests page's
+   tokens. The map is a picture with real buttons laid over it (F-13): the box is its column's width
+   and keeps the picture's shape, each place keeps its percentage spot, and each stays a 40 px target
+   at least, so it fits a 390 px phone with nothing dragged. Nothing moves in calm play or when the
+   system asks for reduced motion. */
+
+.trail {
+  margin-top: 0.8rem;
+  --trail-ink: #fff6de;
+  --trail-soft: #ffd9a8;
+  --trail-gold: #f5c04a;
+  --trail-timber: linear-gradient(180deg, #7a5433, #3e2713);
+  --trail-edge: #2a1709;
+  --trail-ground: #5f7a3a;
+  --trail-plot: #c9a46a;
+  --trail-road: #d8c08c;
+  --trail-spot: #fff3d6;
+  --trail-spot-ink: #2a1709;
+  --trail-mark: #ff9f43;
+  --trail-right: #7bd389;
+  color: var(--trail-ink);
+}
+.trail--page {
+  --trail-ink: var(--foreground);
+  --trail-soft: var(--muted-foreground);
+  --trail-gold: var(--gold-bright);
+  --trail-timber: var(--muted);
+  --trail-edge: var(--gold-border);
+  --trail-ground: var(--muted);
+  --trail-plot: var(--card);
+  --trail-road: var(--gold-border);
+  --trail-spot: var(--card);
+  --trail-spot-ink: var(--foreground);
+  --trail-mark: var(--destructive);
+  --trail-right: var(--primary);
+}
+
+.trail button { font: inherit; cursor: var(--cursor-hand, pointer); }
+.trail button:disabled { cursor: default; }
+
+.trail-title { margin: 0 0 0.5rem; font-size: 0.85rem; font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase; color: var(--trail-gold); }
+
+/* ---- the send buttons: Set off, Search here, Got it ------------------------------------- */
+
+.trail-go {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.75rem;
+  min-width: 8rem;
+  margin-top: 0.7rem;
+  padding: 0.4rem 1.2rem;
+  border-radius: 12px;
+  border: 3px solid var(--trail-edge);
+  background: var(--trail-timber);
+  color: var(--trail-ink);
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+.trail--board .trail-go { border-color: #6b4410; background: linear-gradient(180deg, #ffd875, #e09b24); color: #3a2008; box-shadow: 0 5px 0 #7a4f14, inset 0 2px 0 rgba(255, 255, 255, 0.5); }
+.trail--page .trail-go { border-width: 1px; background: var(--primary); color: var(--primary-foreground); }
+.trail-go:disabled { opacity: 0.55; }
+.trail-go:focus-visible { outline: 3px solid var(--trail-ink); outline-offset: 2px; }
+.trail-go-icon { width: 1.2rem; height: 1.2rem; }
+
+/* ---- Set off ---------------------------------------------------------------------------- */
+
+.trail-set-off-line { margin: 0; font-size: 1rem; font-weight: 700; color: var(--trail-soft); }
+
+/* ---- the village map -------------------------------------------------------------------- */
+
+.trail-map-box {
+  position: relative;
+  width: 100%;
+  max-width: 30rem;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 3px solid var(--trail-edge);
+  background: var(--trail-ground);
+}
+.trail-map-art { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+.trail-map-plot { fill: var(--trail-plot); opacity: 0.55; }
+.trail-map-road { stroke: var(--trail-road); stroke-width: 6; stroke-linecap: round; opacity: 0.8; }
+
+/* A place: a round 40 px target at least (above that, its share of the map, `--trail-spot-size`,
+   which the box sets from TRAIL_MAP_HIT and TRAIL_MAP_VIEW.w), centred on its spot. */
+.trail-spot {
+  position: absolute;
+  width: max(40px, var(--trail-spot-size));
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--trail-spot-ink);
+}
+.trail-spot-dot {
+  display: grid;
+  place-items: center;
+  width: 78%;
+  height: 78%;
+  border-radius: 50%;
+  border: 2px solid var(--trail-edge);
+  background: var(--trail-spot);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+}
+.trail-spot-icon { width: 60%; height: 60%; }
+.trail-spot[aria-pressed="true"] .trail-spot-dot { border-color: var(--trail-gold); box-shadow: 0 0 0 3px var(--trail-gold), 0 0 12px var(--trail-gold); }
+.trail-spot:focus-visible { outline: none; }
+.trail-spot:focus-visible .trail-spot-dot { box-shadow: 0 0 0 3px var(--trail-ink), 0 0 0 5px var(--trail-edge); }
+.trail-spot:disabled .trail-spot-dot { opacity: 0.85; }
+/* Ruled out: a dashed edge and faded (shape, not colour alone), with its tag. */
+.trail-spot[data-tone="ruled-out"] .trail-spot-dot { border-style: dashed; border-color: var(--trail-mark); opacity: 0.6; }
+.trail-spot[data-tone="answer"] .trail-spot-dot { border-width: 3px; border-color: var(--trail-gold); box-shadow: 0 0 0 3px var(--trail-gold), 0 0 14px var(--trail-gold); }
+.trail-spot[data-tone="right"] .trail-spot-dot { border-width: 3px; border-color: var(--trail-right); }
+.trail-spot-check { position: absolute; right: -2px; top: -2px; width: 45%; height: 45%; color: var(--trail-right); }
+.trail-spot-tag {
+  position: absolute;
+  top: 92%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0 0.3rem;
+  border-radius: 6px;
+  background: var(--trail-edge);
+  color: var(--trail-ink);
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 1.4;
+  white-space: nowrap;
+  pointer-events: none;
+}
+/* Near an edge of the map a tag flips so it stays inside (`trailMapTagPlace`, H8): flush with its
+   button's left or right edge, and over the button near the map's foot. */
+.trail-spot-tag--x-start { left: 0; transform: none; }
+.trail-spot-tag--x-end { left: auto; right: 0; transform: none; }
+.trail-spot-tag--y-above { top: auto; bottom: 92%; }
+.trail--page .trail-spot-tag { background: var(--foreground); color: var(--background); }
+.trail-spot-tag--answer { background: var(--trail-gold); color: #3a2008; }
+.trail--page .trail-spot-tag--answer { background: var(--trail-gold); color: #3a2008; }
+
+.trail-map-line { margin: 0.5rem 0 0; min-height: 1.4em; font-size: 1rem; font-weight: 700; color: var(--trail-soft); }
+
+/* ---- Pip's clue ------------------------------------------------------------------------- */
+
+.trail-demo-steps { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0; padding: 0; list-style: none; }
+.trail-demo-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 10px;
+  border: 2px solid var(--trail-edge);
+  background: var(--trail-timber);
+  font-weight: 800;
+}
+.trail-demo-step-icon { width: 1.2rem; height: 1.2rem; color: var(--trail-gold); }
+.trail--move .trail-demo-step { animation: trail-step 0.5s ease-out both; }
+.trail--move .trail-demo-step:nth-child(2) { animation-delay: 0.6s; }
+.trail--move .trail-demo-step:nth-child(3) { animation-delay: 1.2s; }
+.trail-demo-text { margin: 0.6rem 0 0; font-size: 1.05rem; font-weight: 700; line-height: 1.45; }
+
+@keyframes trail-step {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .trail--move .trail-demo-step { animation: none; }
+}

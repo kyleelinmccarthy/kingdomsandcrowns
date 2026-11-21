@@ -118,3 +118,46 @@ The validator (`src/lib/content/sort-pools.ts`) checks the shape and the rules (
 balance, levels, label length, no category word (or its plural) in a label, no control characters or
 backticks, no two items of a set whose opaque ids coincide); read its header for the full list. Item
 ids are server-only: the browser is sent an opaque hash of each, so they may say anything.
+
+## Trail pools
+
+A reading side quest can be played as a clue trail: the hero reads a clue and walks the village to the one
+place it tells of. The clues live in `src/content/trails/<poolId>.json`, one pool per band (`trail-k1`,
+`trail-g23`, `trail-g45`, `trail-g68`, `trail-g912`), each crediting one reading skill; the band, pool and skill
+table is `docs/content/trail-skill-map.md`. A trail pool id starts with `trail-`, so its sheet and resolutions sit
+beside the drill and sort files without colliding (`NON_DRILL_SHEET_PREFIXES` in `blind-pass.ts` keeps both
+kinds out of the drill gate).
+
+```bash
+# 1. Cut the sheet. It has no key: the village's places, and every clue of the pool in a shuffled order,
+#    with no trail ids and no sign of which clues belong together.
+npx tsx src/lib/content/trail-blind-pass-cli.ts extract <poolId>      # or --all
+
+# 2. Someone who has NOT read src/content/trails/<poolId>.json writes a place id after `Answer:` on every
+#    line of src/content/review/<poolId>.blind.md. Each clue is answered on its own. `both` and the ids that
+#    also fit (`both landmark:well object:water-trough`) means more than one place fits (an ambiguity);
+#    `?` means no place fits. A person, or a subagent handed the sheet and nothing else. If you wrote the
+#    pool, you are not eligible to answer the sheet.
+
+# 3. Compare. Exits non-zero while anything is outstanding.
+npx tsx src/lib/content/trail-blind-pass-cli.ts compare <poolId>      # or --all
+
+# 4. Settle every flag, then re-run step 3 until it prints PASS.
+npx vitest run src/lib/content/trail-blind-pass.test.ts
+```
+
+The gate test runs step 3 over every `trail-*.blind.md` here, so an unsettled flag fails `npm test`.
+A flag is settled in `<poolId>.resolved.json`, as for a drill pool (the same four verdicts), with these
+differences: `itemId` is `<trail id>/<clue number>` (the first clue of trail `mill-walk` is `mill-walk/1`),
+`keyAt` is the answer's anchor id (`landmark:mill`), and `code` is the 8-character `#code` on the clue's line.
+The code fingerprints the clue's words, so it follows the text: moving a clue to another trail keeps it, and
+rewording the clue changes it (the old answer is then reported as stale, and the clue goes back to be read).
+The other way to settle a flag is to edit the clue and run `extract --force`: every answer to an unchanged clue
+is carried over, and only the edited clue comes back blank, so the reader answers only the blank codes.
+
+`extract` refuses a pool that fails `validateTrailPool`, and refuses to overwrite a sheet that has answers on
+it unless you pass `--force`. The validator (`src/lib/content/trail-pools.ts`) checks the shape and the rules;
+read its header for the full list. The ones an author meets most: from g23 up a clue never names its place, and
+no redirect ever does, at any band; a clue that uses a word two confusable places share (the well and the water
+trough) carries `parts` that rule the partner out; every clue has a `redirect` (never empty); no field says a
+grade, "behind" or "ahead".

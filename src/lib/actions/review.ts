@@ -69,7 +69,8 @@ export async function startReviewRun(childId: string, origin: ReviewOrigin): Pro
   }));
   const now = Date.now();
   const built = buildReviewRun({
-    mastery: masteryRows.map(masteryTiming), recentMisses, poolItems, focusSkillIds, profile: profileFromRow(profileRow), now, seed: now >>> 0,
+    mastery: masteryRows.map(masteryTiming), recentMisses, poolItems, focusSkillIds, grades: hero.grades,
+    profile: profileFromRow(profileRow), now, seed: now >>> 0,
   });
   // Nothing learned yet: there is nothing to review, and nothing is written.
   if (built.questions.length === 0) return { empty: true };
@@ -87,5 +88,5 @@ export async function startReviewRun(childId: string, origin: ReviewOrigin): Pro
 /** Whether anything the hero has learned is past its review interval (read access only). */
 export async function getReviewDue(childId: string): Promise<boolean> {
   await requireChildAccess(childId);
-  return loadReviewDue(childId);
+  return loadReviewDue(childId, (await loadHeroLevels(childId)).grades);
 }

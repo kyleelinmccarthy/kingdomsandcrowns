@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { objectiveState } from "@/lib/realm/objective";
 import { villagerById } from "@/lib/realm/villagers";
 import type { ClientTask } from "@/lib/tasks/types";
+import { initialFlow } from "@/lib/utils/deed-run-flow";
 import { CHEST_EMPTY, worldRewardLine } from "@/lib/utils/world-lock-copy";
 import { attemptFeedback, deedToast, finishLabel, fragmentToast, leaveWhat, resultBuildingLine, resultHeadline, resultMinutesLine, resultStarsLine, starsLabel, starsLeftLine, talkCopy, type SiteState } from "./talk";
 
@@ -503,6 +504,11 @@ describe("what a villager says after a lock answer (R-F2, R-F3)", () => {
     expect(attemptFeedback({ correct: false, secondChance: true, hint: "Count on." }, false, undefined, lockTask).text).toBe("Not quite. Count on.");
   });
 
+  it("a second chance picked back up leads with the lock's own line, from the code `pending` carries", () => {
+    const flow = initialFlow({ questions: [lockTask], responses: ["x"], pending: { index: 0, ruledOut: "x", hint: "Try the small ones.", feedback: "rule_broken" } });
+    expect(attemptFeedback(flow.result!, true, undefined, lockTask).text).toBe("Something doesn't fit yet. Look at the marked rule. Try the small ones.");
+  });
+
   it("on a sort's second chance, nothing is marked, so it never points at a marked rule (RF-c)", () => {
     for (const view of [
       { puzzle: "sort1" as const, items: [{ shape: "circle" as const, color: "red" as const }], bins: ["Red", "Blue"] },
@@ -565,5 +571,29 @@ describe("a villager's mention of real work", () => {
     expect(talkCopy({ ...base, site: well, waiting: true, mention: "" })).toEqual(plain);
     const stands: SiteState = { ...well, done: 5, complete: true, stars: 7 };
     expect(talkCopy({ ...base, site: stands, waiting: false, mention: null })).toEqual(talkCopy({ ...base, site: stands, waiting: false }));
+  });
+});
+
+describe("what a villager says after a search on a trail (R-H1)", () => {
+  const clue: ClientTask = { kind: "trail", id: "t", skillId: "read-g1", prompt: "Go where the big wheel turns.", view: {} };
+
+  it("says the place is not here, then the chosen place's redirect, on a second chance", () => {
+    expect(attemptFeedback({ correct: false, secondChance: true, feedback: "wrong_place", hint: "That is where water is drawn." }, false))
+      .toEqual({ heading: "Try again", text: "Not here. That is where water is drawn." });
+  });
+
+  it("a second chance picked back up still says Not here., though the stored pick carries no feedback code", () => {
+    const flow = initialFlow({ questions: [clue], responses: ["landmark:well"], pending: { index: 0, ruledOut: "landmark:well", hint: "That is where water is drawn." } });
+    expect(flow.result?.feedback).toBeUndefined();
+    expect(attemptFeedback(flow.result!, flow.ruledOut.length > 0, "Old Bram", clue)).toEqual({ heading: "Try again", text: "Not here. That is where water is drawn." });
+    // Another kind picked back up keeps its own lead.
+    const choice: ClientTask = { kind: "choice", id: "q", skillId: "add", prompt: "2 + 3?", view: { choices: ["4", "5"] } };
+    const asked = initialFlow({ questions: [choice], responses: ["4"], pending: { index: 0, ruledOut: "4", hint: "Count on." } });
+    expect(attemptFeedback(asked.result!, true, undefined, choice).text).toBe("Not quite. Count on.");
+  });
+
+  it("says where it was as a sentence, then why, after a miss", () => {
+    const miss = { correct: false, secondChance: false, answer: "It was the mill.", explain: "Flour is ground at the mill.", reveal: "landmark:mill" };
+    expect(attemptFeedback(miss, false, undefined, clue).text).toBe("It was the mill. Flour is ground at the mill.");
   });
 });

@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { Question } from "@/lib/utils/drill-generators";
-import { TASK_KINDS, isRegisteredKind, isTaskCorrect, kindForSkill, kindOf, taskDef, taskDefOf, toClientTask } from "./registry";
+import { taskHint } from "@/lib/utils/skill-hints";
+import { TRAIL, WELL_REDIRECT } from "@/test/trail-stubs";
+import { isWalkingKind, isWalkingRun, WALKING_KINDS } from "./kinds";
+import { PATTERN } from "@/test/lock-stubs";
+import { __setTrailPoolsForTest } from "./trails";
+import { TASK_KINDS, isRegisteredKind, isTaskCorrect, kindForSkill, kindOf, secondChanceHint, taskDef, taskDefOf, toClientTask } from "./registry";
 
 const q: Question = {
   id: "add-10:3:3",
@@ -22,6 +27,7 @@ describe("task kind registry", () => {
     expect(isRegisteredKind("choice")).toBe(true);
     expect(isRegisteredKind("measure")).toBe(true);
     expect(isRegisteredKind("lock")).toBe(true);
+    expect(isRegisteredKind("trail")).toBe(true);
     for (const k of ["nope", "", "toString", "constructor", "__proto__", "hasOwnProperty", 7, null, undefined, {}]) {
       expect(isRegisteredKind(k)).toBe(false);
     }
@@ -90,5 +96,49 @@ describe("task kind registry", () => {
   it("falls back to choice when no other mechanic applies", () => {
     expect(kindForSkill("choice", "add-10", new Set())).toBe("choice");
     expect(TASK_KINDS.choice.presents("anything")).toBe(true);
+  });
+
+  it("falls back to choice for a trail while no pool presents the skill", () => {
+    __setTrailPoolsForTest([]);
+    try {
+      expect(kindForSkill("trail", "read-g3", new Set(["trail"]))).toBe("choice");
+    } finally {
+      __setTrailPoolsForTest(null);
+    }
+  });
+});
+
+describe("the second-chance line (secondChanceHint, R-H7)", () => {
+  it("is the chosen place's redirect for a trail", () => {
+    expect(secondChanceHint(TRAIL, "landmark:well")).toBe(WELL_REDIRECT);
+    expect(secondChanceHint(TRAIL, "landmark:garden")).toBe(TRAIL.redirect);
+  });
+
+  it("is the task's hint when the first pick will not decode, or is missing", () => {
+    for (const pick of ["garbage", "", "__proto__", null, undefined]) expect(secondChanceHint(TRAIL, pick)).toBe(taskHint(TRAIL));
+  });
+
+  it("is the task's hint for a kind with no line of its own", () => {
+    expect(secondChanceHint(q, "5")).toBe(taskHint(q));
+    expect(secondChanceHint(PATTERN, "pattern:3,1")).toBe(taskHint(PATTERN));
+  });
+});
+
+describe("walking kinds (R-H9)", () => {
+  const trail = { kind: "trail" as const };
+  const choice = { kind: "choice" as const };
+
+  it("are the trail, and nothing else yet", () => {
+    expect(WALKING_KINDS).toEqual(["trail"]);
+    expect(isWalkingKind("trail")).toBe(true);
+    for (const k of ["choice", "measure", "lock"] as const) expect(isWalkingKind(k)).toBe(false);
+  });
+
+  it("make a walking run only when there is a task and every task walks", () => {
+    expect(isWalkingRun({ questions: [] })).toBe(false);
+    expect(isWalkingRun({ questions: [trail] })).toBe(true);
+    expect(isWalkingRun({ questions: [trail, trail] })).toBe(true);
+    expect(isWalkingRun({ questions: [trail, choice] })).toBe(false);
+    expect(isWalkingRun({ questions: [choice] })).toBe(false);
   });
 });

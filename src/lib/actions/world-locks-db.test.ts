@@ -86,7 +86,7 @@ const TABLES = [
 ];
 
 const GROWN_UP = { access: { userId: "u-parent" }, familyId: "f1" } as unknown as Awaited<ReturnType<typeof requireChildAccess>>;
-const LOCKS_OFF = { ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true, lock: false } };
+const LOCKS_OFF = { ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true, lock: false, trail: true } };
 /** A week before the mocked day, so a chest opened then has relocked by it (F17: never "now minus 7 days"). */
 const LAST_WEEK = new Date("2026-11-01T12:00:00Z");
 

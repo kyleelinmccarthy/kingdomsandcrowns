@@ -138,6 +138,9 @@ import type { DayLight } from "@/lib/realm3d/day-cycle";
 import type { RecessBus } from "@/lib/realm3d/recess/bus";
 import { ARCH_HALF_SPAN } from "@/lib/realm3d/recess/course";
 import { typingInto } from "@/lib/realm3d/typing";
+import { ANCHOR_SPOTS, type AnchorId } from "@/lib/realm/anchors";
+import { TrailObjects } from "./trail-objects";
+import { TrailStakes } from "./trail-stakes";
 
 /* ------------------------------------------------------------------ palette */
 
@@ -982,6 +985,7 @@ const World = memo(function World({
   timeZone,
   built,
   worldLocks,
+  trailOn = false,
 }: {
   avatar: AvatarConfig;
   close: boolean;
@@ -1006,6 +1010,8 @@ const World = memo(function World({
   built?: Readonly<Record<string, number>>;
   /** The world's locks (RG-a): each chest and vault door is an E spot. Stable until a lock opens. */
   worldLocks?: WorldCanvas;
+  /** A reading trail is being walked: the fourteen stakes are E spots (`buildSpots`' `anchors`). A boolean, so the memo holds. */
+  trailOn?: boolean;
 }) {
   const day = useDayLight(timeZone);
   const look = useMemo(() => heroLook(avatar), [avatar]);
@@ -1108,8 +1114,8 @@ const World = memo(function World({
     const arch = recess ? { x: recess.course.arch.x, z: recess.course.arch.z, halfSpan: ARCH_HALF_SPAN } : null;
     // Each built plan has a plaque stone in front of it, where E reads who built it.
     const plaques = improvementPlacements(built ?? {}, world.heightAt).map((p) => ({ id: p.id, label: IMPROVEMENTS[p.id].label, ...p.plaque }));
-    return buildSpots({ props: layout.props, sitePlan: SITE_PLAN, landmarks: world.landmarks, landmarkRadius: landmarkRadii(world), castle: gate, posts, arch, stones: RIDDLE_STONE_SPOTS, plans: KEEP_YARD.plansBoard, chronicle: KEEP_YARD.lectern, plaques, locks: worldLocks?.locks, tower: towerDoorFor(worldLocks), viewer });
-  }, [layout, world, castle, castleUnlocked, ride, recess, built, worldLocks, viewer]);
+    return buildSpots({ props: layout.props, sitePlan: SITE_PLAN, landmarks: world.landmarks, landmarkRadius: landmarkRadii(world), castle: gate, posts, arch, stones: RIDDLE_STONE_SPOTS, plans: KEEP_YARD.plansBoard, chronicle: KEEP_YARD.lectern, plaques, locks: worldLocks?.locks, tower: towerDoorFor(worldLocks), viewer, anchors: trailOn ? ANCHOR_SPOTS : undefined });
+  }, [layout, world, castle, castleUnlocked, ride, recess, built, worldLocks, viewer, trailOn]);
   const heroRef = useRef(spawn);
   const yawRef = useRef(0);
   const facingRef = useRef(0);
@@ -1295,9 +1301,13 @@ export type RealmCanvasProps = {
   hallDrawings?: readonly Drawing[];
   /** The world's locks (`worldCanvas`): the chests and vault doors drawn and reached with E (`world-locks.tsx`). A new object only when a lock opens. */
   worldLocks?: WorldCanvas;
+  /** A reading trail is being walked (`use-trail-walk.ts`): its stakes are drawn and searched with E. */
+  trailOn?: boolean;
+  /** A missed clue's answer: its stake's sign and cap turn gold (`trail-stakes.tsx`). */
+  trailRevealed?: AnchorId | null;
 };
 
-export default function SpikeScene({ avatar, close, world, layout, anchors, pages, bus, caster, fxPool, casts, viewer, castleUnlocked, frozen = false, calm = false, troubles, ride, lead, recess, timeZone, gilded, reviewDue = false, stockpile, built, hallDrawings, worldLocks }: RealmCanvasProps) {
+export default function SpikeScene({ avatar, close, world, layout, anchors, pages, bus, caster, fxPool, casts, viewer, castleUnlocked, frozen = false, calm = false, troubles, ride, lead, recess, timeZone, gilded, reviewDue = false, stockpile, built, hallDrawings, worldLocks, trailOn = false, trailRevealed = null }: RealmCanvasProps) {
   return (
     <Canvas
       frameloop={frozen ? "never" : "always"}
@@ -1331,6 +1341,7 @@ export default function SpikeScene({ avatar, close, world, layout, anchors, page
         timeZone={timeZone ?? null}
         built={built}
         worldLocks={worldLocks}
+        trailOn={trailOn}
       />
       <GildedPennants layout={layout} gilded={gilded} sitePlan={SITE_PLAN} wallH={WALL_H} roofH={ROOF_H} />
       <RiddleStones world={world} due={reviewDue} />
@@ -1340,6 +1351,8 @@ export default function SpikeScene({ avatar, close, world, layout, anchors, page
       <WorldLocks locks={worldLocks?.locks} heightAt={world.heightAt} />
       <Decorations decor={worldLocks?.decor} heightAt={world.heightAt} />
       <PuzzleTower storeys={worldLocks?.storeys ?? 0} heightAt={world.heightAt} />
+      <TrailObjects heightAt={world.heightAt} />
+      <TrailStakes on={trailOn} revealed={trailRevealed} heightAt={world.heightAt} />
     </Canvas>
   );
 }

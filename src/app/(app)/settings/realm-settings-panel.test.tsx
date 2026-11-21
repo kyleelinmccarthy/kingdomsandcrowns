@@ -112,7 +112,7 @@ describe("RealmSettingsPanel", () => {
     await user.click(sw);
     expect(updateRealmSettings).toHaveBeenCalledWith("c1", { mechanics: { measure: false } });
     cleanup();
-    render(<RealmSettingsPanel childId="c1" settings={{ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: false, lock: true } }} summary={summary} />);
+    render(<RealmSettingsPanel childId="c1" settings={{ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: false, lock: true, trail: true } }} summary={summary} />);
     const off = screen.getByRole("switch", { name: "Building by measuring" });
     expect(off).not.toBeChecked();
     await user.click(off);
@@ -134,9 +134,28 @@ describe("RealmSettingsPanel", () => {
     await user.click(sw);
     expect(updateRealmSettings).toHaveBeenLastCalledWith("c1", { mechanics: { lock: false } });
     cleanup();
-    render(<RealmSettingsPanel childId="c1" settings={{ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true, lock: false } }} summary={summary} />);
+    render(<RealmSettingsPanel childId="c1" settings={{ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true, lock: false, trail: true } }} summary={summary} />);
     expect(screen.getByRole("switch", { name: "Solving logic locks" })).not.toBeChecked();
     expect(screen.getByRole("switch", { name: "Building by measuring" })).toBeChecked();
+  });
+
+  it("offers Reading trails beside them, on by default, says what Off does, and saves only that kind (R-H18)", async () => {
+    const user = userEvent.setup();
+    render(<RealmSettingsPanel childId="c1" settings={DEFAULT_REALM_SETTINGS} summary={summary} />);
+    const group = screen.getByRole("group", { name: "Side quests" });
+    expect(
+      within(group).getByText(
+        "Reading side quests become clue trails: in the Realm your hero walks to the place each clue names; on the Side Quests page they tap it on a village map. Off: reading plays as multiple choice.",
+      ),
+    ).toBeInTheDocument();
+    const sw = within(group).getByRole("switch", { name: "Reading trails" });
+    expect(sw).toBeChecked();
+    await user.click(sw);
+    expect(updateRealmSettings).toHaveBeenLastCalledWith("c1", { mechanics: { trail: false } });
+    cleanup();
+    render(<RealmSettingsPanel childId="c1" settings={{ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true, lock: true, trail: false } }} summary={summary} />);
+    expect(screen.getByRole("switch", { name: "Reading trails" })).not.toBeChecked();
+    expect(screen.getByRole("switch", { name: "Solving logic locks" })).toBeChecked();
   });
 
   it("has one switch row for every hands-on kind", () => {

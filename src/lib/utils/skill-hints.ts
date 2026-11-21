@@ -90,6 +90,9 @@ export const SKILL_HINTS: Readonly<Record<string, string>> = {
   "read-g1": "Say each word out loud and listen for the sound. Stretch the sound out, slowly.",
   "read-g3": "Ask what all the sentences are mostly about together. A choice about only one detail is too small.",
   "read-g4": "Find clues in the story, then ask what they point to. The answer is not said straight out, so check that a clue backs it up.",
+  // Played as clues answered by a place, so nothing here talks about choices.
+  "read-g6": "Ask who wrote the note and why they wrote it. Then check each fact against the places, and keep the one that fits them all.",
+  "read-g9": "Notice the exact words the writer chose and how they feel. Work out what each one means, then check the facts against the places.",
 
   // Language arts
   "lang-gk": "Say the word slowly and point to each letter. Think about the first sound, the last sound, and the letters in between.",
@@ -138,6 +141,8 @@ export const GENERIC_HINT = "Read the question again slowly. Cross out the choic
 export const GENERIC_SORT_HINT = "Say each word, then think about which group it belongs in.";
 /** Any other board (the bench, a logic lock) for a skill with no authored hint: no choices to cross out. */
 export const GENERIC_BOARD_HINT = "Look again slowly, one step at a time. Start with the part you are surest of.";
+/** A reading clue (slice 5): the clue is all there is to go on, whatever skill it credits. */
+export const GENERIC_TRAIL_HINT = "Read the clue again and picture the place it tells of.";
 
 /** The hint for a skill shown as multiple choice. */
 export function hintFor(skillId: string): string {
@@ -146,12 +151,13 @@ export function hintFor(skillId: string): string {
 
 /**
  * The hint for a task, worded for what the child is looking at: a choice task keeps its skill's
- * hint; a word sort gets its sort line; any other board (the bench, a logic lock) its skill's hint,
+ * hint; a word sort gets its sort line; a reading clue the trail's own line; any other board (the bench, a logic lock) its skill's hint,
  * none of which talks about choices. Reads a stored task (a lock's `puzzle`) or the browser's
  * (`view.puzzle`) alike.
  */
 export function taskHint(t: Task | ClientTask): string {
   if (t.kind === undefined || t.kind === "choice") return hintFor(t.skillId);
+  if (t.kind === "trail") return GENERIC_TRAIL_HINT;
   const puzzle = t.kind === "lock" ? ("view" in t ? t.view.puzzle : t.puzzle) : null;
   if (puzzle === "sort") return SORT_HINTS[t.skillId] ?? GENERIC_SORT_HINT;
   return SKILL_HINTS[t.skillId] ?? GENERIC_BOARD_HINT;

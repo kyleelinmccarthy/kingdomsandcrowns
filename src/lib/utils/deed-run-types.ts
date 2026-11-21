@@ -14,8 +14,11 @@ import type { ContentBand } from "./content-bands";
 export type RunStart = {
   runId: string; deed: { id: string; title: string; story: string; area: SkillArea | null }; questions: ClientTask[]; responses: (string | null)[];
   kind: RunKind;
-  /** A resumed run left on a second chance: reopen there, the first pick ruled out and the hint shown. */
-  pending: { index: number; ruledOut: string; hint: string } | null;
+  /**
+   * A resumed run left on a second chance: reopen there, the first pick ruled out and the hint shown.
+   * `feedback` is the first pick's code, as the fresh answer had it (`storedFeedback`), so the lead is the kind's own.
+   */
+  pending: { index: number; ruledOut: string; hint: string; feedback?: FeedbackCode } | null;
   /**
    * A side quest's building as the run begins, for the bench's drawing: its site stage
    * (`siteStage`), whether it is finished, and `placed`, how many of the run's bench tasks were
@@ -36,6 +39,12 @@ export type RunStart = {
    * and absent once that task is answered. Holds only an index.
    */
   demo?: { at: number };
+  /**
+   * Every clue of this run is read aloud unprompted, whatever `profile.readAloud` says (R-H17): set
+   * when the hero's grade in the run's strand is K and the run holds a trail task, on a fresh start and
+   * a resumed one alike. Absent otherwise. The browser's one rule is `autoSpeaks`.
+   */
+  narrateClues?: true;
 };
 /**
  * `answer` and `explain` are present only once the question is resolved, so the answer never

@@ -5,6 +5,8 @@ import { GRADES, type Grade } from "@/lib/utils/grade-levels";
 import { findSkill, skillsFor } from "@/lib/utils/skills";
 import { VERIFIERS } from "@/lib/utils/drill-verify";
 import type { Question } from "@/lib/utils/drill-generators";
+import { __setTrailPoolsForTest } from "@/lib/tasks/trails";
+import { cloneTrailPool } from "@/test/trail-pool-fixture";
 
 const notFound = vi.fn(() => {
   // The real `notFound()` throws to abort the render; a mock that returns would let the
@@ -75,6 +77,65 @@ describe("/dev/content", () => {
     expect(screen.getAllByTestId("skill").map((el) => el.getAttribute("data-skill"))).toEqual(["logic-g45"]);
     expect(screen.getByTestId("lock-note")).toHaveTextContent(/lock/i);
     expect(screen.queryAllByTestId("question")).toHaveLength(0);
+  });
+
+  it.each([["6", "read-g6"], ["9", "read-g9"]] as const)(
+    "shows a trail skill with no sample yet while no pool credits it, and no crash (F-14, grade %s)",
+    async (grade, skillId) => {
+      __setTrailPoolsForTest([]);
+      try {
+        await show(grade, "Reading");
+        expect(screen.getAllByTestId("skill").map((el) => el.getAttribute("data-skill"))).toEqual([skillId]);
+        expect(screen.getByTestId("trail-note")).toHaveTextContent(/no sample yet/i);
+        expect(screen.queryAllByTestId("question")).toHaveLength(0);
+      } finally {
+        __setTrailPoolsForTest(null);
+      }
+    },
+  );
+
+  describe("a trail skill whose pool exists (F-21)", () => {
+    afterEach(() => __setTrailPoolsForTest(null));
+
+    it.each([["6", "read-g6", "g68"], ["9", "read-g9", "g912"]] as const)("shows one clue per level, with its place, its redirect and its why (grade %s)", async (grade, skillId, band) => {
+      const pool = cloneTrailPool(band);
+      __setTrailPoolsForTest([pool]);
+      await show(grade, "Reading");
+      expect(screen.getAllByTestId("skill").map((el) => el.getAttribute("data-skill"))).toEqual([skillId]);
+      const rows = screen.getAllByTestId("trail-clue");
+      expect(rows).toHaveLength(5);
+      const texts = new Set(pool.trails.flatMap((t) => t.clues.map((c) => c.text)));
+      const answers = new Map(pool.trails.flatMap((t) => t.clues.map((c) => [c.text, c] as const)));
+      for (const row of rows) {
+        const text = within(row).getByTestId("trail-clue-text").textContent ?? "";
+        expect(texts.has(text), text).toBe(true);
+        expect(within(row).getByTestId("trail-clue-answer").textContent).toMatch(/^the /i);
+        expect(within(row).getByTestId("trail-clue-redirect")).toHaveTextContent(answers.get(text)!.redirect);
+        expect(within(row).getByTestId("trail-clue-why")).toHaveTextContent(answers.get(text)!.why!);
+      }
+      expect(screen.queryAllByTestId("question")).toHaveLength(0);
+      expect(screen.getByTestId("trail-note")).not.toHaveTextContent(/no sample yet/i);
+    });
+
+    it.each([["1", "read-g1"], ["3", "read-g3"], ["4", "read-g4"]] as const)(
+      "a pool skill a trail pool also credits shows its clues too, beside the pool note (M3, grade %s)",
+      async (grade, skillId) => {
+        await show(grade, "Reading");
+        const section = screen.getAllByTestId("skill").find((el) => el.getAttribute("data-skill") === skillId)!;
+        expect(within(section).getByTestId("pool-note")).toBeInTheDocument();
+        expect(within(section).getByTestId("trail-note")).toHaveTextContent(/reading trail/i);
+        expect(within(section).getAllByTestId("trail-clue")).toHaveLength(5);
+      },
+    );
+
+    it("shows the same clues on a reload: they are drawn from the page's fixed seeds", async () => {
+      __setTrailPoolsForTest([cloneTrailPool("g68")]);
+      await show("6", "Reading");
+      const first = screen.getAllByTestId("trail-clue-text").map((el) => el.textContent);
+      cleanup();
+      await show("6", "Reading");
+      expect(screen.getAllByTestId("trail-clue-text").map((el) => el.textContent)).toEqual(first);
+    });
   });
 
   it.each(GRADES)(

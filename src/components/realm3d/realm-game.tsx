@@ -69,7 +69,11 @@ import { DEFAULT_AVATAR, type AvatarConfig } from "@/lib/utils/avatar-catalog";
 import { DEFAULT_LEARNING_PROFILE, type LearningProfile } from "@/lib/utils/learning-profile";
 import type { SpellPage } from "@/lib/services/spells";
 import { usePlayClock, type CloseReason } from "@/components/realm/use-play-clock";
-import { DeedBoard, type DeedResult } from "./deed-board";
+import { DeedBoard, deedResultOf, type DeedResult } from "./deed-board";
+import { TrailWalk } from "./trail-walk";
+import { useTrailWalk } from "./use-trail-walk";
+import { isAnchorId } from "@/lib/realm/anchors";
+import type { RunSummary } from "@/lib/utils/deed-run-types";
 import { RiddleStoneBoard } from "./riddle-stone-board";
 import { ChronicleBook } from "./chronicle-book";
 import { PlansBoard } from "./plans-board";
@@ -402,6 +406,8 @@ export function RealmGame({
   const overlayRef = useRef(overlay);
   const [near, setNear] = useState<InteractTarget | null>(null);
   const paused = overlay !== null;
+  // A reading trail being walked (R-H14): "Set off" hands its run here, E at a stake answers it.
+  const trail = useTrailWalk(overlay?.kind ?? null);
 
   /* ---- indoors ---------------------------------------------------------- */
   // Which room the child is in, if any. Not an overlay: indoors is PLAYING — the clock runs, the
@@ -733,6 +739,11 @@ export function RealmGame({
   const openTarget = useCallback(
     (t: InteractTarget) => {
       if (overlayRef.current !== null) return;
+      // A trail's stake: the walk's tracker searches there (no walk, no tracker, nothing). Never a panel.
+      if (t.kind === "anchor") {
+        if (isAnchorId(t.id)) trail.answerRef.current?.(t.id);
+        return;
+      }
       // Indoors: the door goes back out, and the room's one thing is used where it stands.
       if (t.kind === "door") {
         leave();
@@ -768,7 +779,20 @@ export function RealmGame({
       go({ kind: "interact", target: t });
       if (talks) signal({ kind: "talked" });
     },
-    [go, signal, leave, enter, castleUnlocked, heroName, atPost, heroWrites, takeMention],
+    [go, signal, leave, enter, castleUnlocked, heroName, atPost, heroWrites, takeMention, trail.answerRef],
+  );
+
+  /** A walked trail is finished: the villager's board opens on its result, and the building rises when it closes. */
+  const { walk: trailWalk, finish: finishTrail } = trail;
+  const onTrailFinished = useCallback(
+    (summary: RunSummary) => {
+      if (!trailWalk) return;
+      const result = deedResultOf(summary, trailWalk.run.deed.id);
+      finishTrail(summary);
+      go({ kind: "interact", target: { kind: "villager", id: trailWalk.villager.id, label: trailWalk.villager.name } });
+      if (result) pendingDeed.current.set(trailWalk.buildingId, result);
+    },
+    [trailWalk, finishTrail, go],
   );
 
   // What the scene tells the frame: what is in reach, that E was pressed at it, that a spell
@@ -1060,6 +1084,8 @@ export function RealmGame({
         built={built}
         hallDrawings={realm.hallDrawings}
         worldLocks={lockState.canvas}
+        trailOn={trail.walk !== null}
+        trailRevealed={trail.revealed}
       />
       {outCount > 0 && !inside && <div key={outCount} className="r3-fade" aria-hidden="true" />}
       {inside && (
@@ -1105,6 +1131,9 @@ export function RealmGame({
           <LookReticle paused={paused} />
           <div className={`r3-frame${paused ? " r3-frame--paused" : ""}`}>
             <div className="r3-left-stack">
+              {trail.walk && (
+                <TrailWalk key={trail.walk.key} walk={trail.walk} profile={{ readAloud }} calm={calm} numerals={numerals} hidden={paused} answerRef={trail.answerRef} onReveal={trail.reveal} onFinished={onTrailFinished} onLeave={trail.leave} />
+              )}
               <ObjectiveCard
                 objective={objective}
                 heroName={heroName}
@@ -1243,6 +1272,9 @@ export function RealmGame({
           )}
           {overlay?.kind === "interact" && talkTo && (
             <DeedBoard
+              // One board per villager: a walk's finish that opens its villager while another's run
+              // is on the board starts a fresh board, never that run under this name (M1).
+              key={talkTo.villager.id}
               childId={childId}
               villager={talkTo.villager}
               site={talkTo.site}
@@ -1261,6 +1293,11 @@ export function RealmGame({
                 else raise(buildingId, result);
               }}
               onClose={closeOverlay}
+              onWalk={(run) => {
+                trail.begin(run, talkTo.villager, talkTo.site.id);
+                go(null);
+              }}
+              walked={trail.walked?.villagerId === talkTo.villager.id ? trail.walked : null}
             />
           )}
           {overlay?.kind === "interact" && overlay.target.kind === "riddle" && (

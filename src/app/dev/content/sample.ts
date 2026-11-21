@@ -20,7 +20,7 @@ export const DRAWS_PER_LEVEL = 5;
 const PAGE_SEED = 0x6b634d61;
 
 /** Distinct per skill AND level, so two skills sharing a generator do not show the same five. */
-function seedFor(skillId: string, level: number): number {
+export function seedFor(skillId: string, level: number): number {
   let h = PAGE_SEED;
   for (let i = 0; i < skillId.length; i++) h = (Math.imul(h, 31) + skillId.charCodeAt(i)) >>> 0;
   return (h + Math.imul(level + 1, 0x9e3779b1)) >>> 0;
@@ -40,10 +40,15 @@ export type SampledQuestion = { question: Question; verdict: Verdict };
 
 export type SampledLevel = { level: number; questions: SampledQuestion[] };
 
+/** One clue of a trail pool, as the page shows it: what the child reads, where it leads, and what a miss says. */
+export type SampledTrailClue = { level: number; text: string; readAloud?: string; answerLabel: string; redirect: string; why: string };
+
 export type SampledSkill =
   | { skill: Skill; kind: "generator"; generatorId: string; levels: SampledLevel[]; disagreements: number }
-  | { skill: Skill; kind: "pool"; poolId: string }
-  | { skill: Skill; kind: "lock" };
+  /** `clues`: a pool skill a trail pool also credits (`read-g1`, `read-g3`, `read-g4`) is walked as a trail where trails are on. */
+  | { skill: Skill; kind: "pool"; poolId: string; clues: SampledTrailClue[] }
+  | { skill: Skill; kind: "lock" }
+  | { skill: Skill; kind: "trail"; clues: SampledTrailClue[] };
 
 export function verdictFor(generatorId: string, question: Question): Verdict {
   const verify = VERIFIERS[generatorId];
@@ -87,11 +92,18 @@ function drawLevel(skillId: string, generatorId: string, level: number): Sampled
   return out;
 }
 
-/** Every skill the map gives this grade in this strand, with its sample drawn. */
-export function sampleGrade(area: SkillArea, grade: Grade): SampledSkill[] {
+/**
+ * Every skill the map gives this grade in this strand, with its sample drawn. `trails` is the trail
+ * pools' clues by skill id (`sample-trails.ts`, drawn on the server so the pools' answers never ride
+ * into the browser's bundle); a trail skill with none shows no sample.
+ */
+export function sampleGrade(area: SkillArea, grade: Grade, trails: Readonly<Record<string, SampledTrailClue[]>> = {}): SampledSkill[] {
   return skillsFor(area, grade).map((skill) => {
-    if (skill.source.kind === "pool") return { skill, kind: "pool", poolId: skill.source.poolId };
+    // A reading trail's clues come from its pool (`trailPoolFor`), sampled by the server page and passed in.
+    const clues = Object.prototype.hasOwnProperty.call(trails, skill.id) ? trails[skill.id] : [];
+    if (skill.source.kind === "pool") return { skill, kind: "pool", poolId: skill.source.poolId, clues };
     if (skill.source.kind === "lock") return { skill, kind: "lock" };
+    if (skill.source.kind === "trail") return { skill, kind: "trail", clues };
     const generatorId = skill.source.generatorId;
     const levels = LEVELS.map((level) => ({ level, questions: drawLevel(skill.id, generatorId, level) }));
     const disagreements = levels.reduce(

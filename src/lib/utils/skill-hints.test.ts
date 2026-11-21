@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { GRADES } from "./grade-levels";
-import { GENERIC_HINT, hintFor, SKILL_HINTS, SORT_HINTS, taskHint } from "./skill-hints";
+import { GENERIC_HINT, GENERIC_TRAIL_HINT, hintFor, SKILL_HINTS, SORT_HINTS, taskHint } from "./skill-hints";
 import { SKILLS, skillsFor } from "./skills";
 import type { ClientTask, Task } from "@/lib/tasks/types";
 import { BENCH } from "@/lib/tasks/bench";
 import { LOCKS } from "@/lib/tasks/locks";
 import { SORT_POOL_FILES } from "@/lib/tasks/locks/sort-pool-files";
 import { PATTERN } from "@/test/lock-stubs";
+import { TRAIL } from "@/test/trail-stubs";
 
 // Whole words only, so "already" or "leveled-off" style substrings do not trip the guard.
 const BANNED = ["behind", "ahead", "level", "grade", "rung", "review", "failed"];
@@ -99,6 +100,14 @@ describe("a hint fits the task's face (taskHint)", () => {
     ];
     for (const t of boards) expect(taskHint(t), t.skillId).not.toMatch(/choice/i);
     expect(taskHint({ ...PATTERN, skillId: "logic-k1" })).toBe(SKILL_HINTS["logic-k1"]);
+  });
+
+  it("a trail clue hears the trail's own line, on the server and in the browser, never its skill's choice hint", () => {
+    expect(GENERIC_TRAIL_HINT).toBe("Read the clue again and picture the place it tells of.");
+    expect(taskHint(TRAIL)).toBe(GENERIC_TRAIL_HINT);
+    expect(taskHint({ kind: "trail", id: "t", skillId: "read-g3", prompt: "p", view: {} })).toBe(GENERIC_TRAIL_HINT);
+    expect(GENERIC_TRAIL_HINT.length).toBeLessThanOrEqual(160);
+    expect(GENERIC_TRAIL_HINT).not.toMatch(bannedRe);
   });
 
   it("reads a lock's puzzle from the browser's view too", () => {

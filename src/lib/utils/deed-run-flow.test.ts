@@ -26,6 +26,11 @@ describe("initialFlow", () => {
     const s = initialFlow({ ...run, responses: ["a", "b", null], pending: { index: 1, ruledOut: "b", hint: "Try the tens." } });
     expect(s).toMatchObject({ index: 1, phase: "second-chance", ruledOut: ["b"], picked: "b" });
     expect(s.result).toMatchObject({ secondChance: true, hint: "Try the tens." });
+    expect(s.result && "feedback" in s.result).toBe(false);
+  });
+  it("restores the answer's feedback code with it, so the lead is the kind's own (a lock's, a cut's)", () => {
+    const s = initialFlow({ ...run, pending: { index: 0, ruledOut: "x", hint: "Look at the marked rule.", feedback: "rule_broken" } });
+    expect(s.result).toMatchObject({ secondChance: true, hint: "Look at the marked rule.", feedback: "rule_broken" });
   });
 });
 
@@ -58,6 +63,15 @@ describe("flowReducer", () => {
   it("next moves on, asking, with everything cleared but the streak", () => {
     const done = flowReducer({ ...asking, streak: 2 }, { type: "answered", choice: "a", result: right });
     expect(flowReducer(done, { type: "next" })).toEqual({ index: 1, phase: "asking", ruledOut: [], picked: null, result: null, streak: 3 });
+  });
+  it("next does nothing unless the question is resolved: a second next, or one while asking or on a second chance, never skips a question", () => {
+    const asked = initialFlow(run);
+    expect(flowReducer(asked, { type: "next" })).toBe(asked);
+    const second = flowReducer(asked, { type: "answered", choice: "b", result: open });
+    expect(flowReducer(second, { type: "next" })).toBe(second);
+    const moved = flowReducer(flowReducer(asked, { type: "answered", choice: "a", result: right }), { type: "next" });
+    expect(moved.index).toBe(1);
+    expect(flowReducer(moved, { type: "next" })).toBe(moved);
   });
   it("counts the streak over first tries only: right, right, wrong then right, right is 1, 2, 0, 1", () => {
     let s: FlowState = asking;

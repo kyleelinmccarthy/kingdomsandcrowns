@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { DEEDS, SIDE_QUEST_QUESTIONS, deedRunLength, deedsForBuilding, deedStory, findDeed } from "./deeds";
+import { DEEDS, SIDE_QUEST_QUESTIONS, TRAIL_CLUES, TRAIL_DEED_IDS, deedRunLength, deedsForBuilding, deedStory, findDeed } from "./deeds";
 import { BUILDINGS } from "./kingdom";
 import { AREA_LABELS } from "./skills";
 import { TASK_KINDS } from "@/lib/tasks/registry";
@@ -14,12 +14,23 @@ describe("DEEDS", () => {
       expect(d.story.length).toBeGreaterThan(20);
     }
   });
-  it("asks a science side quest's four sorts, and every other side quest's eight (RF-j)", () => {
+  it("asks a science side quest's four sorts, a reading side quest's four clues, and every other side quest's eight (RF-j, R-H10)", () => {
     expect(SIDE_QUEST_QUESTIONS).toBe(8);
-    for (const d of DEEDS) expect(d.questionCount, d.id).toBe(d.area === "science" ? 4 : SIDE_QUEST_QUESTIONS);
+    expect(TRAIL_CLUES).toBe(4);
+    const own = (area: string) => (area === "science" ? 4 : area === "reading" ? TRAIL_CLUES : SIDE_QUEST_QUESTIONS);
+    for (const d of DEEDS) expect(d.questionCount, d.id).toBe(own(d.area));
   });
   it("names a mechanic for every deed, and it is a registered task kind", () => {
     for (const d of DEEDS) expect(Object.keys(TASK_KINDS)).toContain(d.mechanic);
+  });
+  it("plays every reading side quest as a trail, and names them in TRAIL_DEED_IDS (R-H9, H7)", () => {
+    const reading = DEEDS.filter((d) => d.area === "reading");
+    expect(reading.map((d) => d.id)).toEqual(["well-signs", "chapel-scroll", "library-catalog"]);
+    for (const d of reading) expect(d.mechanic, d.id).toBe("trail");
+    expect([...TRAIL_DEED_IDS]).toEqual(reading.map((d) => d.id));
+    // Only reading walks: every other area keeps the mechanic it had.
+    for (const d of DEEDS.filter((x) => x.area !== "reading")) expect(d.mechanic, d.id).not.toBe("trail");
+    expect(DEEDS.filter((d) => d.mechanic === "trail").map((d) => d.id)).toEqual([...TRAIL_DEED_IDS]);
   });
   it("gives every building at least two deeds and uses every area at least twice", () => {
     for (const b of BUILDINGS) expect(deedsForBuilding(b.id).length).toBeGreaterThanOrEqual(2);
@@ -60,5 +71,12 @@ describe("deedRunLength: how many tasks a run of a side quest asks (RF-j)", () =
   it("keeps the grown-up's whole length when the run falls back to multiple choice (locks off, the gate, no sort pool)", () => {
     expect(deedRunLength(science, 8, false)).toBe(8);
     expect(deedRunLength(science, 12, false)).toBe(12);
+  });
+  it("halves a reading side quest that draws trails, and keeps the whole length when it plays as choice (R-H10, R-H22)", () => {
+    const reading = findDeed("well-signs")!;
+    expect(deedRunLength(reading, 8, true)).toBe(4);
+    expect(deedRunLength(reading, 12, true)).toBe(6);
+    expect(deedRunLength(reading, 4, true)).toBe(2);
+    for (const length of [4, 8, 12]) expect(deedRunLength(reading, length, false)).toBe(length);
   });
 });

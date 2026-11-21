@@ -20,6 +20,7 @@ import { seasonPhrase } from "@/lib/realm/season-phrase";
 import { agree } from "@/lib/realm/improvements";
 import { cutFeedbackLine } from "@/lib/tasks/measure-copy";
 import { isLockFeedback, lockFeedbackLine } from "@/lib/tasks/lock-copy";
+import { TRAIL_RETRY_LEAD } from "@/lib/tasks/trail-copy";
 import type { ClientTask } from "@/lib/tasks/types";
 import { MAX_STARS, countsTowardBuilding, type RunKind } from "@/lib/utils/deed-scoring";
 import type { ObjectiveState } from "@/lib/realm/objective";
@@ -355,11 +356,13 @@ export function resultMinutesLine(summary: Pick<RunSummary, "minutesEarned" | "s
 export function attemptFeedback(result: AttemptResult, retried: boolean, villagerName?: string, task?: ClientTask): { heading: "Try again" | null; text: string } {
   if (result.secondChance) {
     const code = result.feedback;
-    // Only the bench's codes reach the bench's words, and only a lock's reach a lock's. Which way a
-    // wrong cut is off is said in the words of what it measures (a length is long; an area is over).
+    // Only the bench's codes reach the bench's words, only a lock's reach a lock's, and a trail's its lead. Which way a
+    // wrong cut is off is said in the words of what it measures (a length is long; an area is over). A trail's lead
+    // also follows from the task itself: a second chance picked back up (`initialFlow`, from `pending`) has no code.
     const quantity = task?.kind === "measure" ? task.view.quantity : undefined;
     const lead = code === "too_long" || code === "too_short" ? cutFeedbackLine(quantity, code)
       : isLockFeedback(code) ? lockFeedbackLine(code, task?.kind === "lock" ? task.view.puzzle : undefined)
+      : code === "wrong_place" || task?.kind === "trail" ? TRAIL_RETRY_LEAD
       : "Not quite.";
     return { heading: "Try again", text: `${lead} ${result.hint ?? ""}`.trim() };
   }
@@ -368,8 +371,8 @@ export function attemptFeedback(result: AttemptResult, retried: boolean, village
     return { heading: null, text: result.bridge ? `${text} ${result.bridge}` : text };
   }
   const why = result.explain ?? result.hint;
-  // An assemble miss's answer and a lock's are already sentences; every other answer (a choice's sentence too) reads as today.
-  const sentence = (task?.kind === "measure" && task.view.mode === "assemble") || task?.kind === "lock";
+  // An assemble miss's answer, a lock's and a trail's are already sentences; every other answer (a choice's sentence too) reads as today.
+  const sentence = (task?.kind === "measure" && task.view.mode === "assemble") || task?.kind === "lock" || task?.kind === "trail";
   const reveal = !result.answer ? "Not quite." : sentence ? result.answer : `The answer was ${result.answer}.`;
   return { heading: null, text: [reveal, why].filter(Boolean).join(" ") };
 }

@@ -34,8 +34,8 @@ vi.mock("@/lib/services/realm-play", () => ({
 vi.mock("@/lib/services/realm-troubles", () => ({
   loadRecentTroubleClears: (childId: string) => loadRecentTroubleClears(childId),
 }));
-const loadReviewDue = vi.fn<(childId: string) => Promise<boolean>>(async () => false);
-vi.mock("@/lib/services/review", () => ({ loadReviewDue: (childId: string) => loadReviewDue(childId) }));
+const loadReviewDue = vi.fn<(childId: string, grades?: unknown) => Promise<boolean>>(async () => false);
+vi.mock("@/lib/services/review", () => ({ loadReviewDue: (childId: string, grades: unknown) => loadReviewDue(childId, grades) }));
 const loadFocusSkillIds = vi.fn<(childId: string) => Promise<string[]>>(async () => []);
 vi.mock("@/lib/services/learning-focus", () => ({ loadFocusSkillIds: (childId: string) => loadFocusSkillIds(childId) }));
 const loadRises = vi.fn<(childId: string) => Promise<{ unannounced: string[]; regraded: boolean }>>(async () => ({ unannounced: ["well", "mill"], regraded: true }));
@@ -184,13 +184,33 @@ describe("getRealmBundle — the troubles cleared a moment ago", () => {
 });
 
 describe("getRealmBundle — whether the riddle stones glow", () => {
+  beforeEach(() => {
+    loadReviewDue.mockClear();
+    loadHeroLevels.mockClear();
+  });
+
   it("says whether anything learned is due for review, read once with the bundle's own access", async () => {
     requireChildAccess.mockResolvedValue(as("child:c1", "edit"));
     loadReviewDue.mockResolvedValueOnce(true);
     const b = await getRealmBundle("c1");
     expect(b.reviewDue).toBe(true);
-    expect(loadReviewDue).toHaveBeenCalledWith("c1");
+    // On the overview's grades (RH-c: nothing above the hero's grade glows), with no second hero read.
+    expect(loadReviewDue).toHaveBeenCalledWith("c1", GRADES4);
+    expect(loadHeroLevels).not.toHaveBeenCalled();
     expect(requireChildAccess).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves the stones dark, and reads no review, when the kingdom (and so the grades) failed to load", async () => {
+    requireChildAccess.mockResolvedValue(as("child:c1", "edit"));
+    loadKingdomOverview.mockRejectedValueOnce(new Error("down"));
+    loadReviewDue.mockResolvedValueOnce(true);
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const b = await getRealmBundle("c1");
+    spy.mockRestore();
+    expect(b.reviewDue).toBe(false);
+    expect(loadReviewDue).not.toHaveBeenCalled();
+    loadReviewDue.mockReset();
+    loadReviewDue.mockImplementation(async () => false);
   });
 
   it("leaves the stones dark when the read fails, rather than closing the Realm", async () => {

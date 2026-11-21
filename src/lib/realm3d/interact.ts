@@ -18,6 +18,8 @@ import { YARD_RADIUS } from "@/lib/realm/keep-yard";
 import { LOCK_SPOT } from "@/lib/realm/world-objects";
 import type { LockSpotView } from "@/lib/realm/world-state";
 import { CHEST_VERBS, DOOR_VERBS, TOWER_LABEL, TOWER_VERB, VISITOR_VERB } from "@/lib/utils/world-lock-copy";
+import { ANCHOR_SPOT, type AnchorId } from "@/lib/realm/anchors";
+import { TRAIL_SEARCH_VERB } from "@/lib/tasks/trail-copy";
 
 /** One thing in the world with a reach round it. */
 export type InteractSpot = {
@@ -160,6 +162,11 @@ export type SpotInput = {
   tower?: { x: number; z: number } | null;
   /** Who is walking: a visiting grown-up looks at the locks and the Tower, never opens or climbs. Absent, the hero. */
   viewer?: "child" | "parent";
+  /**
+   * The reading trail's search stakes (`ANCHOR_SPOTS`), while a walk is on: every one of the fourteen,
+   * so the right place is never the only place E searches (R-H6). Absent, there are none.
+   */
+  anchors?: readonly { id: AnchorId; label: string; x: number; z: number }[];
 };
 
 /** What E at the Puzzle Tower says: "Climb the Puzzle Tower". */
@@ -194,6 +201,14 @@ export function lockSpot(l: LockSpotView, viewer: "child" | "parent" = "child"):
     bias: 0.4,
     ring: LOCK_SPOT.radius + 0.6,
   };
+}
+
+/**
+ * What E at a trail's stake says: "Search the mill". Every stake's target has the same shape and the
+ * same verb; only the place's own id and name differ, so nothing marks the clue's answer (R-H6).
+ */
+export function anchorTarget(a: { id: AnchorId; label: string }): InteractTarget {
+  return { kind: "anchor", id: a.id, label: a.label, verb: TRAIL_SEARCH_VERB };
 }
 
 /** What E at a plaque says: "Read the Well House plaque". */
@@ -386,6 +401,20 @@ export function buildSpots(input: SpotInput): InteractSpot[] {
       // The door stands a step from the plot's edge and the village's open ground: a hero beside it means the Tower.
       bias: 0.4,
       ring: 1.3,
+    });
+  }
+  for (const a of input.anchors ?? []) {
+    out.push({
+      target: anchorTarget(a),
+      x: a.x,
+      z: a.z,
+      hw: ANCHOR_SPOT.radius,
+      hd: ANCHOR_SPOT.radius,
+      round: true,
+      reach: ANCHOR_SPOT.reach,
+      // A stake stands a step from the thing it names: a hero beside it means the stake.
+      bias: 0.4,
+      ring: ANCHOR_SPOT.radius + 0.6,
     });
   }
   return out;

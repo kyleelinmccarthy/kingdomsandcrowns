@@ -1,0 +1,1134 @@
+{
+  "poolId": "trail-g23",
+  "skillId": "read-g3",
+  "band": "g23",
+  "trails": [
+    {
+      "id": "l0-chapel-mill",
+      "level": 0,
+      "clues": [
+        {
+          "text": "Sister Wren rings a bell here when it is time to be still. Find the place where she works.",
+          "answer": "landmark:chapel",
+          "redirect": "This is not where the bell rings. Read the first sentence again."
+        },
+        {
+          "text": "Tessa makes flour here for the baker. Go and find her.",
+          "answer": "landmark:mill",
+          "redirect": "No grain is ground into flour here. What is the clue mostly about?"
+        }
+      ]
+    },
+    {
+      "id": "l0-well-bridge-market",
+      "level": 0,
+      "clues": [
+        {
+          "text": "Old Bram looks after this place. Go and find him.",
+          "answer": "landmark:well",
+          "redirect": "Old Bram does not fill pails here. Read it once more and picture the place.",
+          "redirects": {
+            "object:water-trough": "This trough is for the animals. Read it once more and picture the place."
+          }
+        },
+        {
+          "text": "Carpenter Aldo keeps this crossing strong. Go and find him.",
+          "answer": "landmark:bridge",
+          "redirect": "This does not take you over the river. Read the clue again."
+        },
+        {
+          "text": "Crier Pip calls out to everyone here. Go and find him.",
+          "answer": "landmark:market",
+          "redirect": "There are no stalls here. What is the clue mostly about?"
+        }
+      ]
+    },
+    {
+      "id": "l0-library-watch",
+      "level": 0,
+      "clues": [
+        {
+          "text": "Hesper keeps rows of books here on tall shelves. Go and find her.",
+          "answer": "landmark:library",
+          "redirect": "There are no shelves of books here. Read it once more and picture the place.",
+          "redirects": {
+            "object:notice-board": "Signs are pinned up on this. Read it once more and picture the place."
+          }
+        },
+        {
+          "text": "Mason Gerd looks out over the hills from up here. Go and find him.",
+          "answer": "landmark:watchtower",
+          "redirect": "No lantern looks out over the hills from here. Read the clue again.",
+          "redirects": {
+            "landmark:puzzle-tower": "This tall place is full of puzzles. Read the clue again."
+          }
+        }
+      ]
+    },
+    {
+      "id": "l0-garden-gate-ptower",
+      "level": 0,
+      "clues": [
+        {
+          "text": "Keeper Ivy grows herbs here in neat rows. Go and find her.",
+          "answer": "landmark:garden",
+          "redirect": "No herbs grow here. What is the clue mostly about?",
+          "redirects": {
+            "object:beehives": "These hives are homes for buzzing workers. What is the clue mostly about?"
+          }
+        },
+        {
+          "text": "Walk to the north end of the road. Find the big way in there.",
+          "answer": "landmark:castle-gate",
+          "redirect": "This is not where the road ends. Read it once more and picture the place."
+        },
+        {
+          "text": "Bonus puzzles wait inside this tall stone place. Go and try one.",
+          "answer": "landmark:puzzle-tower",
+          "redirect": "There are no bonus puzzles here. Read the clue again.",
+          "redirects": {
+            "landmark:watchtower": "This is Mason Gerd's lookout over the hills. Read the clue again."
+          }
+        }
+      ]
+    },
+    {
+      "id": "l0-board-trough",
+      "level": 0,
+      "clues": [
+        {
+          "text": "People pin up signs here for all to see. Go and look at them.",
+          "answer": "object:notice-board",
+          "redirect": "No signs are pinned up here. What is the clue mostly about?",
+          "redirects": {
+            "landmark:library": "This is where Hesper keeps her shelves of books. What is the clue mostly about?"
+          }
+        },
+        {
+          "text": "Goats and horses stop here when they are thirsty. Go and find the spot.",
+          "answer": "object:water-trough",
+          "redirect": "This is not where the animals stop for a sip. Read it once more and picture the place.",
+          "redirects": {
+            "landmark:well": "Old Bram fills pails for the houses here. Read it once more and picture the place."
+          }
+        }
+      ]
+    },
+    {
+      "id": "l0-hives-cart-well",
+      "level": 0,
+      "clues": [
+        {
+          "text": "Little striped bugs buzz in and out of wooden homes at the south-west edge. Find them, but do not touch!",
+          "answer": "object:beehives",
+          "redirect": "No little wooden homes are here. Read the clue again.",
+          "redirects": {
+            "landmark:garden": "This is Keeper Ivy's place of herbs. Read the clue again."
+          }
+        },
+        {
+          "text": "A big pile of dry hay sits on wheels here. Go and find it.",
+          "answer": "object:hay-cart",
+          "redirect": "There is no hay here. What is the clue mostly about?"
+        },
+        {
+          "text": "People fill their pails here for every house. Old Bram helps them.",
+          "answer": "landmark:well",
+          "redirect": "Old Bram does not fill pails here. Read it once more and picture the place.",
+          "redirects": {
+            "object:water-trough": "This trough is for the animals. Read it once more and picture the place."
+          }
+        }
+      ]
+    },
+    {
+      "id": "l0-mill-bridge",
+      "level": 0,
+      "clues": [
+        {
+          "text": "Sacks of grain go in, and flour comes out. Find the place where that happens.",
+          "answer": "landmark:mill",
+          "redirect": "No grain is ground into flour here. Read the clue again."
+        },
+        {
+          "text": "This crossing goes over the river. It holds in rain and snow.",
+          "answer": "landmark:bridge",
+          "redirect": "This does not take you over the river. What is the clue mostly about?"
+        }
+      ]
+    },
+    {
+      "id": "l0-chapel-market-library",
+      "level": 0,
+      "clues": [
+        {
+          "text": "A bell rings here, and people come to be quiet. Go there now.",
+          "answer": "landmark:chapel",
+          "redirect": "This is not where the bell rings. Read it once more and picture the place."
+        },
+        {
+          "text": "Stalls stand in rows here, and it smells of fresh bread. Go there now.",
+          "answer": "landmark:market",
+          "redirect": "There are no stalls here. Read the clue again."
+        },
+        {
+          "text": "Rows and rows of old books wait here on shelves. Go and see them.",
+          "answer": "landmark:library",
+          "redirect": "There are no shelves of books here. What is the clue mostly about?",
+          "redirects": {
+            "object:notice-board": "Signs are pinned up on this. What is the clue mostly about?"
+          }
+        }
+      ]
+    },
+    {
+      "id": "l0-watch-garden",
+      "level": 0,
+      "clues": [
+        {
+          "text": "A lantern shines from up high here at night. Go and find it.",
+          "answer": "landmark:watchtower",
+          "redirect": "No lantern looks out over the hills from here. Read it once more and picture the place.",
+          "redirects": {
+            "landmark:puzzle-tower": "This tall place is full of puzzles. Read it once more and picture the place."
+          }
+        },
+        {
+          "text": "There is a bench in the sun among the herbs. Go and sit on it.",
+          "answer": "landmark:garden",
+          "redirect": "No herbs grow here. Read the clue again.",
+          "redirects": {
+            "object:beehives": "These hives are homes for buzzing workers. Read the clue again."
+          }
+        }
+      ]
+    },
+    {
+      "id": "l0-hives-trough-cart",
+      "level": 0,
+      "clues": [
+        {
+          "text": "Stay calm and do not swat. Tiny buzzing workers live in wooden boxes at the south-west edge.",
+          "answer": "object:beehives",
+          "redirect": "No little wooden homes are here. What is the clue mostly about?",
+          "redirects": {
+            "landmark:garden": "This is Keeper Ivy's place of herbs. What is the clue mostly about?"
+          }
+        },
+        {
+          "text": "A long wooden box is filled for the animals here. Go and find it.",
+          "answer": "object:water-trough",
+          "redirect": "This is not where the animals stop for a sip. Read it once more and picture the place.",
+          "redirects": {
+            "landmark:well": "Old Bram fills pails for the houses here. Read it once more and picture the place."
+          }
+        },
+        {
+          "text": "A farm wagon is piled high with hay. Go and find it.",
+          "answer": "object:hay-cart",
+          "redirect": "There is no hay here. Read the clue again."
+        }
+      ]
+    },
+    {
+      "id": "l1-mill-well",
+      "level": 1,
+      "clues": [
+        {
+          "text": "Tessa has lots of grain to grind today. Go to the place where she works.",
+          "answer": "landmark:mill",
+          "redirect": "No grain is ground into flour here. Read the clue again."
+        },
+        {
+          "text": "Old Bram has a long rope and a pail. Go to the place he looks after.",
+          "answer": "landmark:well",
+          "redirect": "Old Bram does not fill pails here. What is the clue mostly about?",
+          "redirects": {
+            "object:water-trough": "This trough is for the animals. What is the clue mostly about?"
+          }
+        }
+      ]
+    },
+    {
+      "id": "l1-bridge-chapel-market",
+      "level": 1,
+      "clues": [
+        {
+          "text": "The river runs fast after the rain. Find the safe way across it.",
+          "answer": "landmark:bridge",
+          "redirect": "This does not take you over the river. Read it once more and picture the place."
+        },
+        {
+          "text": "Sister Wren needs help with her bell. Go to the place where it hangs.",
+          "answer": "landmark:chapel",
+          "redirect": "This is not where the bell rings. Read the clue again."
+        },
+        {
+          "text": "Pip has a song for the people at the stalls. Go to the place where he sings.",
+          "answer": "landmark:market",
+          "redirect": "There are no stalls here. What is the clue mostly about?"
+        }
+      ]
+    },
+    {
+      "id": "l1-library-watch",
+      "level": 1,
+      "clues": [
+        {
+          "text": "Hesper has a new book to put on a shelf. Go to the place where she keeps them.",
+          "answer": "landmark:library",
+          "redirect": "There are no shelves of books here. Read it once more and picture the place.",
+          "redirects": {
+            "object:notice-board": "Signs are pinned up on this. Read it once more and picture the place."
+          }
+        },
+        {
+          "text": "Gerd needs oil for his lantern. Go to the place where he keeps watch at night.",
+          "answer": "landmark:watchtower",
+          "redirect": "No lantern looks out over the hills from here. Read the clue again.",
+          "redirects": {
+            "landmark:puzzle-tower": "This tall place is full of puzzles. Read the clue again."
+          }
+        }
+      ]
+    },
+    {
+      "id": "l1-garden-gate-ptower",
+      "level": 1,
+      "clues": [
+        {
+          "text": "Ivy needs help picking herbs today. Go to the place where they grow.",
+          "answer": "landmark:garden",
+          "redirect": "No herbs grow here. What is the clue mostly about?",
+          "redirects": {
+            "object:beehives": "These hives are homes for buzzing workers. What is the clue mostly about?"
+          }
+        },
+        {
+          "text": "The road through the village ends in the north. Go to the big way in at its end.",
+          "answer": "landmark:castle-gate",
+          "redirect": "This is not where the road ends. Read it once more and picture the place."
+        },
+        {
+          "text": "You like hard puzzles. Go to the tall stone place where the bonus ones wait.",
+          "answer": "landmark:puzzle-tower",
+          "redirect": "There are no bonus puzzles here. Read the clue again.",
+          "redirects": {
+            "landmark:watchtower": "This is Mason Gerd's lookout over the hills. Read the clue again."
+          }
+        }
+      ]
+    },
+    {
+      "id": "l1-board-trough",
+      "level": 1,
+      "clues": [
+        {
+          "text": "Someone pinned up a sign about a lost cat. Go and find where it hangs.",
+          "answer": "object:notice-board",
+          "redirect": "No signs are pinned up here. What is the clue mostly about?",
+          "redirects": {
+            "landmark:library": "This is where Hesper keeps her shelves of books. What is the clue mostly about?"
+          }
+        },
+        {
+          "text": "The farm horses are hot and tired. Lead them to the long wooden box where the animals sip.",
+          "answer": "object:water-trough",
+          "redirect": "This is not where the animals stop for a sip. Read it once more and picture the place.",
+          "redirects": {
+            "landmark:well": "Old Bram fills pails for the houses here. Read it once more and picture the place."
+          }
+        }
+      ]
+    },
+    {
+      "id": "l1-hives-cart-well",
+      "level": 1,
+      "clues": [
+        {
+          "text": "Something is buzzing at the south-west edge of the village. Go and see its little wooden homes.",
+          "answer": "object:beehives",
+          "redirect": "No little wooden homes are here. Read the clue again.",
+          "redirects": {
+            "landmark:garden": "This is Keeper Ivy's place of herbs. Read the clue again."
+          }
+        },
+        {
+          "text": "The farmer left a load of hay on wheels at the east edge. Go and find it.",
+          "answer": "object:hay-cart",
+          "redirect": "There is no hay here. What is the clue mostly about?"
+        },
+        {
+          "text": "Old Bram pulls up a full pail for every house. Find the place where he does it.",
+          "answer": "landmark:well",
+          "redirect": "Old Bram does not fill pails here. Read it once more and picture the place.",
+          "redirects": {
+            "object:water-trough": "This trough is for the animals. Read it once more and picture the place."
+          }
+        }
+      ]
+    },
+    {
+      "id": "l1-mill-bridge",
+      "level": 1,
+      "clues": [
+        {
+          "text": "The baker has no flour left. Go to the place that makes it.",
+          "answer": "landmark:mill",
+          "redirect": "No grain is ground into flour here. Read the clue again."
+        },
+        {
+          "text": "Carpenter Aldo is fixing a plank today. Go to where he works over the river.",
+          "answer": "landmark:bridge",
+          "redirect": "This does not take you over the river. What is the clue mostly about?"
+        }
+      ]
+    },
+    {
+      "id": "l1-chapel-market-library",
+      "level": 1,
+      "clues": [
+        {
+          "text": "It is time to be still and calm. Go where the bell is ringing.",
+          "answer": "landmark:chapel",
+          "redirect": "This is not where the bell rings. Read it once more and picture the place."
+        },
+        {
+          "text": "Pip wants to sell some pies at a stall. Go to where all the stalls are.",
+          "answer": "landmark:market",
+          "redirect": "There are no stalls here. Read the clue again."
+        },
+        {
+          "text": "You want a book about dragons. Go to the place with shelves of books.",
+          "answer": "landmark:library",
+          "redirect": "There are no shelves of books here. What is the clue mostly about?",
+          "redirects": {
+            "object:notice-board": "Signs are pinned up on this. What is the clue mostly about?"
+          }
+        }
+      ]
+    },
+    {
+      "id": "l1-watch-garden",
+      "level": 1,
+      "clues": [
+        {
+          "text": "Gerd sees far over the hills from his high post. Go and find him there.",
+          "answer": "landmark:watchtower",
+          "redirect": "No lantern looks out over the hills from here. Read it once more and picture the place.",
+          "redirects": {
+            "landmark:puzzle-tower": "This tall place is full of puzzles. Read it once more and picture the place."
+          }
+        },
+        {
+          "text": "The sun is out and the bench is warm. Go and sit with Ivy among her herbs.",
+          "answer": "landmark:garden",
+          "redirect": "No herbs grow here. Read the clue again.",
+          "redirects": {
+            "object:beehives": "These hives are homes for buzzing workers. Read the clue again."
+          }
+        }
+      ]
+    },
+    {
+      "id": "l1-board-cart-trough",
+      "level": 1,
+      "clues": [
+        {
+          "text": "A new sign was pinned up by the southern way into the village. Go and look at it.",
+          "answer": "object:notice-board",
+          "redirect": "No signs are pinned up here. What is the clue mostly about?",
+          "redirects": {
+            "landmark:library": "This is where Hesper keeps her shelves of books. What is the clue mostly about?"
+          }
+        },
+        {
+          "text": "The hay is piled so high it might tip! Go and find it at the east edge.",
+          "answer": "object:hay-cart",
+          "redirect": "There is no hay here. Read it once more and picture the place."
+        },
+        {
+          "text": "The goats bleat for a sip. Lead them to their long wooden box at the south edge.",
+          "answer": "object:water-trough",
+          "redirect": "This is not where the animals stop for a sip. Read the clue again.",
+          "redirects": {
+            "landmark:well": "Old Bram fills pails for the houses here. Read the clue again."
+          }
+        }
+      ]
+    },
+    {
+      "id": "l2-chapel-mill",
+      "level": 2,
+      "clues": [
+        {
+          "text": "Sister Wren says: Please come in softly. My bell will ring soon.",
+          "answer": "landmark:chapel",
+          "redirect": "This is not where the bell rings. Read the clue again."
+        },
+        {
+          "text": "Tessa says: My stones grind grain all day. Come and help me fill the flour sacks.",
+          "answer": "landmark:mill",
+          "redirect": "No grain is ground into flour here. What is the clue mostly about?"
+        }
+      ]
+    },
+    {
+      "id": "l2-well-bridge-market",
+      "level": 2,
+      "clues": [
+        {
+          "text": "Old Bram says: I let my pail down on a long rope, deep into the dark. Come and help me pull it up.",
+          "answer": "landmark:well",
+          "redirect": "Old Bram does not fill pails here. Read it once more and picture the place.",
+          "redirects": {
+            "object:water-trough": "This trough is for the animals. Read it once more and picture the place."
+          }
+        },
+        {
+          "text": "Aldo says: I mend the planks so people can cross the river. Come and hold my hammer.",
+          "answer": "landmark:bridge",
+          "redirect": "This does not take you over the river. Read the clue again."
+        },
+        {
+          "text": "Pip says: Come and hear me sing among the stalls! The bread smells so good today.",
+          "answer": "landmark:market",
+          "redirect": "There are no stalls here. What is the clue mostly about?"
+        }
+      ]
+    },
+    {
+      "id": "l2-library-watch",
+      "level": 2,
+      "clues": [
+        {
+          "text": "Hesper says: Every book here has its own spot on a shelf. Come and help me tidy.",
+          "answer": "landmark:library",
+          "redirect": "There are no shelves of books here. Read it once more and picture the place.",
+          "redirects": {
+            "object:notice-board": "Signs are pinned up on this. Read it once more and picture the place."
+          }
+        },
+        {
+          "text": "Gerd says: From up here I can see the hills. Bring me oil for my lantern.",
+          "answer": "landmark:watchtower",
+          "redirect": "No lantern looks out over the hills from here. Read the clue again.",
+          "redirects": {
+            "landmark:puzzle-tower": "This tall place is full of puzzles. Read the clue again."
+          }
+        }
+      ]
+    },
+    {
+      "id": "l2-garden-gate-ptower",
+      "level": 2,
+      "clues": [
+        {
+          "text": "Ivy says: My herbs need picking, and my bench is in the sun. Come and help me.",
+          "answer": "landmark:garden",
+          "redirect": "No herbs grow here. What is the clue mostly about?",
+          "redirects": {
+            "object:beehives": "These hives are homes for buzzing workers. What is the clue mostly about?"
+          }
+        },
+        {
+          "text": "A message says: Walk north up the road until it ends. That is the way into the keep. Wait there.",
+          "answer": "landmark:castle-gate",
+          "redirect": "This is not where the road ends. Read it once more and picture the place."
+        },
+        {
+          "text": "A riddle-lover says: The best bonus puzzles are in the tall stone place at the far south-east. Go and try them!",
+          "answer": "landmark:puzzle-tower",
+          "redirect": "There are no bonus puzzles here. Read the clue again.",
+          "redirects": {
+            "landmark:watchtower": "This is Mason Gerd's lookout over the hills. Read the clue again."
+          }
+        }
+      ]
+    },
+    {
+      "id": "l2-board-trough",
+      "level": 2,
+      "clues": [
+        {
+          "text": "A villager says: I pinned my lost-dog sign up by the southern way in. Please go and look at it.",
+          "answer": "object:notice-board",
+          "redirect": "No signs are pinned up here. What is the clue mostly about?",
+          "redirects": {
+            "landmark:library": "This is where Hesper keeps her shelves of books. What is the clue mostly about?"
+          }
+        },
+        {
+          "text": "The farmer says: My horses are hot from work. Lead them to their long wooden box at the south edge.",
+          "answer": "object:water-trough",
+          "redirect": "This is not where the animals stop for a sip. Read it once more and picture the place.",
+          "redirects": {
+            "landmark:well": "Old Bram fills pails for the houses here. Read it once more and picture the place."
+          }
+        }
+      ]
+    },
+    {
+      "id": "l2-hives-cart-well",
+      "level": 2,
+      "clues": [
+        {
+          "text": "A villager says: Walk softly at the south-west edge. Little striped workers live in the wooden boxes there.",
+          "answer": "object:beehives",
+          "redirect": "No little wooden homes are here. Read the clue again.",
+          "redirects": {
+            "landmark:garden": "This is Keeper Ivy's place of herbs. Read the clue again."
+          }
+        },
+        {
+          "text": "The farmer says: I left my hay on wheels at the east edge. Please go and fetch a bundle.",
+          "answer": "object:hay-cart",
+          "redirect": "There is no hay here. What is the clue mostly about?"
+        },
+        {
+          "text": "Bram says: Every house in the village gets a full pail from me. Come and turn the handle.",
+          "answer": "landmark:well",
+          "redirect": "Old Bram does not fill pails here. Read it once more and picture the place.",
+          "redirects": {
+            "object:water-trough": "This trough is for the animals. Read it once more and picture the place."
+          }
+        }
+      ]
+    },
+    {
+      "id": "l2-mill-chapel",
+      "level": 2,
+      "clues": [
+        {
+          "text": "The baker says: My ovens are empty and cold. Go where the grain is turned into flour for me.",
+          "answer": "landmark:mill",
+          "redirect": "No grain is ground into flour here. Read the clue again."
+        },
+        {
+          "text": "A soft bell rings across the village. It calls people to a calm, still place. Go there.",
+          "answer": "landmark:chapel",
+          "redirect": "This is not where the bell rings. What is the clue mostly about?"
+        }
+      ]
+    },
+    {
+      "id": "l2-market-library-watch",
+      "level": 2,
+      "clues": [
+        {
+          "text": "Songs and smells fill the square. People sell fruit at the stalls. Go there.",
+          "answer": "landmark:market",
+          "redirect": "There are no stalls here. Read it once more and picture the place."
+        },
+        {
+          "text": "Hesper says: Come in, but softly. I have a shelf of old books to show you.",
+          "answer": "landmark:library",
+          "redirect": "There are no shelves of books here. Read the clue again.",
+          "redirects": {
+            "object:notice-board": "Signs are pinned up on this. Read the clue again."
+          }
+        },
+        {
+          "text": "Gerd says: Each night I light the lantern up high. Come up and look at the hills with me.",
+          "answer": "landmark:watchtower",
+          "redirect": "No lantern looks out over the hills from here. What is the clue mostly about?",
+          "redirects": {
+            "landmark:puzzle-tower": "This tall place is full of puzzles. What is the clue mostly about?"
+          }
+        }
+      ]
+    },
+    {
+      "id": "l2-garden-gate",
+      "level": 2,
+      "clues": [
+        {
+          "text": "Rows of herbs grow here, and there is a bench in the sun. Keeper Ivy works here every day.",
+          "answer": "landmark:garden",
+          "redirect": "No herbs grow here. Read it once more and picture the place.",
+          "redirects": {
+            "object:beehives": "These hives are homes for buzzing workers. Read it once more and picture the place."
+          }
+        },
+        {
+          "text": "The road runs north through the village. At its very end is the way into the keep. Go there.",
+          "answer": "landmark:castle-gate",
+          "redirect": "This is not where the road ends. Read the clue again."
+        }
+      ]
+    },
+    {
+      "id": "l2-board-ptower-bridge",
+      "level": 2,
+      "clues": [
+        {
+          "text": "Many signs and lists are pinned up here. It stands where you come into the village from the south. Go there.",
+          "answer": "object:notice-board",
+          "redirect": "No signs are pinned up here. What is the clue mostly about?",
+          "redirects": {
+            "landmark:library": "This is where Hesper keeps her shelves of books. What is the clue mostly about?"
+          }
+        },
+        {
+          "text": "Hard puzzles, bonus puzzles, more puzzles! Find the tall stone place at the south-east edge.",
+          "answer": "landmark:puzzle-tower",
+          "redirect": "There are no bonus puzzles here. Read it once more and picture the place.",
+          "redirects": {
+            "landmark:watchtower": "This is Mason Gerd's lookout over the hills. Read it once more and picture the place."
+          }
+        },
+        {
+          "text": "A river runs past the village. Aldo built a strong way over it. Go and stand on it.",
+          "answer": "landmark:bridge",
+          "redirect": "This does not take you over the river. Read the clue again."
+        }
+      ]
+    },
+    {
+      "id": "l3-mill-well",
+      "level": 3,
+      "clues": [
+        {
+          "text": "Tessa's message: The sacks are full of grain, and the stones are ready to turn. The baker needs flour by noon. Come to my place of work.",
+          "answer": "landmark:mill",
+          "redirect": "No grain is ground into flour here. Read the clue again."
+        },
+        {
+          "text": "Old Bram writes: My rope is old and frayed. Every house still needs a full pail. Come and help me where I work.",
+          "answer": "landmark:well",
+          "redirect": "Old Bram does not fill pails here. What is the clue mostly about?",
+          "redirects": {
+            "object:water-trough": "This trough is for the animals. What is the clue mostly about?"
+          }
+        }
+      ]
+    },
+    {
+      "id": "l3-bridge-chapel-market",
+      "level": 3,
+      "clues": [
+        {
+          "text": "Aldo writes: A storm shook my planks last night. The river is high, but the crossing still holds. Come and see it.",
+          "answer": "landmark:bridge",
+          "redirect": "This does not take you over the river. Read it once more and picture the place."
+        },
+        {
+          "text": "Sister Wren writes: Today is a day for rest. When my bell rings, please come in and sit still. I will wait for you.",
+          "answer": "landmark:chapel",
+          "redirect": "This is not where the bell rings. Read the clue again."
+        },
+        {
+          "text": "Pip writes: Buy a bun, hear a song, and see the stalls! Everyone meets here at midday. Come and join us.",
+          "answer": "landmark:market",
+          "redirect": "There are no stalls here. What is the clue mostly about?"
+        }
+      ]
+    },
+    {
+      "id": "l3-library-watch",
+      "level": 3,
+      "clues": [
+        {
+          "text": "Hesper writes: I have shelves and shelves of books. Each one is kept safe and dry. Come and find a good one.",
+          "answer": "landmark:library",
+          "redirect": "There are no shelves of books here. Read it once more and picture the place.",
+          "redirects": {
+            "object:notice-board": "Signs are pinned up on this. Read it once more and picture the place."
+          }
+        },
+        {
+          "text": "Gerd writes: I keep my eyes on the hills all day. At night my lantern glows up high. Climb up and keep me company.",
+          "answer": "landmark:watchtower",
+          "redirect": "No lantern looks out over the hills from here. Read the clue again.",
+          "redirects": {
+            "landmark:puzzle-tower": "This tall place is full of puzzles. Read the clue again."
+          }
+        }
+      ]
+    },
+    {
+      "id": "l3-garden-gate-ptower",
+      "level": 3,
+      "clues": [
+        {
+          "text": "Ivy writes: The mint and thyme are ready. My bench is warm in the sun. Come and help me fill my basket.",
+          "answer": "landmark:garden",
+          "redirect": "No herbs grow here. What is the clue mostly about?",
+          "redirects": {
+            "object:beehives": "These hives are homes for buzzing workers. What is the clue mostly about?"
+          }
+        },
+        {
+          "text": "Follow the road north as far as it goes. Where it ends, you can go into the keep. That is where you must go.",
+          "answer": "landmark:castle-gate",
+          "redirect": "This is not where the road ends. Read it once more and picture the place."
+        },
+        {
+          "text": "Are you clever? Tricky bonus puzzles fill a tall stone place. It stands at the south-east edge of the village.",
+          "answer": "landmark:puzzle-tower",
+          "redirect": "There are no bonus puzzles here. Read the clue again.",
+          "redirects": {
+            "landmark:watchtower": "This is Mason Gerd's lookout over the hills. Read the clue again."
+          }
+        }
+      ]
+    },
+    {
+      "id": "l3-board-trough",
+      "level": 3,
+      "clues": [
+        {
+          "text": "Lost: one red mitten. I pinned a sign about it where the south road comes in. Please go and look at the sign.",
+          "answer": "object:notice-board",
+          "redirect": "No signs are pinned up here. What is the clue mostly about?",
+          "redirects": {
+            "landmark:library": "This is where Hesper keeps her shelves of books. What is the clue mostly about?"
+          }
+        },
+        {
+          "text": "The goats have walked a long way. They need a long, cool sip. Take them to the wooden box at the south edge.",
+          "answer": "object:water-trough",
+          "redirect": "This is not where the animals stop for a sip. Read it once more and picture the place.",
+          "redirects": {
+            "landmark:well": "Old Bram fills pails for the houses here. Read it once more and picture the place."
+          }
+        }
+      ]
+    },
+    {
+      "id": "l3-hives-cart-well",
+      "level": 3,
+      "clues": [
+        {
+          "text": "Listen. Do you hear the buzzing at the south-west edge? Go and find the little wooden homes it comes from.",
+          "answer": "object:beehives",
+          "redirect": "No little wooden homes are here. Read the clue again.",
+          "redirects": {
+            "landmark:garden": "This is Keeper Ivy's place of herbs. Read the clue again."
+          }
+        },
+        {
+          "text": "The farmer has piled dry grass high on his wagon. It waits at the east edge of the village. Go and find it.",
+          "answer": "object:hay-cart",
+          "redirect": "There is no hay here. What is the clue mostly about?"
+        },
+        {
+          "text": "Old Bram writes: My pail goes down on a long rope. It comes up full and cold. Come and help me turn the crank.",
+          "answer": "landmark:well",
+          "redirect": "Old Bram does not fill pails here. Read it once more and picture the place.",
+          "redirects": {
+            "object:water-trough": "This trough is for the animals. Read it once more and picture the place."
+          }
+        }
+      ]
+    },
+    {
+      "id": "l3-mill-bridge",
+      "level": 3,
+      "clues": [
+        {
+          "text": "Tessa writes: Bring me the grain from the fields. I will grind it all into soft white flour. The baker is waiting.",
+          "answer": "landmark:mill",
+          "redirect": "No grain is ground into flour here. Read the clue again."
+        },
+        {
+          "text": "Aldo writes: Rain or snow, people still need to cross the river. I built the crossing to hold. Come and test it.",
+          "answer": "landmark:bridge",
+          "redirect": "This does not take you over the river. What is the clue mostly about?"
+        }
+      ]
+    },
+    {
+      "id": "l3-chapel-market-library",
+      "level": 3,
+      "clues": [
+        {
+          "text": "Sister Wren writes: My bell is loud, but inside all is calm. People come to sit and think. Come and sit with me.",
+          "answer": "landmark:chapel",
+          "redirect": "This is not where the bell rings. Read it once more and picture the place."
+        },
+        {
+          "text": "Pip writes: The baker brought fresh loaves to his stall. Songs are ringing out. Come to the busy square.",
+          "answer": "landmark:market",
+          "redirect": "There are no stalls here. Read the clue again."
+        },
+        {
+          "text": "Hesper writes: Some of my books are very old. I keep them all on tall shelves. Come and help me dust them.",
+          "answer": "landmark:library",
+          "redirect": "There are no shelves of books here. What is the clue mostly about?",
+          "redirects": {
+            "object:notice-board": "Signs are pinned up on this. What is the clue mostly about?"
+          }
+        }
+      ]
+    },
+    {
+      "id": "l3-watch-garden",
+      "level": 3,
+      "clues": [
+        {
+          "text": "Gerd writes: I built this lookout of stone. From the top I can see far over the hills. Come and look out with me.",
+          "answer": "landmark:watchtower",
+          "redirect": "No lantern looks out over the hills from here. Read it once more and picture the place.",
+          "redirects": {
+            "landmark:puzzle-tower": "This tall place is full of puzzles. Read it once more and picture the place."
+          }
+        },
+        {
+          "text": "Ivy writes: Sage, mint and thyme grow in my rows. There is a sunny bench where you can rest. Come and visit.",
+          "answer": "landmark:garden",
+          "redirect": "No herbs grow here. Read the clue again.",
+          "redirects": {
+            "object:beehives": "These hives are homes for buzzing workers. Read the clue again."
+          }
+        }
+      ]
+    },
+    {
+      "id": "l3-ptower-board-cart",
+      "level": 3,
+      "clues": [
+        {
+          "text": "A riddle-lover writes: The trickiest bonus puzzles wait high up in stone. Go to the south-east edge to find them.",
+          "answer": "landmark:puzzle-tower",
+          "redirect": "There are no bonus puzzles here. What is the clue mostly about?",
+          "redirects": {
+            "landmark:watchtower": "This is Mason Gerd's lookout over the hills. What is the clue mostly about?"
+          }
+        },
+        {
+          "text": "A villager writes: Lists and signs are pinned up for everyone. You will find them by the south way into the village.",
+          "answer": "object:notice-board",
+          "redirect": "No signs are pinned up here. Read it once more and picture the place.",
+          "redirects": {
+            "landmark:library": "This is where Hesper keeps her shelves of books. Read it once more and picture the place."
+          }
+        },
+        {
+          "text": "A wagon of hay stands at the east edge of the village. The farmer says you can take a handful. Go and find it.",
+          "answer": "object:hay-cart",
+          "redirect": "There is no hay here. Read the clue again."
+        }
+      ]
+    },
+    {
+      "id": "l4-chapel-mill",
+      "level": 4,
+      "clues": [
+        {
+          "text": "The morning is calm and grey. Somewhere, a bell begins to ring. Sister Wren is calling everyone to her still, hushed place.",
+          "answer": "landmark:chapel",
+          "redirect": "This is not where the bell rings. Read the clue again."
+        },
+        {
+          "text": "The fields are gold with ripe grain. The farmers bring their sacks to Tessa. She grinds it into flour for the baker's ovens.",
+          "answer": "landmark:mill",
+          "redirect": "No grain is ground into flour here. What is the clue mostly about?"
+        }
+      ]
+    },
+    {
+      "id": "l4-well-bridge",
+      "level": 4,
+      "clues": [
+        {
+          "text": "It is a hot, dry day. Every house needs a full pail. Old Bram lets his pail down on a rope, again and again.",
+          "answer": "landmark:well",
+          "redirect": "Old Bram does not fill pails here. Read it once more and picture the place.",
+          "redirects": {
+            "object:water-trough": "This trough is for the animals. Read it once more and picture the place."
+          }
+        },
+        {
+          "text": "The river is loud and fast today. Some people are worried. But Aldo's crossing holds in any weather, so go and stand on it.",
+          "answer": "landmark:bridge",
+          "redirect": "This does not take you over the river. Read the clue again."
+        }
+      ]
+    },
+    {
+      "id": "l4-market-library-watch",
+      "level": 4,
+      "clues": [
+        {
+          "text": "The air is full of songs. There is the smell of warm bread. Crier Pip shouts out from among the stalls.",
+          "answer": "landmark:market",
+          "redirect": "There are no stalls here. What is the clue mostly about?"
+        },
+        {
+          "text": "It is too rainy to play outside. Hesper has a book for every rainy day. She keeps them all on her shelves.",
+          "answer": "landmark:library",
+          "redirect": "There are no shelves of books here. Read it once more and picture the place.",
+          "redirects": {
+            "object:notice-board": "Signs are pinned up on this. Read it once more and picture the place."
+          }
+        },
+        {
+          "text": "The sun is going down over the hills. Mason Gerd gets his lantern ready. Soon it will shine out high above the village.",
+          "answer": "landmark:watchtower",
+          "redirect": "No lantern looks out over the hills from here. Read the clue again.",
+          "redirects": {
+            "landmark:puzzle-tower": "This tall place is full of puzzles. Read the clue again."
+          }
+        }
+      ]
+    },
+    {
+      "id": "l4-garden-gate",
+      "level": 4,
+      "clues": [
+        {
+          "text": "The sun is warm on the bench. Herbs grow in neat green rows. Keeper Ivy is pulling weeds.",
+          "answer": "landmark:garden",
+          "redirect": "No herbs grow here. What is the clue mostly about?",
+          "redirects": {
+            "object:beehives": "These hives are homes for buzzing workers. What is the clue mostly about?"
+          }
+        },
+        {
+          "text": "The road through the village is long. It runs all the way north and then stops. There you will find the way into the keep.",
+          "answer": "landmark:castle-gate",
+          "redirect": "This is not where the road ends. Read it once more and picture the place."
+        }
+      ]
+    },
+    {
+      "id": "l4-ptower-board-trough",
+      "level": 4,
+      "clues": [
+        {
+          "text": "You solved every puzzle today, but you want more. Bonus puzzles wait for you. Go to the tall stone place at the south-east edge.",
+          "answer": "landmark:puzzle-tower",
+          "redirect": "There are no bonus puzzles here. Read the clue again.",
+          "redirects": {
+            "landmark:watchtower": "This is Mason Gerd's lookout over the hills. Read the clue again."
+          }
+        },
+        {
+          "text": "Is there a fair this week? Someone will have pinned up a sign about it. Go to the spot by the southern way into the village.",
+          "answer": "object:notice-board",
+          "redirect": "No signs are pinned up here. What is the clue mostly about?",
+          "redirects": {
+            "landmark:library": "This is where Hesper keeps her shelves of books. What is the clue mostly about?"
+          }
+        },
+        {
+          "text": "The farm horses have pulled the plough all morning. They are hot and dusty. Lead them to the long wooden box for animals.",
+          "answer": "object:water-trough",
+          "redirect": "This is not where the animals stop for a sip. Read it once more and picture the place.",
+          "redirects": {
+            "landmark:well": "Old Bram fills pails for the houses here. Read it once more and picture the place."
+          }
+        }
+      ]
+    },
+    {
+      "id": "l4-hives-well",
+      "level": 4,
+      "clues": [
+        {
+          "text": "Listen to that hum! Small striped workers fly to and fro. Their wooden homes stand at the south-west edge of the village.",
+          "answer": "object:beehives",
+          "redirect": "No little wooden homes are here. Read the clue again.",
+          "redirects": {
+            "landmark:garden": "This is Keeper Ivy's place of herbs. Read the clue again."
+          }
+        },
+        {
+          "text": "Old Bram is up early. Every doorstep will need its pail filled. He turns the crank, and the rope goes down, down, down.",
+          "answer": "landmark:well",
+          "redirect": "Old Bram does not fill pails here. What is the clue mostly about?",
+          "redirects": {
+            "object:water-trough": "This trough is for the animals. What is the clue mostly about?"
+          }
+        }
+      ]
+    },
+    {
+      "id": "l4-mill-chapel",
+      "level": 4,
+      "clues": [
+        {
+          "text": "Tessa sneezes. Flour is on her nose and in her hair! That is what happens when you grind grain all day.",
+          "answer": "landmark:mill",
+          "redirect": "No grain is ground into flour here. Read it once more and picture the place."
+        },
+        {
+          "text": "The village is busy and loud. But one place is always still. Its bell rings, and Sister Wren lets people in.",
+          "answer": "landmark:chapel",
+          "redirect": "This is not where the bell rings. Read the clue again."
+        }
+      ]
+    },
+    {
+      "id": "l4-market-library-watch-1",
+      "level": 4,
+      "clues": [
+        {
+          "text": "Pip has a new song. He sings it to the people buying fruit and bread. Find the stalls where he sings.",
+          "answer": "landmark:market",
+          "redirect": "There are no stalls here. What is the clue mostly about?"
+        },
+        {
+          "text": "You have lots of questions about the stars. Hesper says the answers are in her books. Go to the shelves she keeps safe.",
+          "answer": "landmark:library",
+          "redirect": "There are no shelves of books here. Read it once more and picture the place.",
+          "redirects": {
+            "object:notice-board": "Signs are pinned up on this. Read it once more and picture the place."
+          }
+        },
+        {
+          "text": "Clouds roll over the hills. Mason Gerd is keeping an eye on them. Climb up to his high lookout and help him.",
+          "answer": "landmark:watchtower",
+          "redirect": "No lantern looks out over the hills from here. Read the clue again.",
+          "redirects": {
+            "landmark:puzzle-tower": "This tall place is full of puzzles. Read the clue again."
+          }
+        }
+      ]
+    },
+    {
+      "id": "l4-garden-gate-2",
+      "level": 4,
+      "clues": [
+        {
+          "text": "Keeper Ivy needs some mint for a sick friend. She grows it in her rows. Go and help her pick it.",
+          "answer": "landmark:garden",
+          "redirect": "No herbs grow here. What is the clue mostly about?",
+          "redirects": {
+            "object:beehives": "These hives are homes for buzzing workers. What is the clue mostly about?"
+          }
+        },
+        {
+          "text": "Riders come and go along the north road. Where the road ends, they ride into the keep. Go and wait there.",
+          "answer": "landmark:castle-gate",
+          "redirect": "This is not where the road ends. Read it once more and picture the place."
+        }
+      ]
+    },
+    {
+      "id": "l4-cart-bridge-trough",
+      "level": 4,
+      "clues": [
+        {
+          "text": "The barn is full, so the rest of the hay is still on wheels. It waits at the east edge of the village. Go and find it.",
+          "answer": "object:hay-cart",
+          "redirect": "There is no hay here. Read the clue again."
+        },
+        {
+          "text": "Snow falls on the river. Carpenter Aldo checks every plank. Go and see the crossing he keeps so strong.",
+          "answer": "landmark:bridge",
+          "redirect": "This does not take you over the river. What is the clue mostly about?"
+        },
+        {
+          "text": "A tired goat bleats. A thirsty horse stamps. Take them both to the long wooden box at the south edge.",
+          "answer": "object:water-trough",
+          "redirect": "This is not where the animals stop for a sip. Read it once more and picture the place.",
+          "redirects": {
+            "landmark:well": "Old Bram fills pails for the houses here. Read it once more and picture the place."
+          }
+        }
+      ]
+    }
+  ]
+}

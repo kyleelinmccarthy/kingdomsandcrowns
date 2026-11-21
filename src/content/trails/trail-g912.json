@@ -1,0 +1,2488 @@
+{
+  "poolId": "trail-g912",
+  "skillId": "read-g9",
+  "band": "g912",
+  "trails": [
+    {
+      "id": "l0-chapel-mill",
+      "level": 0,
+      "clues": [
+        {
+          "text": "An unsigned, grumbling note: 'Every dawn the old iron tongue scolds the whole village awake from its quiet house. Go and tell it to hush.'",
+          "answer": "landmark:chapel",
+          "redirect": "No bell calls the village to stillness from here. What do the writer's words really mean?",
+          "why": "An iron tongue that scolds the village awake is a bell, and the quiet house that holds it is the chapel.",
+          "parts": [
+            [
+              "landmark:chapel",
+              "landmark:watchtower"
+            ],
+            [
+              "landmark:chapel",
+              "landmark:library"
+            ]
+          ]
+        },
+        {
+          "text": "A baker's sigh: 'Without those two great stones gnashing away, my ovens would be as cold as a winter moon. Go and thank the one who turns gold into snow.'",
+          "answer": "landmark:mill",
+          "redirect": "No stones grind grain into flour here. Read the note again, slowly.",
+          "why": "Gnashing stones turn gold grain into snow-white flour for the baker's ovens: the mill.",
+          "parts": [
+            [
+              "landmark:mill",
+              "landmark:market"
+            ],
+            [
+              "landmark:mill",
+              "landmark:watchtower",
+              "landmark:puzzle-tower"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l0-well-bridge",
+      "level": 0,
+      "clues": [
+        {
+          "text": "A cook, half-joking: 'The village's deepest mouth swallows the old man's rope each morning and coughs up our breakfast kettles. Go and peer into it.'",
+          "answer": "landmark:well",
+          "redirect": "Old Bram's rope does not go down here. Picture what the words describe.",
+          "redirects": {
+            "object:water-trough": "This long basin is for the beasts, not for people's kettles. Picture what the words describe."
+          },
+          "why": "A deep mouth that swallows Old Bram's rope and fills the kettles is the well.",
+          "parts": [
+            [
+              "landmark:well",
+              "object:water-trough"
+            ],
+            [
+              "landmark:well",
+              "landmark:chapel"
+            ]
+          ]
+        },
+        {
+          "text": "A traveller's song: 'The river roars and grumbles, but the carpenter's spine of timber shrugs off every storm. I will sing on its back.'",
+          "answer": "landmark:bridge",
+          "redirect": "This does not carry anyone over the river. What do the writer's words really mean?",
+          "why": "A timber spine over the river that holds in any storm, built by a carpenter, is the bridge.",
+          "parts": [
+            [
+              "landmark:bridge",
+              "landmark:well",
+              "object:water-trough"
+            ],
+            [
+              "landmark:bridge",
+              "object:hay-cart",
+              "object:notice-board"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l0-market-library-watch",
+      "level": 0,
+      "clues": [
+        {
+          "text": "A sour hermit's complaint: 'That square is a din of hawkers, fiddles and haggling, all drowning in the smell of bread. Go and see why anyone likes it.'",
+          "answer": "landmark:market",
+          "redirect": "No hawkers or stalls fill this spot. Read the note again, slowly.",
+          "why": "Hawkers, music, haggling and the smell of bread fill the market square.",
+          "parts": [
+            [
+              "landmark:market",
+              "landmark:chapel"
+            ],
+            [
+              "landmark:market",
+              "landmark:mill"
+            ]
+          ]
+        },
+        {
+          "text": "A scholar's praise: 'Hesper's shelves are the realm's memory: every tale anyone ever forgot is waiting there.' Go and remember something.",
+          "answer": "landmark:library",
+          "redirect": "No shelves of old volumes are kept here. Picture what the words describe.",
+          "redirects": {
+            "object:notice-board": "Papers are pinned up on this for passers-by, but nothing is shelved here. Picture what the words describe."
+          },
+          "why": "A realm's memory kept on Hesper's shelves is the library.",
+          "parts": [
+            [
+              "landmark:library",
+              "object:notice-board"
+            ],
+            [
+              "landmark:library",
+              "landmark:castle-gate"
+            ]
+          ]
+        },
+        {
+          "text": "A shepherd's thanks: 'That tall sentinel never blinks. All night its single bright eye stares across the hills for wolves.'",
+          "answer": "landmark:watchtower",
+          "redirect": "No lantern keeps watch over the hills from here. What do the writer's words really mean?",
+          "redirects": {
+            "landmark:puzzle-tower": "This tall place holds puzzles, not a lookout. What do the writer's words really mean?"
+          },
+          "why": "A sentinel is a guard; one whose bright eye watches the hills all night is the watchtower and its lantern.",
+          "parts": [
+            [
+              "landmark:watchtower",
+              "landmark:puzzle-tower"
+            ],
+            [
+              "landmark:watchtower",
+              "landmark:chapel"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l0-garden-gate",
+      "level": 0,
+      "clues": [
+        {
+          "text": "Find the place a poet loved: 'A patchwork of thyme and sage, and a bench that basks in the afternoon sun.'",
+          "answer": "landmark:garden",
+          "redirect": "No herbs grow here. Read the note again, slowly.",
+          "redirects": {
+            "object:beehives": "These wooden homes belong to buzzing workers; no herbs grow here. Read the note again, slowly."
+          },
+          "why": "Thyme and sage are herbs, and the garden has herbs and a sunny bench.",
+          "parts": [
+            [
+              "landmark:garden",
+              "landmark:market"
+            ],
+            [
+              "landmark:garden",
+              "landmark:chapel"
+            ]
+          ]
+        },
+        {
+          "text": "A herald's decree: 'Let every guest who seeks the keep follow the north road until it runs out of village, and there wait to be let in.'",
+          "answer": "landmark:castle-gate",
+          "redirect": "This is not where the north road ends. Picture what the words describe.",
+          "why": "The way into the castle, at the north end of the road, is the castle gate.",
+          "parts": [
+            [
+              "landmark:castle-gate",
+              "object:notice-board"
+            ],
+            [
+              "landmark:castle-gate",
+              "landmark:chapel",
+              "landmark:library"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l0-ptower-board-trough",
+      "level": 0,
+      "clues": [
+        {
+          "text": "A boast in a child's hand: 'I conquered the stone stack of brain-teasers at the south-east edge. Your turn, if you dare.'",
+          "answer": "landmark:puzzle-tower",
+          "redirect": "There are no bonus puzzles here. What do the writer's words really mean?",
+          "redirects": {
+            "landmark:watchtower": "This is Mason Gerd's lookout over the hills, not a place of puzzles. What do the writer's words really mean?"
+          },
+          "why": "A stone stack of brain-teasers at the south-east edge is the Puzzle Tower.",
+          "parts": [
+            [
+              "landmark:puzzle-tower",
+              "landmark:watchtower"
+            ],
+            [
+              "landmark:puzzle-tower",
+              "object:hay-cart"
+            ]
+          ]
+        },
+        {
+          "text": "A gossip's grumble: 'Why tell anyone anything? The wooden tattletale by the southern entrance has it all pinned up already.'",
+          "answer": "object:notice-board",
+          "redirect": "Nothing is pinned up here for passers-by. Read the note again, slowly.",
+          "redirects": {
+            "landmark:library": "Hesper shelves her volumes here, but nobody pins anything up. Read the note again, slowly."
+          },
+          "why": "A wooden tattletale with everything pinned up, by the southern entrance, is the notice board.",
+          "parts": [
+            [
+              "object:notice-board",
+              "landmark:market"
+            ],
+            [
+              "object:notice-board",
+              "landmark:castle-gate"
+            ]
+          ]
+        },
+        {
+          "text": "A stable boy's joke: 'The oxen's tavern is a long wooden basin at the south edge, and they never pay for their slurps.'",
+          "answer": "object:water-trough",
+          "redirect": "This is not where the beasts come to slurp. Picture what the words describe.",
+          "redirects": {
+            "landmark:well": "Old Bram draws pails for people here, not for beasts. Picture what the words describe."
+          },
+          "why": "The animals' long wooden basin at the south edge is the water trough.",
+          "parts": [
+            [
+              "object:water-trough",
+              "landmark:well"
+            ],
+            [
+              "object:water-trough",
+              "object:notice-board",
+              "object:beehives",
+              "landmark:puzzle-tower"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l0-hives-cart",
+      "level": 0,
+      "clues": [
+        {
+          "text": "A nervous visitor's note: 'At the south-west edge stands a humming city of tiny, striped, short-tempered citizens. Visit with care.'",
+          "answer": "object:beehives",
+          "redirect": "No striped workers live here. What do the writer's words really mean?",
+          "redirects": {
+            "landmark:garden": "This is Keeper Ivy's place of herbs, not the striped workers' homes. What do the writer's words really mean?"
+          },
+          "why": "A humming city of striped, stinging citizens at the south-west edge is the beehives.",
+          "parts": [
+            [
+              "object:beehives",
+              "landmark:garden"
+            ],
+            [
+              "object:beehives",
+              "object:water-trough",
+              "object:notice-board",
+              "landmark:puzzle-tower"
+            ]
+          ]
+        },
+        {
+          "text": "A pony's dream, as told by the stable boy: 'A golden mountain on wheels, at the east edge, that crunches.'",
+          "answer": "object:hay-cart",
+          "redirect": "There is no hay here. Read the note again, slowly.",
+          "why": "A crunchy golden mountain on wheels at the east edge is hay on the hay cart.",
+          "parts": [
+            [
+              "object:hay-cart",
+              "landmark:puzzle-tower"
+            ],
+            [
+              "object:hay-cart",
+              "object:water-trough"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l0-well-mill",
+      "level": 0,
+      "clues": [
+        {
+          "text": "An old song: 'Down goes the rope, into the dark; up comes the cold for every doorstep. The old man winds, and winds, and winds.'",
+          "answer": "landmark:well",
+          "redirect": "Old Bram's rope does not go down here. Picture what the words describe.",
+          "redirects": {
+            "object:water-trough": "This long basin is for the beasts, not for people's kettles. Picture what the words describe."
+          },
+          "why": "A rope wound down into the dark by Old Bram, bringing up cold for every doorstep, is the well's.",
+          "parts": [
+            [
+              "landmark:well",
+              "object:water-trough"
+            ],
+            [
+              "landmark:well",
+              "landmark:chapel",
+              "landmark:mill"
+            ]
+          ]
+        },
+        {
+          "text": "A child's riddle: 'Its stone jaws chew all day but never swallow, and its keeper ends every evening dusted like a snowman.'",
+          "answer": "landmark:mill",
+          "redirect": "No stones grind grain into flour here. What do the writer's words really mean?",
+          "why": "Stone jaws that chew grain, and a keeper dusted with flour, mean the mill.",
+          "parts": [
+            [
+              "landmark:mill",
+              "landmark:watchtower",
+              "landmark:puzzle-tower"
+            ],
+            [
+              "landmark:mill",
+              "landmark:market"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l0-bridge-chapel-market",
+      "level": 0,
+      "clues": [
+        {
+          "text": "A boatman's grumble: 'Ever since that carpenter strung his timbers across the current, nobody pays me to row them over.'",
+          "answer": "landmark:bridge",
+          "redirect": "This does not carry anyone over the river. Read the note again, slowly.",
+          "why": "Timbers strung across the current by a carpenter are the bridge.",
+          "parts": [
+            [
+              "landmark:bridge",
+              "landmark:well",
+              "object:water-trough"
+            ],
+            [
+              "landmark:bridge",
+              "landmark:castle-gate"
+            ]
+          ]
+        },
+        {
+          "text": "A weary traveller's sigh: 'After the clamour of the road, how sweet the hush inside, broken only when the bronze voice above calls the hour.'",
+          "answer": "landmark:chapel",
+          "redirect": "No bell calls the village to stillness from here. Picture what the words describe.",
+          "why": "A hushed place with a bronze voice above, a bell, is the chapel.",
+          "parts": [
+            [
+              "landmark:chapel",
+              "landmark:library"
+            ],
+            [
+              "landmark:chapel",
+              "landmark:watchtower"
+            ]
+          ]
+        },
+        {
+          "text": "A grandmother's memory: 'When I was small, that square was the loudest, happiest, best-smelling place in the realm, and the crier's voice was its heartbeat.'",
+          "answer": "landmark:market",
+          "redirect": "No hawkers or stalls fill this spot. What do the writer's words really mean?",
+          "why": "A loud, sweet-smelling square with a crier is the market.",
+          "parts": [
+            [
+              "landmark:market",
+              "landmark:chapel",
+              "object:notice-board"
+            ],
+            [
+              "landmark:market",
+              "landmark:mill"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l0-library-watch",
+      "level": 0,
+      "clues": [
+        {
+          "text": "A restless boy's complaint: 'Rows of dusty old volumes and not one person allowed to laugh. Hesper guards them like a dragon guards gold.'",
+          "answer": "landmark:library",
+          "redirect": "No shelves of old volumes are kept here. Read the note again, slowly.",
+          "redirects": {
+            "object:notice-board": "Papers are pinned up on this for passers-by, but nothing is shelved here. Read the note again, slowly."
+          },
+          "why": "Rows of volumes guarded by Hesper are in the library.",
+          "parts": [
+            [
+              "landmark:library",
+              "landmark:chapel"
+            ],
+            [
+              "landmark:library",
+              "object:notice-board"
+            ]
+          ]
+        },
+        {
+          "text": "A child's description: 'It is a giant that never goes to bed, holding a candle up high so the hills cannot sneak up on us.'",
+          "answer": "landmark:watchtower",
+          "redirect": "No lantern keeps watch over the hills from here. Picture what the words describe.",
+          "redirects": {
+            "landmark:puzzle-tower": "This tall place holds puzzles, not a lookout. Picture what the words describe."
+          },
+          "why": "A giant holding a light up high all night, watching the hills, is the watchtower.",
+          "parts": [
+            [
+              "landmark:watchtower",
+              "landmark:puzzle-tower"
+            ],
+            [
+              "landmark:watchtower",
+              "landmark:chapel"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l0-garden-hives-trough",
+      "level": 0,
+      "clues": [
+        {
+          "text": "A cook's praise: 'Every pot of stew in the village owes its flavour to Keeper Ivy's green kingdom.'",
+          "answer": "landmark:garden",
+          "redirect": "No herbs grow here. What do the writer's words really mean?",
+          "redirects": {
+            "object:beehives": "These wooden homes belong to buzzing workers; no herbs grow here. What do the writer's words really mean?"
+          },
+          "why": "Keeper Ivy's green kingdom of herbs is the garden.",
+          "parts": [
+            [
+              "landmark:garden",
+              "landmark:market"
+            ],
+            [
+              "landmark:garden",
+              "object:hay-cart"
+            ]
+          ]
+        },
+        {
+          "text": "A child's warning: 'Do not poke the little wooden boxes at the south-west edge. The tiny tigers inside have needles.'",
+          "answer": "object:beehives",
+          "redirect": "No striped workers live here. Read the note again, slowly.",
+          "redirects": {
+            "landmark:garden": "This is Keeper Ivy's place of herbs, not the striped workers' homes. Read the note again, slowly."
+          },
+          "why": "Tiny striped tigers with needles are stinging insects; their boxes at the south-west edge are the beehives.",
+          "parts": [
+            [
+              "object:beehives",
+              "landmark:garden"
+            ],
+            [
+              "object:beehives",
+              "object:water-trough",
+              "object:notice-board",
+              "landmark:puzzle-tower"
+            ]
+          ]
+        },
+        {
+          "text": "A farmer's note: 'My thirsty beasts treat that long wooden basin at the south edge like a feast table, slurping and shoving.'",
+          "answer": "object:water-trough",
+          "redirect": "This is not where the beasts come to slurp. Picture what the words describe.",
+          "redirects": {
+            "landmark:well": "Old Bram draws pails for people here, not for beasts. Picture what the words describe."
+          },
+          "why": "The beasts' long wooden basin at the south edge is the water trough.",
+          "parts": [
+            [
+              "object:water-trough",
+              "landmark:well"
+            ],
+            [
+              "object:water-trough",
+              "object:hay-cart",
+              "object:notice-board"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l1-mill-well",
+      "level": 1,
+      "clues": [
+        {
+          "text": "Tessa's apprentice, grumbling: 'All day the great stones grind, and all night I sneeze white dust. The baker calls it flour. I call it torment.'",
+          "answer": "landmark:mill",
+          "redirect": "No stones grind grain into flour here. What do the writer's words really mean?",
+          "why": "Great grinding stones and flour dust mean the mill.",
+          "parts": [
+            [
+              "landmark:mill",
+              "landmark:watchtower",
+              "landmark:puzzle-tower"
+            ],
+            [
+              "landmark:mill",
+              "landmark:market"
+            ]
+          ]
+        },
+        {
+          "text": "A thirsty traveller's praise: 'No spring in the realm is colder or cleaner than the one the old man draws up on his rope, pail by patient pail.'",
+          "answer": "landmark:well",
+          "redirect": "Old Bram's rope does not go down here. Read the note again, slowly.",
+          "redirects": {
+            "object:water-trough": "This long basin is for the beasts, not for people's kettles. Read the note again, slowly."
+          },
+          "why": "Cold, clean drink drawn up on a rope by Old Bram comes from the well.",
+          "parts": [
+            [
+              "landmark:well",
+              "object:water-trough",
+              "landmark:bridge"
+            ],
+            [
+              "landmark:well",
+              "landmark:chapel"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l1-bridge-chapel",
+      "level": 1,
+      "clues": [
+        {
+          "text": "A poet: 'Where once the river cut the village like a knife, now a carpenter's stitches of timber hold the two halves together.'",
+          "answer": "landmark:bridge",
+          "redirect": "This does not carry anyone over the river. Picture what the words describe.",
+          "why": "Timber that stitches the two sides of the river together is the bridge.",
+          "parts": [
+            [
+              "landmark:bridge",
+              "landmark:well",
+              "object:water-trough"
+            ],
+            [
+              "landmark:bridge",
+              "landmark:castle-gate"
+            ]
+          ]
+        },
+        {
+          "text": "A sleepy child: 'Why must the bell above Sister Wren's house of whispers clang every evening, just as I drift off?'",
+          "answer": "landmark:chapel",
+          "redirect": "No bell calls the village to stillness from here. What do the writer's words really mean?",
+          "why": "Sister Wren's bell hangs above her quiet house, the chapel.",
+          "parts": [
+            [
+              "landmark:chapel",
+              "landmark:watchtower"
+            ],
+            [
+              "landmark:chapel",
+              "landmark:library"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l1-market-library-watch",
+      "level": 1,
+      "clues": [
+        {
+          "text": "A merchant's boast: 'In that square my apples sell themselves; the crier's voice does half my work, and the smell of fresh loaves does the rest.'",
+          "answer": "landmark:market",
+          "redirect": "No hawkers or stalls fill this spot. Read the note again, slowly.",
+          "why": "Selling in a square with a crier and the smell of bread happens at the market.",
+          "parts": [
+            [
+              "landmark:market",
+              "object:notice-board"
+            ],
+            [
+              "landmark:market",
+              "landmark:mill"
+            ]
+          ]
+        },
+        {
+          "text": "A wistful sailor: 'I have seen a hundred harbours, but never so many far-off lands as on Hesper's patient shelves.'",
+          "answer": "landmark:library",
+          "redirect": "No shelves of old volumes are kept here. Picture what the words describe.",
+          "redirects": {
+            "object:notice-board": "Papers are pinned up on this for passers-by, but nothing is shelved here. Picture what the words describe."
+          },
+          "why": "Far-off lands found on Hesper's shelves are in the library's books.",
+          "parts": [
+            [
+              "landmark:library",
+              "object:notice-board"
+            ],
+            [
+              "landmark:library",
+              "landmark:castle-gate"
+            ]
+          ]
+        },
+        {
+          "text": "A mason's pride: 'I stacked every stone of it so the village would never be taken by surprise. Its lantern is my promise to the hills.'",
+          "answer": "landmark:watchtower",
+          "redirect": "No lantern keeps watch over the hills from here. What do the writer's words really mean?",
+          "redirects": {
+            "landmark:puzzle-tower": "This tall place holds puzzles, not a lookout. What do the writer's words really mean?"
+          },
+          "why": "Mason Gerd's stone lookout with a lantern over the hills is the watchtower.",
+          "parts": [
+            [
+              "landmark:watchtower",
+              "landmark:puzzle-tower"
+            ],
+            [
+              "landmark:watchtower",
+              "landmark:chapel"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l1-garden-gate",
+      "level": 1,
+      "clues": [
+        {
+          "text": "A sleepy cat, as a child imagines it: 'The best bench in the realm, warmed by the sun and wrapped in the smell of mint.'",
+          "answer": "landmark:garden",
+          "redirect": "No herbs grow here. Read the note again, slowly.",
+          "redirects": {
+            "object:beehives": "These wooden homes belong to buzzing workers; no herbs grow here. Read the note again, slowly."
+          },
+          "why": "A sun-warmed bench among herbs such as mint is in the garden.",
+          "parts": [
+            [
+              "landmark:garden",
+              "landmark:chapel"
+            ],
+            [
+              "landmark:garden",
+              "landmark:market"
+            ]
+          ]
+        },
+        {
+          "text": "A proud herald: 'The north road is one long sentence, and the way into the keep is its full stop.'",
+          "answer": "landmark:castle-gate",
+          "redirect": "This is not where the north road ends. Picture what the words describe.",
+          "why": "A full stop ends a sentence; the north road ends at the way into the castle, the castle gate.",
+          "parts": [
+            [
+              "landmark:castle-gate",
+              "object:notice-board"
+            ],
+            [
+              "landmark:castle-gate",
+              "landmark:chapel",
+              "landmark:library",
+              "landmark:watchtower"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l1-ptower-board-trough",
+      "level": 1,
+      "clues": [
+        {
+          "text": "A tired scholar: 'I thought my mind had done enough today, until that tall grey riddler at the south-east edge winked at me.'",
+          "answer": "landmark:puzzle-tower",
+          "redirect": "There are no bonus puzzles here. What do the writer's words really mean?",
+          "redirects": {
+            "landmark:watchtower": "This is Mason Gerd's lookout over the hills, not a place of puzzles. What do the writer's words really mean?"
+          },
+          "why": "A tall riddler at the south-east edge is the Puzzle Tower, full of bonus puzzles.",
+          "parts": [
+            [
+              "landmark:puzzle-tower",
+              "landmark:watchtower"
+            ],
+            [
+              "landmark:puzzle-tower",
+              "object:hay-cart"
+            ]
+          ]
+        },
+        {
+          "text": "A shy girl's plan: 'I cannot shout like the crier, so I will let pins speak for me by the southern entrance.'",
+          "answer": "object:notice-board",
+          "redirect": "Nothing is pinned up here for passers-by. Read the note again, slowly.",
+          "redirects": {
+            "landmark:library": "Hesper shelves her volumes here, but nobody pins anything up. Read the note again, slowly."
+          },
+          "why": "Letting pins speak means pinning up a sign, at the notice board by the southern entrance.",
+          "parts": [
+            [
+              "object:notice-board",
+              "landmark:market"
+            ],
+            [
+              "object:notice-board",
+              "landmark:castle-gate"
+            ]
+          ]
+        },
+        {
+          "text": "A horse's opinion, according to its rider: 'The best spot in the village is a long wooden basin at the south edge, open all hours, and it never runs dry.'",
+          "answer": "object:water-trough",
+          "redirect": "This is not where the beasts come to slurp. Picture what the words describe.",
+          "redirects": {
+            "landmark:well": "Old Bram draws pails for people here, not for beasts. Picture what the words describe."
+          },
+          "why": "A spot for a horse that never runs dry is the long wooden water trough at the south edge.",
+          "parts": [
+            [
+              "object:water-trough",
+              "landmark:well"
+            ],
+            [
+              "object:water-trough",
+              "object:notice-board",
+              "object:beehives",
+              "landmark:puzzle-tower"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l1-hives-cart",
+      "level": 1,
+      "clues": [
+        {
+          "text": "A candle-maker's gratitude: 'My candles glow thanks to the wax of tiny striped workers, whose wooden cities line the south-west edge.'",
+          "answer": "object:beehives",
+          "redirect": "No striped workers live here. What do the writer's words really mean?",
+          "redirects": {
+            "landmark:garden": "This is Keeper Ivy's place of herbs, not the striped workers' homes. What do the writer's words really mean?"
+          },
+          "why": "Wax-making striped workers living in wooden homes at the south-west edge are in the beehives.",
+          "parts": [
+            [
+              "object:beehives",
+              "landmark:garden"
+            ],
+            [
+              "object:beehives",
+              "object:water-trough",
+              "object:notice-board",
+              "landmark:puzzle-tower"
+            ]
+          ]
+        },
+        {
+          "text": "A farmer's worry: 'The rain is coming, and the ponies' whole winter larder is still heaped on wheels at the east edge.'",
+          "answer": "object:hay-cart",
+          "redirect": "There is no hay here. Read the note again, slowly.",
+          "why": "A larder is a food store; the ponies' food heaped on wheels at the east edge is the hay cart.",
+          "parts": [
+            [
+              "object:hay-cart",
+              "object:water-trough"
+            ],
+            [
+              "object:hay-cart",
+              "landmark:puzzle-tower"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l1-well-mill",
+      "level": 1,
+      "clues": [
+        {
+          "text": "A grumpy neighbour: 'That old man and his squeaky crank! Every dawn the village's deep throat groans as he hauls up its cold gift.'",
+          "answer": "landmark:well",
+          "redirect": "Old Bram's rope does not go down here. Picture what the words describe.",
+          "redirects": {
+            "object:water-trough": "This long basin is for the beasts, not for people's kettles. Picture what the words describe."
+          },
+          "why": "A deep throat cranked by Old Bram at dawn is the well.",
+          "parts": [
+            [
+              "landmark:well",
+              "landmark:mill"
+            ],
+            [
+              "landmark:well",
+              "object:water-trough"
+            ]
+          ]
+        },
+        {
+          "text": "The baker's wife, teasing: 'My husband thinks bread begins at his ovens. It begins where Tessa's stones crush the harvest to powder.'",
+          "answer": "landmark:mill",
+          "redirect": "No stones grind grain into flour here. What do the writer's words really mean?",
+          "why": "Tessa's stones crush grain to flour at the mill.",
+          "parts": [
+            [
+              "landmark:mill",
+              "landmark:market"
+            ],
+            [
+              "landmark:mill",
+              "object:hay-cart"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l1-bridge-chapel-market",
+      "level": 1,
+      "clues": [
+        {
+          "text": "A child's dare: 'Stand in the very middle while the current growls under your feet, and trust the carpenter's planks to hold.'",
+          "answer": "landmark:bridge",
+          "redirect": "This does not carry anyone over the river. Read the note again, slowly.",
+          "why": "Planks over a growling current are the bridge.",
+          "parts": [
+            [
+              "landmark:bridge",
+              "landmark:well",
+              "object:water-trough"
+            ],
+            [
+              "landmark:bridge",
+              "object:hay-cart",
+              "object:notice-board"
+            ]
+          ]
+        },
+        {
+          "text": "A formal invitation: 'Sister Wren requests the pleasure of your silence when the bell summons the village at dusk.'",
+          "answer": "landmark:chapel",
+          "redirect": "No bell calls the village to stillness from here. Picture what the words describe.",
+          "why": "Sister Wren's bell calls the village to silence at the chapel.",
+          "parts": [
+            [
+              "landmark:chapel",
+              "landmark:library"
+            ],
+            [
+              "landmark:chapel",
+              "landmark:watchtower"
+            ]
+          ]
+        },
+        {
+          "text": "A tired crier, writing in a croak: 'Shouting prices over fiddles and haggling all day has worn my voice to a thread. Find me among the stalls.'",
+          "answer": "landmark:market",
+          "redirect": "No hawkers or stalls fill this spot. What do the writer's words really mean?",
+          "why": "A crier shouting prices among the stalls is at the market.",
+          "parts": [
+            [
+              "landmark:market",
+              "landmark:chapel"
+            ],
+            [
+              "landmark:market",
+              "object:hay-cart"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l1-library-watch",
+      "level": 1,
+      "clues": [
+        {
+          "text": "A dragon in a child's story: 'I do not hoard gold. I hoard ink, safe on shelves, and Hesper is my friend.'",
+          "answer": "landmark:library",
+          "redirect": "No shelves of old volumes are kept here. Read the note again, slowly.",
+          "redirects": {
+            "object:notice-board": "Papers are pinned up on this for passers-by, but nothing is shelved here. Read the note again, slowly."
+          },
+          "why": "Ink kept safe on shelves, with Hesper, is the library.",
+          "parts": [
+            [
+              "landmark:library",
+              "object:notice-board"
+            ],
+            [
+              "landmark:library",
+              "landmark:castle-gate"
+            ]
+          ]
+        },
+        {
+          "text": "A worried mother, relieved: 'I could not see my son in the fog, but the tireless star on top of the lookout led him home from the hills.'",
+          "answer": "landmark:watchtower",
+          "redirect": "No lantern keeps watch over the hills from here. Picture what the words describe.",
+          "redirects": {
+            "landmark:puzzle-tower": "This tall place holds puzzles, not a lookout. Picture what the words describe."
+          },
+          "why": "A tireless star on a lookout over the hills is the watchtower's lantern.",
+          "parts": [
+            [
+              "landmark:watchtower",
+              "landmark:puzzle-tower"
+            ],
+            [
+              "landmark:watchtower",
+              "landmark:chapel"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l1-garden-gate-ptower",
+      "level": 1,
+      "clues": [
+        {
+          "text": "A healer's note: 'Keeper Ivy's beds are my medicine chest, and the sunny bench beside them is my waiting room.'",
+          "answer": "landmark:garden",
+          "redirect": "No herbs grow here. What do the writer's words really mean?",
+          "redirects": {
+            "object:beehives": "These wooden homes belong to buzzing workers; no herbs grow here. What do the writer's words really mean?"
+          },
+          "why": "Keeper Ivy's herb beds and sunny bench are in the garden.",
+          "parts": [
+            [
+              "landmark:garden",
+              "landmark:market"
+            ],
+            [
+              "landmark:garden",
+              "landmark:chapel"
+            ]
+          ]
+        },
+        {
+          "text": "A tired messenger: 'The road ran north and north until it simply stopped, as if bowing to the keep it serves.'",
+          "answer": "landmark:castle-gate",
+          "redirect": "This is not where the north road ends. Read the note again, slowly.",
+          "why": "The road stops at the north end, where the way into the castle is: the castle gate.",
+          "parts": [
+            [
+              "landmark:castle-gate",
+              "object:notice-board"
+            ],
+            [
+              "landmark:castle-gate",
+              "landmark:chapel",
+              "landmark:library"
+            ]
+          ]
+        },
+        {
+          "text": "A riddle-lover's love letter: 'Dear tall stone puzzle-box at the south-east edge, you are the bonus my brain was waiting for.'",
+          "answer": "landmark:puzzle-tower",
+          "redirect": "There are no bonus puzzles here. Picture what the words describe.",
+          "redirects": {
+            "landmark:watchtower": "This is Mason Gerd's lookout over the hills, not a place of puzzles. Picture what the words describe."
+          },
+          "why": "A tall stone box of bonus puzzles at the south-east edge is the Puzzle Tower.",
+          "parts": [
+            [
+              "landmark:puzzle-tower",
+              "landmark:watchtower"
+            ],
+            [
+              "landmark:puzzle-tower",
+              "object:hay-cart"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l2-chapel-well",
+      "level": 2,
+      "clues": [
+        {
+          "text": "An unsigned, grumbling note: 'Some of us like to sleep past dawn, yet the bronze scold in the house of whispers never takes a day off.'",
+          "answer": "landmark:chapel",
+          "redirect": "No bell calls the village to stillness from here. What do the writer's words really mean?",
+          "why": "A bronze scold is a bell, and the house of whispers is the quiet chapel.",
+          "parts": [
+            [
+              "landmark:chapel",
+              "landmark:watchtower"
+            ],
+            [
+              "landmark:chapel",
+              "landmark:library"
+            ]
+          ]
+        },
+        {
+          "text": "A child's poem: 'Round lips of stone, a throat of night; the old man's rope comes up cold and bright.'",
+          "answer": "landmark:well",
+          "redirect": "Old Bram's rope does not go down here. Read the note again, slowly.",
+          "redirects": {
+            "object:water-trough": "This long basin is for the beasts, not for people's kettles. Read the note again, slowly."
+          },
+          "why": "Stone lips, a dark throat and Old Bram's rope mean the well.",
+          "parts": [
+            [
+              "landmark:well",
+              "object:water-trough"
+            ],
+            [
+              "landmark:well",
+              "landmark:chapel"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l2-mill-bridge",
+      "level": 2,
+      "clues": [
+        {
+          "text": "A wistful farmer: 'I grow the gold, but it is the gnashing stones that turn it into the baker's snow.'",
+          "answer": "landmark:mill",
+          "redirect": "No stones grind grain into flour here. Picture what the words describe.",
+          "why": "Stones that turn gold grain into snow-white flour for the baker are at the mill.",
+          "parts": [
+            [
+              "landmark:mill",
+              "landmark:market"
+            ],
+            [
+              "landmark:mill",
+              "landmark:watchtower",
+              "landmark:puzzle-tower"
+            ]
+          ]
+        },
+        {
+          "text": "An old woman's memory: 'When I was a girl the river ate a mule a year. Then the carpenter laid his patient back across it, and the river went hungry.'",
+          "answer": "landmark:bridge",
+          "redirect": "This does not carry anyone over the river. What do the writer's words really mean?",
+          "why": "A carpenter's back laid across the river is the bridge.",
+          "parts": [
+            [
+              "landmark:bridge",
+              "landmark:well",
+              "object:water-trough"
+            ],
+            [
+              "landmark:bridge",
+              "landmark:castle-gate"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l2-market-library-watch",
+      "level": 2,
+      "clues": [
+        {
+          "text": "A sharp-tongued aunt: 'If you want to hear every price, every song and every rumour at once, go and stand in the middle of that square.'",
+          "answer": "landmark:market",
+          "redirect": "No hawkers or stalls fill this spot. Read the note again, slowly.",
+          "why": "Prices, songs and rumours all at once fill the market square.",
+          "parts": [
+            [
+              "landmark:market",
+              "object:notice-board"
+            ],
+            [
+              "landmark:market",
+              "landmark:chapel"
+            ]
+          ]
+        },
+        {
+          "text": "A grateful student: 'Hesper never raises her voice, yet a thousand voices speak from her shelves whenever I open one of them.'",
+          "answer": "landmark:library",
+          "redirect": "No shelves of old volumes are kept here. Picture what the words describe.",
+          "redirects": {
+            "object:notice-board": "Papers are pinned up on this for passers-by, but nothing is shelved here. Picture what the words describe."
+          },
+          "why": "Voices that speak from Hesper's shelves are books in the library.",
+          "parts": [
+            [
+              "landmark:library",
+              "landmark:chapel"
+            ],
+            [
+              "landmark:library",
+              "object:notice-board"
+            ]
+          ]
+        },
+        {
+          "text": "A wolf's lament in a children's tale: 'I would raid the sheepfolds, but the one-eyed giant keeps its light on the hills all night.'",
+          "answer": "landmark:watchtower",
+          "redirect": "No lantern keeps watch over the hills from here. What do the writer's words really mean?",
+          "redirects": {
+            "landmark:puzzle-tower": "This tall place holds puzzles, not a lookout. What do the writer's words really mean?"
+          },
+          "why": "A one-eyed giant with a light on the hills all night is the watchtower.",
+          "parts": [
+            [
+              "landmark:watchtower",
+              "landmark:puzzle-tower"
+            ],
+            [
+              "landmark:watchtower",
+              "landmark:chapel"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l2-garden-gate",
+      "level": 2,
+      "clues": [
+        {
+          "text": "A boastful cook: 'My stew is famous, but the truth is that Keeper Ivy's beds do half the cooking before the pot is even warm.'",
+          "answer": "landmark:garden",
+          "redirect": "No herbs grow here. Read the note again, slowly.",
+          "redirects": {
+            "object:beehives": "These wooden homes belong to buzzing workers; no herbs grow here. Read the note again, slowly."
+          },
+          "why": "Keeper Ivy's herb beds are in the garden.",
+          "parts": [
+            [
+              "landmark:garden",
+              "landmark:market"
+            ],
+            [
+              "landmark:garden",
+              "object:hay-cart"
+            ]
+          ]
+        },
+        {
+          "text": "A sulky page: 'They sent me to the very end of the north road, to stand where the keep takes in its guests and bow to every one.'",
+          "answer": "landmark:castle-gate",
+          "redirect": "This is not where the north road ends. Picture what the words describe.",
+          "why": "The way into the castle, at the north end of the road, is the castle gate.",
+          "parts": [
+            [
+              "landmark:castle-gate",
+              "object:notice-board"
+            ],
+            [
+              "landmark:castle-gate",
+              "landmark:chapel",
+              "landmark:library",
+              "landmark:watchtower"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l2-ptower-board-trough",
+      "level": 2,
+      "clues": [
+        {
+          "text": "A proud hero: 'The quests were easy. The stone stack at the south-east edge, full of bonus brain-teasers, was the real test.'",
+          "answer": "landmark:puzzle-tower",
+          "redirect": "There are no bonus puzzles here. What do the writer's words really mean?",
+          "redirects": {
+            "landmark:watchtower": "This is Mason Gerd's lookout over the hills, not a place of puzzles. What do the writer's words really mean?"
+          },
+          "why": "Bonus brain-teasers in a stone stack at the south-east edge are the Puzzle Tower's.",
+          "parts": [
+            [
+              "landmark:puzzle-tower",
+              "landmark:watchtower"
+            ],
+            [
+              "landmark:puzzle-tower",
+              "object:hay-cart"
+            ]
+          ]
+        },
+        {
+          "text": "A lost-and-found rhyme: 'I lost my hat and found it fast, for a pinned plea by the south way in caught every eye that passed.'",
+          "answer": "object:notice-board",
+          "redirect": "Nothing is pinned up here for passers-by. Read the note again, slowly.",
+          "redirects": {
+            "landmark:library": "Hesper shelves her volumes here, but nobody pins anything up. Read the note again, slowly."
+          },
+          "why": "A pinned plea by the southern entrance hangs on the notice board.",
+          "parts": [
+            [
+              "object:notice-board",
+              "landmark:market"
+            ],
+            [
+              "object:notice-board",
+              "landmark:castle-gate"
+            ]
+          ]
+        },
+        {
+          "text": "A drover's praise: 'After twenty dusty miles, the long wooden basin at the south edge is my oxen's idea of paradise.'",
+          "answer": "object:water-trough",
+          "redirect": "This is not where the beasts come to slurp. Picture what the words describe.",
+          "redirects": {
+            "landmark:well": "Old Bram draws pails for people here, not for beasts. Picture what the words describe."
+          },
+          "why": "The oxen's long wooden basin at the south edge is the water trough.",
+          "parts": [
+            [
+              "object:water-trough",
+              "landmark:well"
+            ],
+            [
+              "object:water-trough",
+              "object:notice-board",
+              "object:beehives",
+              "landmark:puzzle-tower"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l2-hives-cart",
+      "level": 2,
+      "clues": [
+        {
+          "text": "A boy, rubbing a swollen thumb: 'The striped citizens of those wooden cities at the south-west edge do not appreciate visitors.'",
+          "answer": "object:beehives",
+          "redirect": "No striped workers live here. What do the writer's words really mean?",
+          "redirects": {
+            "landmark:garden": "This is Keeper Ivy's place of herbs, not the striped workers' homes. What do the writer's words really mean?"
+          },
+          "why": "Stinging striped citizens in wooden homes at the south-west edge live in the beehives.",
+          "parts": [
+            [
+              "object:beehives",
+              "landmark:garden"
+            ],
+            [
+              "object:beehives",
+              "object:water-trough",
+              "object:notice-board",
+              "landmark:puzzle-tower"
+            ]
+          ]
+        },
+        {
+          "text": "A stable boy's sigh: 'The ponies would trade every apple in the realm for one more mouthful from that golden heap on wheels at the east edge.'",
+          "answer": "object:hay-cart",
+          "redirect": "There is no hay here. Read the note again, slowly.",
+          "why": "A golden heap on wheels at the east edge is hay on the hay cart.",
+          "parts": [
+            [
+              "object:hay-cart",
+              "object:water-trough"
+            ],
+            [
+              "object:hay-cart",
+              "landmark:puzzle-tower"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l2-well-mill",
+      "level": 2,
+      "clues": [
+        {
+          "text": "A housekeeper: 'Every kettle on every hearth begins its day in the dark, at the end of the old man's rope.'",
+          "answer": "landmark:well",
+          "redirect": "Old Bram's rope does not go down here. Picture what the words describe.",
+          "redirects": {
+            "object:water-trough": "This long basin is for the beasts, not for people's kettles. Picture what the words describe."
+          },
+          "why": "Kettles filled from the dark at the end of Old Bram's rope are filled at the well.",
+          "parts": [
+            [
+              "landmark:well",
+              "object:water-trough"
+            ],
+            [
+              "landmark:well",
+              "landmark:chapel"
+            ]
+          ]
+        },
+        {
+          "text": "A child, after a visit: 'It sounds like a giant chewing gravel, and Tessa came out looking as if she had been caught in a snowstorm.'",
+          "answer": "landmark:mill",
+          "redirect": "No stones grind grain into flour here. What do the writer's words really mean?",
+          "why": "Grinding stones and flour-white Tessa mean the mill.",
+          "parts": [
+            [
+              "landmark:mill",
+              "landmark:watchtower",
+              "landmark:puzzle-tower"
+            ],
+            [
+              "landmark:mill",
+              "landmark:market"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l2-bridge-chapel-market",
+      "level": 2,
+      "clues": [
+        {
+          "text": "A carpenter's pride: 'Storms have hurled the river at my timbers a hundred times. A hundred times they have shrugged.'",
+          "answer": "landmark:bridge",
+          "redirect": "This does not carry anyone over the river. Read the note again, slowly.",
+          "why": "Timbers that hold against the river in any storm are the bridge.",
+          "parts": [
+            [
+              "landmark:bridge",
+              "landmark:well",
+              "object:water-trough"
+            ],
+            [
+              "landmark:bridge",
+              "object:hay-cart",
+              "object:notice-board"
+            ]
+          ]
+        },
+        {
+          "text": "A choir girl: 'Inside, even our breathing sounds loud, until the great bronze voice above us speaks for all of us at once.'",
+          "answer": "landmark:chapel",
+          "redirect": "No bell calls the village to stillness from here. Picture what the words describe.",
+          "why": "A quiet place with a bronze voice above, a bell, is the chapel.",
+          "parts": [
+            [
+              "landmark:chapel",
+              "landmark:library"
+            ],
+            [
+              "landmark:chapel",
+              "landmark:watchtower"
+            ]
+          ]
+        },
+        {
+          "text": "A fussy visitor: 'Such a clamour of hawkers and fiddles! Still, I confess the bread smells divine.'",
+          "answer": "landmark:market",
+          "redirect": "No hawkers or stalls fill this spot. What do the writer's words really mean?",
+          "why": "Hawkers, fiddles and the smell of bread mean the market.",
+          "parts": [
+            [
+              "landmark:market",
+              "landmark:chapel"
+            ],
+            [
+              "landmark:market",
+              "landmark:mill"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l2-library-watch",
+      "level": 2,
+      "clues": [
+        {
+          "text": "A scribe's warning: 'Speak softly, return every volume to its shelf, and never let a candle near Hesper's treasures.'",
+          "answer": "landmark:library",
+          "redirect": "No shelves of old volumes are kept here. Read the note again, slowly.",
+          "redirects": {
+            "object:notice-board": "Papers are pinned up on this for passers-by, but nothing is shelved here. Read the note again, slowly."
+          },
+          "why": "Volumes on shelves, kept by Hesper, are in the library.",
+          "parts": [
+            [
+              "landmark:library",
+              "landmark:chapel"
+            ],
+            [
+              "landmark:library",
+              "object:notice-board"
+            ]
+          ]
+        },
+        {
+          "text": "A night owl: 'I am not the only one awake. Up high, Mason Gerd's lantern keeps burning, its gaze fixed on the hills.'",
+          "answer": "landmark:watchtower",
+          "redirect": "No lantern keeps watch over the hills from here. Picture what the words describe.",
+          "redirects": {
+            "landmark:puzzle-tower": "This tall place holds puzzles, not a lookout. Picture what the words describe."
+          },
+          "why": "Mason Gerd's lantern up high, watching the hills, is at the watchtower.",
+          "parts": [
+            [
+              "landmark:watchtower",
+              "landmark:puzzle-tower"
+            ],
+            [
+              "landmark:watchtower",
+              "landmark:chapel"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l2-garden-trough-board",
+      "level": 2,
+      "clues": [
+        {
+          "text": "A painter's complaint: 'I came to paint the sage and thyme in the sun, but the bench was so warm that I fell asleep instead.'",
+          "answer": "landmark:garden",
+          "redirect": "No herbs grow here. What do the writer's words really mean?",
+          "redirects": {
+            "object:beehives": "These wooden homes belong to buzzing workers; no herbs grow here. What do the writer's words really mean?"
+          },
+          "why": "Sage, thyme and a sunny bench are in the garden.",
+          "parts": [
+            [
+              "landmark:garden",
+              "landmark:market"
+            ],
+            [
+              "landmark:garden",
+              "landmark:chapel"
+            ]
+          ]
+        },
+        {
+          "text": "A goatherd's joke: 'My goats have no manners. They slurp from that long wooden basin at the south edge as if it owed them money.'",
+          "answer": "object:water-trough",
+          "redirect": "This is not where the beasts come to slurp. Read the note again, slowly.",
+          "redirects": {
+            "landmark:well": "Old Bram draws pails for people here, not for beasts. Read the note again, slowly."
+          },
+          "why": "The goats' long wooden basin at the south edge is the water trough.",
+          "parts": [
+            [
+              "object:water-trough",
+              "landmark:well"
+            ],
+            [
+              "object:water-trough",
+              "object:hay-cart",
+              "object:notice-board"
+            ]
+          ]
+        },
+        {
+          "text": "A tidy man's complaint: 'The wooden chatterbox by the southern entrance is so crowded with pinned papers that you cannot see the wood.'",
+          "answer": "object:notice-board",
+          "redirect": "Nothing is pinned up here for passers-by. Picture what the words describe.",
+          "redirects": {
+            "landmark:library": "Hesper shelves her volumes here, but nobody pins anything up. Picture what the words describe."
+          },
+          "why": "A wooden chatterbox crowded with pinned papers by the southern entrance is the notice board.",
+          "parts": [
+            [
+              "object:notice-board",
+              "landmark:market"
+            ],
+            [
+              "object:notice-board",
+              "landmark:castle-gate"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l3-well-mill",
+      "level": 3,
+      "clues": [
+        {
+          "text": "A memory of a dry year: 'When the streams shrank to cracks, the village still had its deep stone throat, and the old man who coaxed cold mercy from it.'",
+          "answer": "landmark:well",
+          "redirect": "Old Bram's rope does not go down here. What do the writer's words really mean?",
+          "redirects": {
+            "object:water-trough": "This long basin is for the beasts, not for people's kettles. What do the writer's words really mean?"
+          },
+          "why": "A deep stone throat that Old Bram draws cold, clean drink from is the well.",
+          "parts": [
+            [
+              "landmark:well",
+              "object:water-trough",
+              "landmark:bridge"
+            ],
+            [
+              "landmark:well",
+              "landmark:chapel"
+            ]
+          ]
+        },
+        {
+          "text": "A sardonic baker: 'Oh yes, I am the hero of every loaf. Never mind the gnashing stones, or the floury woman who feeds them.'",
+          "answer": "landmark:mill",
+          "redirect": "No stones grind grain into flour here. Read the note again, slowly.",
+          "why": "Gnashing stones fed by flour-dusted Tessa are at the mill.",
+          "parts": [
+            [
+              "landmark:mill",
+              "landmark:market"
+            ],
+            [
+              "landmark:mill",
+              "landmark:watchtower",
+              "landmark:puzzle-tower"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l3-bridge-chapel",
+      "level": 3,
+      "clues": [
+        {
+          "text": "A boastful ox in a child's tale: 'I crossed the roaring current without wetting a hoof, on the carpenter's back of planks.'",
+          "answer": "landmark:bridge",
+          "redirect": "This does not carry anyone over the river. Picture what the words describe.",
+          "why": "A carpenter's planks across the current are the bridge.",
+          "parts": [
+            [
+              "landmark:bridge",
+              "landmark:well",
+              "object:water-trough"
+            ],
+            [
+              "landmark:bridge",
+              "landmark:castle-gate"
+            ]
+          ]
+        },
+        {
+          "text": "A solemn proclamation: 'At dusk the great bell shall sound over Sister Wren's sanctuary, and all who hear it may lay down their work.'",
+          "answer": "landmark:chapel",
+          "redirect": "No bell calls the village to stillness from here. What do the writer's words really mean?",
+          "why": "A sanctuary is a holy, peaceful place; Sister Wren's, with its bell, is the chapel.",
+          "parts": [
+            [
+              "landmark:chapel",
+              "landmark:watchtower"
+            ],
+            [
+              "landmark:chapel",
+              "landmark:library"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l3-market-library-watch",
+      "level": 3,
+      "clues": [
+        {
+          "text": "A melancholy fiddler: 'I miss the din of that square: the haggling, the crier's croak, the warm-bread air. My lodgings are far too quiet.'",
+          "answer": "landmark:market",
+          "redirect": "No hawkers or stalls fill this spot. Read the note again, slowly.",
+          "why": "Haggling, a crier and the smell of bread fill the market square.",
+          "parts": [
+            [
+              "landmark:market",
+              "landmark:chapel"
+            ],
+            [
+              "landmark:market",
+              "landmark:mill"
+            ]
+          ]
+        },
+        {
+          "text": "A boy who hates silence: 'Hesper's kingdom is ruled by a single law, the hush, and every one of its subjects is a book.'",
+          "answer": "landmark:library",
+          "redirect": "No shelves of old volumes are kept here. Picture what the words describe.",
+          "redirects": {
+            "object:notice-board": "Papers are pinned up on this for passers-by, but nothing is shelved here. Picture what the words describe."
+          },
+          "why": "A hushed kingdom of books ruled by Hesper is the library.",
+          "parts": [
+            [
+              "landmark:library",
+              "landmark:chapel"
+            ],
+            [
+              "landmark:library",
+              "object:notice-board"
+            ]
+          ]
+        },
+        {
+          "text": "A grateful traveller: 'I was lost on the hills until I saw that lone ember burning high above the rooftops, steady as a promise.'",
+          "answer": "landmark:watchtower",
+          "redirect": "No lantern keeps watch over the hills from here. What do the writer's words really mean?",
+          "redirects": {
+            "landmark:puzzle-tower": "This tall place holds puzzles, not a lookout. What do the writer's words really mean?"
+          },
+          "why": "A light burning high above the rooftops, seen from the hills, is the watchtower's lantern.",
+          "parts": [
+            [
+              "landmark:watchtower",
+              "landmark:puzzle-tower"
+            ],
+            [
+              "landmark:watchtower",
+              "landmark:chapel"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l3-garden-gate",
+      "level": 3,
+      "clues": [
+        {
+          "text": "An old soldier, softened: 'I have seen battlefields, but no place mends me like Ivy's fragrant rows and that sun-warmed bench.'",
+          "answer": "landmark:garden",
+          "redirect": "No herbs grow here. Read the note again, slowly.",
+          "redirects": {
+            "object:beehives": "These wooden homes belong to buzzing workers; no herbs grow here. Read the note again, slowly."
+          },
+          "why": "Keeper Ivy's fragrant herb rows and sunny bench are in the garden.",
+          "parts": [
+            [
+              "landmark:garden",
+              "landmark:market"
+            ],
+            [
+              "landmark:garden",
+              "landmark:chapel"
+            ]
+          ]
+        },
+        {
+          "text": "A court poet: 'The road, having wandered the whole village, at last reaches the threshold of the keep in the north, and there falls silent.'",
+          "answer": "landmark:castle-gate",
+          "redirect": "This is not where the north road ends. Picture what the words describe.",
+          "why": "A threshold is where you step in; the castle's, at the north end of the road, is the castle gate.",
+          "parts": [
+            [
+              "landmark:castle-gate",
+              "object:notice-board"
+            ],
+            [
+              "landmark:castle-gate",
+              "landmark:chapel",
+              "landmark:library"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l3-ptower-board-trough",
+      "level": 3,
+      "clues": [
+        {
+          "text": "A smug riddler: 'Think you are clever? Then visit my tall stone home at the south-east edge and prove it, one bonus puzzle at a time.'",
+          "answer": "landmark:puzzle-tower",
+          "redirect": "There are no bonus puzzles here. What do the writer's words really mean?",
+          "redirects": {
+            "landmark:watchtower": "This is Mason Gerd's lookout over the hills, not a place of puzzles. What do the writer's words really mean?"
+          },
+          "why": "A tall stone home of bonus puzzles at the south-east edge is the Puzzle Tower.",
+          "parts": [
+            [
+              "landmark:puzzle-tower",
+              "landmark:watchtower"
+            ],
+            [
+              "landmark:puzzle-tower",
+              "object:hay-cart"
+            ]
+          ]
+        },
+        {
+          "text": "A cynical tinker: 'Want the whole village to know your business? Skip the gossips. Pin it up by the southern entrance.'",
+          "answer": "object:notice-board",
+          "redirect": "Nothing is pinned up here for passers-by. Read the note again, slowly.",
+          "redirects": {
+            "landmark:library": "Hesper shelves her volumes here, but nobody pins anything up. Read the note again, slowly."
+          },
+          "why": "Things pinned up for the whole village by the southern entrance go on the notice board.",
+          "parts": [
+            [
+              "object:notice-board",
+              "landmark:market"
+            ],
+            [
+              "object:notice-board",
+              "landmark:castle-gate"
+            ]
+          ]
+        },
+        {
+          "text": "A grumbling ox in a fable: 'People get their cold pails from the old man. We beasts get a long wooden basin at the south edge, and we like it better.'",
+          "answer": "object:water-trough",
+          "redirect": "This is not where the beasts come to slurp. Picture what the words describe.",
+          "redirects": {
+            "landmark:well": "Old Bram draws pails for people here, not for beasts. Picture what the words describe."
+          },
+          "why": "The beasts' long wooden basin at the south edge is the water trough, not Old Bram's well.",
+          "parts": [
+            [
+              "object:water-trough",
+              "landmark:well"
+            ],
+            [
+              "object:water-trough",
+              "object:notice-board",
+              "object:beehives",
+              "landmark:puzzle-tower"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l3-hives-cart",
+      "level": 3,
+      "clues": [
+        {
+          "text": "A wary note: 'The south-west edge is guarded by a buzzing army in wooden barracks. Approach slowly, or be stung.'",
+          "answer": "object:beehives",
+          "redirect": "No striped workers live here. What do the writer's words really mean?",
+          "redirects": {
+            "landmark:garden": "This is Keeper Ivy's place of herbs, not the striped workers' homes. What do the writer's words really mean?"
+          },
+          "why": "A buzzing, stinging army in wooden homes at the south-west edge lives in the beehives.",
+          "parts": [
+            [
+              "object:beehives",
+              "landmark:garden"
+            ],
+            [
+              "object:beehives",
+              "object:water-trough",
+              "object:notice-board",
+              "landmark:puzzle-tower"
+            ]
+          ]
+        },
+        {
+          "text": "A farmer's lament: 'One gust of wind, and half my golden harvest of dry grass would blow off the wagon at the east edge.'",
+          "answer": "object:hay-cart",
+          "redirect": "There is no hay here. Read the note again, slowly.",
+          "why": "Dry grass on a wagon at the east edge is the hay cart.",
+          "parts": [
+            [
+              "object:hay-cart",
+              "landmark:puzzle-tower"
+            ],
+            [
+              "object:hay-cart",
+              "object:water-trough"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l3-well-mill-1",
+      "level": 3,
+      "clues": [
+        {
+          "text": "An old man's grumble: 'They call me Old for good reason. Fifty years of winding that rope, and still every doorstep wants more.'",
+          "answer": "landmark:well",
+          "redirect": "Old Bram's rope does not go down here. Picture what the words describe.",
+          "redirects": {
+            "object:water-trough": "This long basin is for the beasts, not for people's kettles. Picture what the words describe."
+          },
+          "why": "Old Bram winds the rope that fills every doorstep's pail at the well.",
+          "parts": [
+            [
+              "landmark:well",
+              "object:water-trough"
+            ],
+            [
+              "landmark:well",
+              "landmark:chapel",
+              "landmark:mill"
+            ]
+          ]
+        },
+        {
+          "text": "A rhyme: 'Gold in at morning, snow out at night; stone teeth grinding with all of their might.'",
+          "answer": "landmark:mill",
+          "redirect": "No stones grind grain into flour here. What do the writer's words really mean?",
+          "why": "Gold grain in and snow-white flour out, between grinding stones, is the mill.",
+          "parts": [
+            [
+              "landmark:mill",
+              "landmark:market"
+            ],
+            [
+              "landmark:mill",
+              "landmark:watchtower",
+              "landmark:puzzle-tower"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l3-bridge-chapel-market",
+      "level": 3,
+      "clues": [
+        {
+          "text": "A sulky river in a fable: 'I used to keep the village in two halves. Then a carpenter stitched me shut with planks.'",
+          "answer": "landmark:bridge",
+          "redirect": "This does not carry anyone over the river. Read the note again, slowly.",
+          "why": "A carpenter's planks stitched across the river are the bridge.",
+          "parts": [
+            [
+              "landmark:bridge",
+              "landmark:well",
+              "object:water-trough"
+            ],
+            [
+              "landmark:bridge",
+              "landmark:castle-gate"
+            ]
+          ]
+        },
+        {
+          "text": "A homesick pilgrim: 'In a strange village, one sound felt like home: the bell above Sister Wren's hushed hall.'",
+          "answer": "landmark:chapel",
+          "redirect": "No bell calls the village to stillness from here. Picture what the words describe.",
+          "why": "The bell above Sister Wren's quiet hall is the chapel's.",
+          "parts": [
+            [
+              "landmark:chapel",
+              "landmark:library"
+            ],
+            [
+              "landmark:chapel",
+              "landmark:watchtower"
+            ]
+          ]
+        },
+        {
+          "text": "A friendly rival crier: 'I shout as loud as Pip, but his crowd is always bigger. I think it is the smell of fresh bread drifting over his square.'",
+          "answer": "landmark:market",
+          "redirect": "No hawkers or stalls fill this spot. What do the writer's words really mean?",
+          "why": "Crier Pip's square that smells of bread is the market.",
+          "parts": [
+            [
+              "landmark:market",
+              "object:notice-board"
+            ],
+            [
+              "landmark:market",
+              "landmark:mill"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l3-library-watch",
+      "level": 3,
+      "clues": [
+        {
+          "text": "A scholar's lament: 'I have spent my life there, and still I have not met a tenth of the voices waiting on Hesper's shelves.'",
+          "answer": "landmark:library",
+          "redirect": "No shelves of old volumes are kept here. Read the note again, slowly.",
+          "redirects": {
+            "object:notice-board": "Papers are pinned up on this for passers-by, but nothing is shelved here. Read the note again, slowly."
+          },
+          "why": "Voices waiting on Hesper's shelves are the library's books.",
+          "parts": [
+            [
+              "landmark:library",
+              "object:notice-board"
+            ],
+            [
+              "landmark:library",
+              "landmark:castle-gate"
+            ]
+          ]
+        },
+        {
+          "text": "A soldier's toast: 'To the sentinel above our roofs and its keeper, whose lantern never blinks and whose gaze never leaves the hills.'",
+          "answer": "landmark:watchtower",
+          "redirect": "No lantern keeps watch over the hills from here. Picture what the words describe.",
+          "redirects": {
+            "landmark:puzzle-tower": "This tall place holds puzzles, not a lookout. Picture what the words describe."
+          },
+          "why": "A sentinel is a guard; one above the roofs whose lantern watches the hills is the watchtower.",
+          "parts": [
+            [
+              "landmark:watchtower",
+              "landmark:puzzle-tower"
+            ],
+            [
+              "landmark:watchtower",
+              "landmark:chapel"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l3-garden-gate-cart",
+      "level": 3,
+      "clues": [
+        {
+          "text": "A bored child: 'Grown-ups say Keeper Ivy's green rows smell lovely. I only went for the warm bench.'",
+          "answer": "landmark:garden",
+          "redirect": "No herbs grow here. What do the writer's words really mean?",
+          "redirects": {
+            "object:beehives": "These wooden homes belong to buzzing workers; no herbs grow here. What do the writer's words really mean?"
+          },
+          "why": "Keeper Ivy's green herb rows and warm bench are in the garden.",
+          "parts": [
+            [
+              "landmark:garden",
+              "landmark:chapel"
+            ],
+            [
+              "landmark:garden",
+              "landmark:market"
+            ]
+          ]
+        },
+        {
+          "text": "A fussy steward: 'All guests of the keep must present themselves where the north road ends. Punctuality is a courtesy; do not keep the keep waiting.'",
+          "answer": "landmark:castle-gate",
+          "redirect": "This is not where the north road ends. Read the note again, slowly.",
+          "why": "The way into the castle, at the north end of the road, is the castle gate.",
+          "parts": [
+            [
+              "landmark:castle-gate",
+              "object:notice-board"
+            ],
+            [
+              "landmark:castle-gate",
+              "landmark:chapel",
+              "landmark:library"
+            ]
+          ]
+        },
+        {
+          "text": "A runaway's confession in a story: 'I hid in the scratchy, sweet-smelling load on the wagon at the east edge, and the ponies nearly ate me.'",
+          "answer": "object:hay-cart",
+          "redirect": "There is no hay here. Picture what the words describe.",
+          "why": "A scratchy, sweet-smelling load that ponies eat, on a wagon at the east edge, is the hay cart.",
+          "parts": [
+            [
+              "object:hay-cart",
+              "object:water-trough"
+            ],
+            [
+              "object:hay-cart",
+              "landmark:puzzle-tower"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l4-chapel-mill",
+      "level": 4,
+      "clues": [
+        {
+          "text": "A sleepless baker's verse: 'Its iron tongue has never learned to whisper, yet it lives in the quietest house in the village. Go and ask it why.'",
+          "answer": "landmark:chapel",
+          "redirect": "No bell calls the village to stillness from here. What do the writer's words really mean?",
+          "why": "An iron tongue that cannot whisper is a bell, and it hangs in the quiet chapel.",
+          "parts": [
+            [
+              "landmark:chapel",
+              "landmark:watchtower"
+            ],
+            [
+              "landmark:chapel",
+              "landmark:library"
+            ]
+          ]
+        },
+        {
+          "text": "A sardonic farmer: 'I spend all summer coaxing gold from the dirt, only for it to be crushed to dust between two stones. Go and see the crushers.'",
+          "answer": "landmark:mill",
+          "redirect": "No stones grind grain into flour here. Read the note again, slowly.",
+          "why": "Gold grain crushed to dust between two stones is flour being ground at the mill.",
+          "parts": [
+            [
+              "landmark:mill",
+              "landmark:market"
+            ],
+            [
+              "landmark:mill",
+              "landmark:watchtower",
+              "landmark:puzzle-tower"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l4-well-bridge",
+      "level": 4,
+      "clues": [
+        {
+          "text": "An elegy for a worn-out rope: 'Forty winters you carried the cold up from the dark for every doorstep. The old man mourns you. Bring him your replacement.'",
+          "answer": "landmark:well",
+          "redirect": "Old Bram's rope does not go down here. Picture what the words describe.",
+          "redirects": {
+            "object:water-trough": "This long basin is for the beasts, not for people's kettles. Picture what the words describe."
+          },
+          "why": "An elegy mourns; the rope that carried cold up from the dark for every doorstep was Old Bram's, at the well.",
+          "parts": [
+            [
+              "landmark:well",
+              "object:water-trough"
+            ],
+            [
+              "landmark:well",
+              "landmark:chapel"
+            ]
+          ]
+        },
+        {
+          "text": "A grudging admission from the river: 'I roar, I swell, I hurl the storm at it, and still the carpenter's stubborn timbers hold. Go and stand where I have lost.'",
+          "answer": "landmark:bridge",
+          "redirect": "This does not carry anyone over the river. What do the writer's words really mean?",
+          "why": "Timbers that hold against the river in every storm are the bridge.",
+          "parts": [
+            [
+              "landmark:bridge",
+              "landmark:well",
+              "object:water-trough"
+            ],
+            [
+              "landmark:bridge",
+              "object:hay-cart",
+              "object:notice-board"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l4-market-library-watch",
+      "level": 4,
+      "clues": [
+        {
+          "text": "A disdainful lord: 'A cacophony of hawkers, a crier with lungs like bellows, and the air thick with bread. Yet my cook insists on shopping there.'",
+          "answer": "landmark:market",
+          "redirect": "No hawkers or stalls fill this spot. Read the note again, slowly.",
+          "why": "A cacophony is a harsh mix of sounds; hawkers, a crier and bread mean the market.",
+          "parts": [
+            [
+              "landmark:market",
+              "landmark:chapel"
+            ],
+            [
+              "landmark:market",
+              "landmark:mill"
+            ]
+          ]
+        },
+        {
+          "text": "A wistful traveller: 'In that hushed hall, Hesper shelves more journeys than any ship could make. I went to rest my feet and left with a map of the world.'",
+          "answer": "landmark:library",
+          "redirect": "No shelves of old volumes are kept here. Picture what the words describe.",
+          "redirects": {
+            "object:notice-board": "Papers are pinned up on this for passers-by, but nothing is shelved here. Picture what the words describe."
+          },
+          "why": "Journeys shelved by Hesper in a hushed hall are books in the library.",
+          "parts": [
+            [
+              "landmark:library",
+              "landmark:chapel"
+            ],
+            [
+              "landmark:library",
+              "object:notice-board"
+            ]
+          ]
+        },
+        {
+          "text": "A fable's moral: 'The sentinel dozes by day and stares by night, its lantern pinned to the dark above the hills. Go where the wolves fear to look.'",
+          "answer": "landmark:watchtower",
+          "redirect": "No lantern keeps watch over the hills from here. What do the writer's words really mean?",
+          "redirects": {
+            "landmark:puzzle-tower": "This tall place holds puzzles, not a lookout. What do the writer's words really mean?"
+          },
+          "why": "A sentinel whose lantern watches the hills at night is the watchtower.",
+          "parts": [
+            [
+              "landmark:watchtower",
+              "landmark:puzzle-tower"
+            ],
+            [
+              "landmark:watchtower",
+              "landmark:chapel"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l4-garden-gate",
+      "level": 4,
+      "clues": [
+        {
+          "text": "A keeper's diary: 'Thyme for courage, sage for wisdom, mint for a sour stomach, and the sunny bench for everything else.'",
+          "answer": "landmark:garden",
+          "redirect": "No herbs grow here. Read the note again, slowly.",
+          "redirects": {
+            "object:beehives": "These wooden homes belong to buzzing workers; no herbs grow here. Read the note again, slowly."
+          },
+          "why": "Thyme, sage and mint are herbs, and with the sunny bench they mean the garden.",
+          "parts": [
+            [
+              "landmark:garden",
+              "landmark:market"
+            ],
+            [
+              "landmark:garden",
+              "landmark:chapel"
+            ]
+          ]
+        },
+        {
+          "text": "A child's view of the keep: 'It sits at the top of the north road like a mother hen, and every morning it gathers its guests in, one by one.'",
+          "answer": "landmark:castle-gate",
+          "redirect": "This is not where the north road ends. Picture what the words describe.",
+          "why": "The keep takes in its guests at the top of the north road: the way into the castle, the castle gate.",
+          "parts": [
+            [
+              "landmark:castle-gate",
+              "object:notice-board"
+            ],
+            [
+              "landmark:castle-gate",
+              "landmark:chapel",
+              "landmark:library",
+              "landmark:watchtower"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l4-ptower-board-trough",
+      "level": 4,
+      "clues": [
+        {
+          "text": "A defeated scholar: 'I have untangled treaties and translated poems, but the bonus puzzles in that stone stack at the south-east edge beat me twice.'",
+          "answer": "landmark:puzzle-tower",
+          "redirect": "There are no bonus puzzles here. What do the writer's words really mean?",
+          "redirects": {
+            "landmark:watchtower": "This is Mason Gerd's lookout over the hills, not a place of puzzles. What do the writer's words really mean?"
+          },
+          "why": "Bonus puzzles in a stone stack at the south-east edge are in the Puzzle Tower.",
+          "parts": [
+            [
+              "landmark:puzzle-tower",
+              "landmark:watchtower"
+            ],
+            [
+              "landmark:puzzle-tower",
+              "object:hay-cart"
+            ]
+          ]
+        },
+        {
+          "text": "A wry tinker: 'In this village, nobody needs a crier for gossip. A forest of pinned papers by the southern way in tells all.'",
+          "answer": "object:notice-board",
+          "redirect": "Nothing is pinned up here for passers-by. Read the note again, slowly.",
+          "redirects": {
+            "landmark:library": "Hesper shelves her volumes here, but nobody pins anything up. Read the note again, slowly."
+          },
+          "why": "A forest of pinned papers by the southern entrance is the notice board.",
+          "parts": [
+            [
+              "object:notice-board",
+              "landmark:market"
+            ],
+            [
+              "object:notice-board",
+              "landmark:castle-gate"
+            ]
+          ]
+        },
+        {
+          "text": "A mock-solemn decree from the farm boy: 'Let it be known that the beasts' long wooden tavern at the south edge is open, and every slurp is free.'",
+          "answer": "object:water-trough",
+          "redirect": "This is not where the beasts come to slurp. Picture what the words describe.",
+          "redirects": {
+            "landmark:well": "Old Bram draws pails for people here, not for beasts. Picture what the words describe."
+          },
+          "why": "The beasts' long wooden tavern at the south edge, where they slurp, is the water trough.",
+          "parts": [
+            [
+              "object:water-trough",
+              "landmark:well"
+            ],
+            [
+              "object:water-trough",
+              "object:notice-board",
+              "object:beehives",
+              "landmark:puzzle-tower"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l4-hives-cart",
+      "level": 4,
+      "clues": [
+        {
+          "text": "A sting-swollen apology: 'Forgive me, little striped citizens of the south-west edge. I knocked on your wooden walls without an invitation.'",
+          "answer": "object:beehives",
+          "redirect": "No striped workers live here. What do the writer's words really mean?",
+          "redirects": {
+            "landmark:garden": "This is Keeper Ivy's place of herbs, not the striped workers' homes. What do the writer's words really mean?"
+          },
+          "why": "Stinging striped citizens within wooden walls at the south-west edge live in the beehives.",
+          "parts": [
+            [
+              "object:beehives",
+              "landmark:garden"
+            ],
+            [
+              "object:beehives",
+              "object:water-trough",
+              "object:notice-board",
+              "landmark:puzzle-tower"
+            ]
+          ]
+        },
+        {
+          "text": "A pony's love poem, written down by the stable boy: 'O golden mountain on your wheels at the east edge, how sweetly you crunch.'",
+          "answer": "object:hay-cart",
+          "redirect": "There is no hay here. Read the note again, slowly.",
+          "why": "A golden mountain on wheels at the east edge is hay on the hay cart.",
+          "parts": [
+            [
+              "object:hay-cart",
+              "object:water-trough"
+            ],
+            [
+              "object:hay-cart",
+              "landmark:puzzle-tower"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l4-well-mill",
+      "level": 4,
+      "clues": [
+        {
+          "text": "A precise instruction from a cook: 'Do not take the pail to the beasts' long basin. Take it to the stone throat the old man tends, where the cold comes up clean.'",
+          "answer": "landmark:well",
+          "redirect": "Old Bram's rope does not go down here. Picture what the words describe.",
+          "redirects": {
+            "object:water-trough": "This long basin is for the beasts, not for people's kettles. Picture what the words describe."
+          },
+          "why": "The cook wants the stone throat Old Bram tends, the well, not the beasts' trough.",
+          "parts": [
+            [
+              "landmark:well",
+              "object:water-trough"
+            ],
+            [
+              "landmark:well",
+              "landmark:chapel"
+            ]
+          ]
+        },
+        {
+          "text": "A child's riddle: 'I eat the harvest but am never full; my teeth are stone; my keeper wears my crumbs like a coat of snow.'",
+          "answer": "landmark:mill",
+          "redirect": "No stones grind grain into flour here. What do the writer's words really mean?",
+          "why": "Stone teeth that eat the harvest, and a keeper coated in flour, mean the mill.",
+          "parts": [
+            [
+              "landmark:mill",
+              "object:hay-cart"
+            ],
+            [
+              "landmark:mill",
+              "landmark:market"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l4-bridge-chapel-market",
+      "level": 4,
+      "clues": [
+        {
+          "text": "A peddler's ledger: 'Saved one day's travel, thanks to the carpenter's span. No more waiting for the current to calm.'",
+          "answer": "landmark:bridge",
+          "redirect": "This does not carry anyone over the river. Read the note again, slowly.",
+          "why": "A span is something that stretches across; the carpenter's span over the current is the bridge.",
+          "parts": [
+            [
+              "landmark:bridge",
+              "landmark:well",
+              "object:water-trough"
+            ],
+            [
+              "landmark:bridge",
+              "landmark:castle-gate"
+            ]
+          ]
+        },
+        {
+          "text": "A grumbling cat in a tale: 'Every evening the big bell over Sister Wren's place booms, and every human stops whatever they are doing.'",
+          "answer": "landmark:chapel",
+          "redirect": "No bell calls the village to stillness from here. Picture what the words describe.",
+          "why": "The big bell over Sister Wren's place is the chapel's.",
+          "parts": [
+            [
+              "landmark:chapel",
+              "landmark:library"
+            ],
+            [
+              "landmark:chapel",
+              "landmark:watchtower"
+            ]
+          ]
+        },
+        {
+          "text": "A homesick merchant: 'I dream of that square: the jostle of elbows, the crier's bellow, the scent of warm loaves rising over the stalls.'",
+          "answer": "landmark:market",
+          "redirect": "No hawkers or stalls fill this spot. What do the writer's words really mean?",
+          "why": "Crowds, a crier and bread at the stalls mean the market.",
+          "parts": [
+            [
+              "landmark:market",
+              "landmark:chapel"
+            ],
+            [
+              "landmark:market",
+              "landmark:mill"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l4-library-watch",
+      "level": 4,
+      "clues": [
+        {
+          "text": "A dragon's complaint in a story: 'I tried to steal Hesper's treasure, but it was only ink and paper on shelves, and she made me return every volume.'",
+          "answer": "landmark:library",
+          "redirect": "No shelves of old volumes are kept here. Read the note again, slowly.",
+          "redirects": {
+            "object:notice-board": "Papers are pinned up on this for passers-by, but nothing is shelved here. Read the note again, slowly."
+          },
+          "why": "Hesper's treasure of volumes on shelves is the library.",
+          "parts": [
+            [
+              "landmark:library",
+              "object:notice-board"
+            ],
+            [
+              "landmark:library",
+              "landmark:castle-gate"
+            ]
+          ]
+        },
+        {
+          "text": "A star's jealous poem: 'Up there above the rooftops, a mason's lantern outshines me all night long, staring at the hills as if it owned them.'",
+          "answer": "landmark:watchtower",
+          "redirect": "No lantern keeps watch over the hills from here. Picture what the words describe.",
+          "redirects": {
+            "landmark:puzzle-tower": "This tall place holds puzzles, not a lookout. Picture what the words describe."
+          },
+          "why": "Mason Gerd's lantern, shining over the hills all night, is at the watchtower.",
+          "parts": [
+            [
+              "landmark:watchtower",
+              "landmark:puzzle-tower"
+            ],
+            [
+              "landmark:watchtower",
+              "landmark:chapel"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l4-garden-gate-trough",
+      "level": 4,
+      "clues": [
+        {
+          "text": "A precise recipe: 'Pick three sprigs of thyme and one of sage from Keeper Ivy's beds, then rest on the sun-warmed bench while the pot simmers.'",
+          "answer": "landmark:garden",
+          "redirect": "No herbs grow here. What do the writer's words really mean?",
+          "redirects": {
+            "object:beehives": "These wooden homes belong to buzzing workers; no herbs grow here. What do the writer's words really mean?"
+          },
+          "why": "Keeper Ivy's herb beds and sunny bench are in the garden.",
+          "parts": [
+            [
+              "landmark:garden",
+              "landmark:market"
+            ],
+            [
+              "landmark:garden",
+              "landmark:chapel"
+            ]
+          ]
+        },
+        {
+          "text": "An impatient lord: 'The north road has run out, the keep will not let me in before dawn, and the sun is setting. Someone come and wait with me.'",
+          "answer": "landmark:castle-gate",
+          "redirect": "This is not where the north road ends. Read the note again, slowly.",
+          "why": "The way into the castle, at the north end of the road, is the castle gate.",
+          "parts": [
+            [
+              "landmark:castle-gate",
+              "object:notice-board"
+            ],
+            [
+              "landmark:castle-gate",
+              "landmark:chapel",
+              "landmark:library"
+            ]
+          ]
+        },
+        {
+          "text": "A donkey's opinion, as told by its owner: 'The old man's pails are for people. My long wooden basin at the south edge is the only cup I need.'",
+          "answer": "object:water-trough",
+          "redirect": "This is not where the beasts come to slurp. Picture what the words describe.",
+          "redirects": {
+            "landmark:well": "Old Bram draws pails for people here, not for beasts. Picture what the words describe."
+          },
+          "why": "The donkey's long wooden basin at the south edge is the water trough, not Old Bram's well.",
+          "parts": [
+            [
+              "object:water-trough",
+              "landmark:well"
+            ],
+            [
+              "object:water-trough",
+              "object:hay-cart",
+              "object:notice-board"
+            ]
+          ]
+        }
+      ]
+    }
+  ]
+}

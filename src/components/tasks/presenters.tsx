@@ -13,6 +13,7 @@ import type { BenchSite } from "@/components/use-deed-flow";
 import { BenchPresenter } from "./bench-presenter";
 import { ChoicePresenter } from "./choice-presenter";
 import { LockPresenter } from "./lock-presenter";
+import { TrailPresenter } from "./trail-presenter";
 
 export type PresenterProps<K extends TaskKind> = {
   task: Extract<ClientTask, { kind: K }>;
@@ -33,12 +34,15 @@ export type PresenterProps<K extends TaskKind> = {
   site?: BenchSite;
   /** The response, already encoded by the presenter with `TASK_CODECS[kind].encode`. */
   onRespond(encoded: string): void;
+  /** The Realm's board, for a run the hero walks (R-H14): close the board and hand the run to the walk. A kind that is not walked ignores it. */
+  onWalk?: () => void;
 };
 
 export const TASK_PRESENTERS: { [K in TaskKind]: ComponentType<PresenterProps<K>> } = {
   choice: ChoicePresenter,
   measure: BenchPresenter,
   lock: LockPresenter,
+  trail: TrailPresenter,
 };
 
 export function TaskPresenter(props: PresenterProps<TaskKind>) {

@@ -11,7 +11,7 @@ import { BAND_LABELS, type ContentBand } from "@/lib/utils/content-bands";
 import { bandForGrade } from "@/lib/utils/grade-levels";
 import { findSkill, type SkillArea } from "@/lib/utils/skills";
 import { buildingProgress, findBuilding, type Building } from "@/lib/utils/kingdom";
-import { deedStory, findDeed } from "@/lib/utils/deeds";
+import { TRAIL_DEED_IDS, deedStory, findDeed } from "@/lib/utils/deeds";
 import {
   buildDeedRun,
   runCandidates,
@@ -19,8 +19,7 @@ import {
 } from "@/lib/utils/deed-engine";
 import { masteryChangeCopy, masteryLabel, parseRecentResults, progressToNextRung, recordResult } from "@/lib/utils/mastery";
 import type { Question } from "@/lib/utils/drill-generators";
-import { isTaskCorrect, taskDefOf, type ResponseByKind, type Task, type TaskKind } from "@/lib/tasks/registry";
-import { TASK_CODECS } from "@/lib/tasks/codecs";
+import { isTaskCorrect, secondChanceHint, taskDefOf, type ResponseByKind, type Task, type TaskKind } from "@/lib/tasks/registry";
 import { CHALLENGE, MAX_STARS, RUN_EFFECTS, countsTowardBuilding, runPoints, starsFor, type QuestionOutcome, type RunKind, type Stars } from "@/lib/utils/deed-scoring";
 import { outcomeOf, refuseGiveUp, refuseRetry, statusOf, type QuestionStatus } from "@/lib/utils/deed-attempts";
 import {
@@ -30,7 +29,7 @@ import {
 import { overdueSkills } from "@/lib/utils/review-schedule";
 import type { AttemptResult, RunStart, RunSummary, TowerOutcome, WorldOutcome } from "@/lib/utils/deed-run-types";
 import { taskHint } from "@/lib/utils/skill-hints";
-import { demoAt, findOpenRun, insertRun, loadMasteryRows, loadRecentMisses, parseRun, resumedStart, type DeedRunRow } from "@/lib/services/deed-run-store";
+import { demoAt, findOpenRun, insertRun, loadMasteryRows, loadRecentMisses, loadRecentTrailIds, parseRun, resumedStart, type DeedRunRow } from "@/lib/services/deed-run-store";
 import {
   buildingStars, gradeForDeed, loadDeedBest, loadHeroLevels, loadKingdomOverview, loadSiteState, siteTally, type BuildingOverview, type DeedBest,
 } from "@/lib/services/deeds";
@@ -118,15 +117,24 @@ export async function startDeedRun(
   // strand's. `gradeForDeed` is where that is pinned by test. A focus skill in the deed's strand
   // a grade either side joins the candidates (`runCandidates`), so its pool is loaded too.
   const grade = gradeForDeed(hero, deed);
-  // A young hero meets a worked example before their first bench task or lock (R-C9, R-F10), resumed or fresh.
+  // A young hero meets a worked example before their first bench task or lock (R-C9, R-F10), resumed or
+  // fresh. A Kindergarten hero hears every clue of a trail run read aloud (R-H17), resumed or fresh.
   const withDemo = async (start: RunStart): Promise<RunStart> => {
     const at = await demoAt(childId, grade, start);
-    return at === null ? start : { ...start, demo: { at } };
+    const narrated = grade === "K" && start.questions.some((q) => q.kind === "trail");
+    return { ...start, ...(at === null ? {} : { demo: { at } }), ...(narrated ? { narrateClues: true as const } : {}) };
   };
   if (open) return withDemo(resumedStart(open, { id: deed.id, title: deed.title, story, area: deed.area }, site ?? undefined));
-  const skills = runCandidates(deed, grade, focusSkillIds);
+  // The grown-up's switches decide which hands-on kinds a NEW run may draw (an open run is a
+  // snapshot and never asks, so a resume never reads them, M2); the gate is multiple choice whatever
+  // they say (R-C4). Worked out before the candidates, which keep only the skills the run can play (R-H8).
+  const settings = await loadRealmSettings(childId);
+  const enabledKinds: ReadonlySet<TaskKind> = ctx === "gate" ? new Set<TaskKind>() : enabledHandsOnKinds(settings);
+  const skills = runCandidates(deed, grade, focusSkillIds, enabledKinds);
   const poolSkillIds = skills.filter((s) => s.source.kind === "pool").map((s) => s.id);
-  const [profileRow, masteryRows, poolRows, recentMisses, settings] = await Promise.all([
+  // The trails met lately, so a reading side quest passes over them (R-H11): asked only when this run can draw trails.
+  const readsTrails = deed.mechanic === "trail" && enabledKinds.has("trail");
+  const [profileRow, masteryRows, poolRows, recentMisses, recentTrails] = await Promise.all([
     // Memoized per request, so this is the same round trip loadHeroLevels just made.
     loadLearningProfileRow(childId),
     loadMasteryRows(childId),
@@ -136,7 +144,7 @@ export async function startDeedRun(
     // A challenge mixes nothing in, so it needs no misses. Only this side quest's candidate skills
     // count toward the cap, so another strand's misses (Puzzle practice's logic) never crowd them out.
     challenge ? Promise.resolve([] as Question[]) : loadRecentMisses(childId, (t) => skills.some((s) => s.id === t.skillId)),
-    loadRealmSettings(childId),
+    readsTrails ? loadRecentTrailIds(childId, TRAIL_DEED_IDS) : Promise.resolve(null),
   ]);
   const profile = profileFromRow(profileRow);
   const masteryBySkill: Record<string, number> = {};
@@ -158,14 +166,13 @@ export async function startDeedRun(
     masteryRows.map((m) => ({ skillId: m.skillId, level: m.level, lastPracticedAt: lastPracticedBySkill[m.skillId] })),
     skills.map((s) => s.id), Date.now(),
   );
-  // The grown-up's switches decide which hands-on kinds a NEW run may draw (an open run is a
-  // snapshot and never asks); the gate is multiple choice whatever they say (R-C4).
-  const enabledKinds: ReadonlySet<TaskKind> = ctx === "gate" ? new Set<TaskKind>() : enabledHandsOnKinds(settings);
   const built = buildDeedRun({
     deed, grade, masteryBySkill, lastPracticedBySkill, profile, seed: Date.now() >>> 0, poolItems, focusSkillIds, enabledKinds,
+    ...(recentTrails ? { recentTrails } : {}),
     ...(challenge
       ? { recentMisses: [], dueSkillIds: [], questionCount: CHALLENGE.questions, levelBoost: CHALLENGE.levelBoost }
-      // The grown-up's length, which the engine scales for this side quest: a science side quest's sorts are half (RF-j).
+      // The grown-up's length, which the engine scales for this side quest: a science side quest's sorts
+      // and a reading side quest's clues are half (RF-j, R-H10).
       : { recentMisses, dueSkillIds, sideQuestLength: settings.sideQuestLength }),
   });
   if (built.questions.length === 0) throw new Error(NONE_READY);
@@ -209,7 +216,7 @@ async function loadAttemptState(runId: string, index: number) {
  */
 function resultFor(question: Task, status: QuestionStatus, firstPick?: string, rightPick?: string): AttemptResult {
   if (status === "unanswered") throw new Error(ANSWER_FIRST);
-  if (status === "open") return { correct: false, secondChance: true, hint: taskHint(question), firstPick };
+  if (status === "open") return { correct: false, secondChance: true, hint: secondChanceHint(question, firstPick), firstPick };
   const correct = status === "right-first" || status === "right-second";
   const def = taskDefOf(question);
   const result: AttemptResult = { correct, secondChance: false, answer: def.answerText(question) };
@@ -217,9 +224,9 @@ function resultFor(question: Task, status: QuestionStatus, firstPick?: string, r
   // and built from what the child did (`rightPick`, the stored response that solved it).
   const solved = correct && rightPick !== undefined ? def.decode(rightPick) : null;
   if (solved !== null && def.bridge) result.bridge = def.bridge(question, solved);
-  // A missed lock shows its solved board (R-F2): the stored solution, encoded, once the task is
-  // resolved and missed. Never on an open try (returned above) or a right answer.
-  if (!correct && question.kind === "lock") result.reveal = TASK_CODECS.lock.encode(question.solution);
+  // A miss shows the kind's reveal, if it has one: a lock's solved board (R-F2), a trail's place
+  // (R-H1). Only once the task is resolved and missed: never on an open try (returned above) or a right answer.
+  if (!correct && def.reveal) result.reveal = def.reveal(question);
   if (question.explain) result.explain = question.explain;
   else if (!correct) result.hint = taskHint(question);
   return result;

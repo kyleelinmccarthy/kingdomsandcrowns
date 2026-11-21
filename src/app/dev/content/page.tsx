@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { ContentReview } from "./content-review";
+import { sampleTrails } from "./sample-trails";
 
 /**
  * Dev-only. This page prints answer keys next to questions, so in production it must not
@@ -12,5 +13,6 @@ import { ContentReview } from "./content-review";
  */
 export default function DevContentPage() {
   if (process.env.NODE_ENV === "production") notFound();
-  return <ContentReview />;
+  // The trail pools are server-only (they hold every answer), so their sample is drawn here and passed down.
+  return <ContentReview trails={sampleTrails()} />;
 }

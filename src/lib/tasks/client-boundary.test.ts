@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
  */
 const SRC = join(process.cwd(), "src");
 const COMPONENTS = join(SRC, "components");
-const SERVER_ONLY = ["registry", "draw", "measure", "bench", "lock", "locks"].map((m) => join(SRC, "lib/tasks", m));
+const SERVER_ONLY = ["registry", "draw", "measure", "bench", "lock", "locks", "trail", "trails"].map((m) => join(SRC, "lib/tasks", m));
 
 function walk(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
@@ -67,17 +67,37 @@ describe("client boundary", () => {
     expect(serverOnlyValueImports(`import { LOCK_MISS_LINE } from "@/lib/tasks/lock-copy";`, at)).toEqual([]);
     expect(serverOnlyValueImports(`import { tokenName } from "@/lib/tasks/lock-shapes";`, at)).toEqual([]);
     expect(serverOnlyValueImports(`import { lockBoard } from "@/lib/tasks/lock-board";`, at)).toEqual([]);
+    // The trail's definition and pools are server-only (they hold the answers); its words are client-safe.
+    expect(serverOnlyValueImports(`import { trailKind } from "@/lib/tasks/trail";`, at)).toEqual(["@/lib/tasks/trail"]);
+    expect(serverOnlyValueImports(`import { trailPoolFor } from "@/lib/tasks/trails";`, at)).toEqual(["@/lib/tasks/trails"]);
+    expect(serverOnlyValueImports(`import { x } from "@/lib/tasks/trails/draw";`, at)).toEqual(["@/lib/tasks/trails/draw"]);
+    expect(serverOnlyValueImports(`import { TRAIL_RETRY_LEAD } from "@/lib/tasks/trail-copy";`, at)).toEqual([]);
     // A sibling file that merely shares a name is not the server module.
     expect(serverOnlyValueImports(`import { x } from "./registry";`, at)).toEqual([]);
     expect(serverOnlyValueImports(`import { x } from "./registry";`, join(SRC, "lib/tasks/x.ts"))).toEqual(["./registry"]);
   });
 
-  it("no \"use client\" module under src/components imports a value from registry, draw, measure, bench, lock or locks", () => {
+  it("no \"use client\" module under src/components imports a value from registry, draw, measure, bench, lock, locks, trail or trails", () => {
     const offenders = walk(COMPONENTS)
       .map((f) => ({ f, src: readFileSync(f, "utf8") }))
       .filter(({ src }) => isUseClient(src))
       .flatMap(({ f, src }) => serverOnlyValueImports(src, f).map((spec) => `${f.slice(COMPONENTS.length + 1)} -> ${spec}`));
     expect(offenders).toEqual([]);
+  });
+
+  it("the client half of /dev/content imports no trail pool, drawer or kind (the pools hold every answer)", () => {
+    const FORBIDDEN = ["lib/tasks/trails", "lib/tasks/trail", "lib/content/trail-pools", "lib/content/trail-blind-pass"].map((m) => join(SRC, m));
+    for (const name of ["sample.ts", "content-review.tsx"]) {
+      const file = join(SRC, "app/dev/content", name);
+      const src = readFileSync(file, "utf8");
+      const specs = [...src.matchAll(/^[ \t]*(?:import|export)\s+(?!type\b)[^;]*?from\s*["']([^"']+)["']/gm)].map((m) => m[1]);
+      for (const spec of specs) {
+        const to = target(spec, file);
+        expect(to !== null && FORBIDDEN.some((m) => to === m || to.startsWith(m + "/")), `${name} imports ${spec}`).toBe(false);
+      }
+    }
+    // The server half is where the pools are read.
+    expect(readFileSync(join(SRC, "app/dev/content/sample-trails.ts"), "utf8")).toContain("@/lib/tasks/trails");
   });
 
   it("really walks the client modules", () => {

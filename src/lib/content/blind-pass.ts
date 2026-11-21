@@ -35,7 +35,6 @@
 // ---------------------------------------------------------------------------------------
 
 import { hash32 } from "./hash32";
-import { SORT_POOL_PREFIX } from "./sort-pools";
 
 export type PoolItem = {
   id: string;
@@ -521,15 +520,24 @@ export function loadResolutions(poolId: string): Resolution[] {
 }
 
 /**
- * Every drill pool that has a sheet on disk. Sort pools keep their sheets in this same directory
- * under `sort-<skill>` ids (`SORT_POOL_PREFIX`) and have their own pass (`sort-blind-pass.ts`), so
- * they are not drill sheets and are skipped here.
+ * The id prefixes of every pool that is not a drill pool and has a blind pass of its own: sort pools
+ * (`SORT_POOL_PREFIX`, `sort-blind-pass.ts`) and trail pools (`TRAIL_POOL_PREFIX`, `trail-blind-pass.ts`).
+ * Their sheets sit in this same directory, so this one list is what keeps them out of the drill gate
+ * (F-1). A new kind of pool adds its prefix here; a test holds each pool module's prefix to this list.
+ * Literals, not imports: this module must not depend on the pool modules that depend on it.
  */
-export function poolsWithSheets(): string[] {
-  if (!fs.existsSync(REVIEW_DIR)) return [];
+export const NON_DRILL_SHEET_PREFIXES = ["sort-", "trail-"] as const;
+
+/**
+ * Every drill pool that has a sheet on disk. The other kinds of pool keep their sheets in this same
+ * directory under their own prefixes (`NON_DRILL_SHEET_PREFIXES`), and have their own pass, so they
+ * are not drill sheets and are skipped here. `dir` is for tests.
+ */
+export function poolsWithSheets(dir: string = REVIEW_DIR): string[] {
+  if (!fs.existsSync(dir)) return [];
   return fs
-    .readdirSync(REVIEW_DIR)
-    .filter((f) => f.endsWith(".blind.md") && !f.startsWith(SORT_POOL_PREFIX))
+    .readdirSync(dir)
+    .filter((f) => f.endsWith(".blind.md") && !NON_DRILL_SHEET_PREFIXES.some((p) => f.startsWith(p)))
     .map((f) => f.replace(/\.blind\.md$/, ""))
     .sort();
 }

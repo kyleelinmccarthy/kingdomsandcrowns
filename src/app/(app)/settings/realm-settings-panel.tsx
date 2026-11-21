@@ -58,6 +58,10 @@ const MECHANIC_LABELS: Record<HandsOnKind, { label: string; hint: string }> = {
     label: "Solving logic locks",
     hint: "Science sorts and logic puzzles on a lock's face. Off: science plays as multiple choice, Puzzle practice is hidden, and the Realm's chests, vault doors and Tower puzzles rest. Anything already found stays.",
   },
+  trail: {
+    label: "Reading trails",
+    hint: "Reading side quests become clue trails: in the Realm your hero walks to the place each clue names; on the Side Quests page they tap it on a village map. Off: reading plays as multiple choice.",
+  },
 };
 
 /** One saved number: edits stay local until Save, which sends only this field (the Earning time group). */

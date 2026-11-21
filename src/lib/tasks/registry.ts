@@ -1,7 +1,9 @@
+import { taskHint } from "@/lib/utils/skill-hints";
 import { choiceKind } from "./choice";
 import { lockKind } from "./lock";
 import { measureKind } from "./measure";
-import type { ClientTask, Task, TaskKind, TaskKindDef } from "./types";
+import { trailKind } from "./trail";
+import type { ClientTask, FeedbackCode, Task, TaskKind, TaskKindDef } from "./types";
 
 export type * from "./types";
 
@@ -10,6 +12,7 @@ export const TASK_KINDS: { [K in TaskKind]: TaskKindDef<K> } = {
   choice: choiceKind,
   measure: measureKind,
   lock: lockKind,
+  trail: trailKind,
 };
 
 /** Typed accessor over `TASK_KINDS`. */
@@ -51,6 +54,31 @@ export function isTaskCorrect(t: Task, stored: string): boolean {
   const def = taskDefOf(t);
   const r = def.decode(stored);
   return r === null ? false : def.isCorrect(t, r);
+}
+
+/**
+ * The line an open second chance shows (R-H7): the kind's own line for the first pick (a trail's
+ * redirect for the place searched) when it has one and the stored pick decodes; otherwise the task's
+ * hint. The one source for both a fresh answer's result and a resumed run's `pending.hint`.
+ */
+export function secondChanceHint(t: Task, firstPick: string | null | undefined): string {
+  const def = taskDefOf(t);
+  const pick = def.retryLine && typeof firstPick === "string" ? def.decode(firstPick) : null;
+  return pick !== null && def.retryLine ? def.retryLine(t, pick) : taskHint(t);
+}
+
+/**
+ * The kind's coded note on a stored response (a cut too long, a lock's rule broken, a trail's wrong
+ * place), or undefined for `none` or a pick that will not decode. What a resumed run's `pending`
+ * carries, so the reopened second chance leads with the kind's own words, as the fresh answer did.
+ */
+export function storedFeedback(t: Task, stored: string | null | undefined): Exclude<FeedbackCode, "none"> | undefined {
+  if (typeof stored !== "string") return undefined;
+  const def = taskDefOf(t);
+  const pick = def.decode(stored);
+  if (pick === null) return undefined;
+  const code = def.feedback(t, pick);
+  return code === "none" ? undefined : code;
 }
 
 /** The mechanic a skill is played with: `mechanic` if it suits the skill and is enabled, else choice. */

@@ -198,8 +198,15 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     console.error("Realm trouble clears failed to load", err);
     return [] as RecentClear[];
   });
-  // Whether the riddle stones glow, on the access already checked above: a failed read is "dark".
-  const reviewDueRead = loadReviewDue(childId).catch((err: unknown) => {
+  // The kingdom, and the hero's per-strand grades from the same overview read (RG-e). In flight from
+  // here so the riddle stones below can judge on the grades; a failed read is "the villagers are resting".
+  const kingdomRead = loadKingdom(childId).then(({ kingdom, grades }) => ({ kingdom, grades: grades as Record<SkillArea, Grade> | null, error: undefined as string | undefined })).catch((err: unknown) => {
+    console.error("Realm kingdom failed to load", err);
+    return { kingdom: { tone: "gentle" as const, buildings: [] }, grades: null, error: VILLAGERS_RESTING };
+  });
+  // Whether the riddle stones glow, on the access already checked above and the overview's grades, so
+  // nothing above the hero's grade glows but a focus pick (RH-c). No grades, or a failed read, is "dark".
+  const reviewDueRead = kingdomRead.then(({ grades }) => (grades ? loadReviewDue(childId, grades) : false)).catch((err: unknown) => {
     console.error("Realm review due failed to load", err);
     return false;
   });
@@ -263,10 +270,7 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     // Memoized per request; loadKingdomOverview below reads the same row for the hero's grades.
     loadLearningProfileRow(childId),
     settingsRead.then(settingsFromRow),
-    loadKingdom(childId).then(({ kingdom, grades }) => ({ kingdom, grades: grades as Record<SkillArea, Grade> | null, error: undefined as string | undefined })).catch((err: unknown) => {
-      console.error("Realm kingdom failed to load", err);
-      return { kingdom: { tone: "gentle" as const, buildings: [] }, grades: null, error: VILLAGERS_RESTING };
-    }),
+    kingdomRead,
     loadSpellbookPages(childId),
     loadUnlockedMountIds(childId),
     loadSeasons(childId),
