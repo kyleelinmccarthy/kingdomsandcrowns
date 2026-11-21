@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { objectiveState } from "@/lib/realm/objective";
 import { villagerById } from "@/lib/realm/villagers";
 import type { ClientTask } from "@/lib/tasks/types";
+import { initialFlow } from "@/lib/utils/deed-run-flow";
 import { CHEST_EMPTY, worldRewardLine } from "@/lib/utils/world-lock-copy";
 import { attemptFeedback, deedToast, finishLabel, fragmentToast, leaveWhat, resultBuildingLine, resultHeadline, resultMinutesLine, resultStarsLine, starsLabel, starsLeftLine, talkCopy, type SiteState } from "./talk";
 
@@ -574,6 +575,16 @@ describe("what a villager says after a search on a trail (R-H1)", () => {
   it("says the place is not here, then the chosen place's redirect, on a second chance", () => {
     expect(attemptFeedback({ correct: false, secondChance: true, feedback: "wrong_place", hint: "That is where water is drawn." }, false))
       .toEqual({ heading: "Try again", text: "Not here. That is where water is drawn." });
+  });
+
+  it("a second chance picked back up still says Not here., though the stored pick carries no feedback code", () => {
+    const flow = initialFlow({ questions: [clue], responses: ["landmark:well"], pending: { index: 0, ruledOut: "landmark:well", hint: "That is where water is drawn." } });
+    expect(flow.result?.feedback).toBeUndefined();
+    expect(attemptFeedback(flow.result!, flow.ruledOut.length > 0, "Old Bram", clue)).toEqual({ heading: "Try again", text: "Not here. That is where water is drawn." });
+    // Another kind picked back up keeps its own lead.
+    const choice: ClientTask = { kind: "choice", id: "q", skillId: "add", prompt: "2 + 3?", view: { choices: ["4", "5"] } };
+    const asked = initialFlow({ questions: [choice], responses: ["4"], pending: { index: 0, ruledOut: "4", hint: "Count on." } });
+    expect(attemptFeedback(asked.result!, true, undefined, choice).text).toBe("Not quite. Count on.");
   });
 
   it("says where it was as a sentence, then why, after a miss", () => {

@@ -20,6 +20,10 @@
  * The result is handed up the moment the server has it (`onResult`), not when the child presses
  * the last button: a child who finishes and then presses Esc has still raised their building,
  * and the frame applies it as the panel closes, so they watch it happen.
+ *
+ * A reading trail in the Realm is walked, not answered here (R-H14): when every task of the run is
+ * a clue, the board shows the clue and "Set off" (`onWalk`), which closes it so the hero can walk.
+ * The walk's result comes back as `walked`, and the board opens on its result card.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -39,6 +43,8 @@ import { TaskDemo, taskDemoCopy, useTaskDemo } from "@/components/tasks/task-dem
 import { StarRow } from "@/components/star-row";
 import { useDeedFlow } from "@/components/use-deed-flow";
 import { ALL_ANSWERED } from "@/lib/utils/deed-run-flow";
+import { isWalkingRun } from "@/lib/tasks/kinds";
+import { attemptSpeech, autoSpeaks } from "@/lib/tasks/narration";
 import { AREA_LABELS, type SkillArea } from "@/lib/utils/skills";
 import { canSpeak, speak, stopSpeaking, type SpeechToken } from "@/lib/utils/speech";
 import { SIDE_QUESTS_LOWER } from "@/lib/utils/side-quest-copy";
@@ -61,6 +67,23 @@ export type DeedResult = NonNullable<RunSummary["building"]> & {
 };
 
 const CROWN_CHALLENGE = "Crown Challenge";
+const BACK_TO_THE_REALM = "Back to the Realm";
+
+/** A run's board title: the side quest's, or its Crown Challenge's. */
+const runTitle = (run: RunStart): string => (run.kind === "challenge" ? `${CROWN_CHALLENGE}: ${run.deed.title}` : run.deed.title);
+
+/**
+ * What a finished run hands up to be raised (`onResult`): the building's new progress, whether the
+ * run counted and earned, the side quest's new best and crown, and a challenge's win. None for a
+ * build run, which has no building to raise, nor for a run that came back without one.
+ */
+export function deedResultOf(done: RunSummary, deedId: string): DeedResult | null {
+  if (done.kind === "build" || !done.building) return null;
+  return {
+    ...done.building, counted: done.counted, earned: countsTowardBuilding(done.stars), minutesEarned: done.minutesEarned, deed: { id: deedId, bestStars: done.deedBest, crowned: done.crowned },
+    ...(done.kind === "challenge" ? { challenge: { won: done.flawless } } : {}),
+  };
+}
 
 /** A subject, as a coloured tag in the frame's own type. */
 function Subject({ area }: { area: SkillArea | null }) {
@@ -95,6 +118,8 @@ export function DeedBoard({
   runContext = "realm",
   timezone,
   mention,
+  onWalk,
+  walked,
 }: {
   childId: string | null;
   villager: Villager;
@@ -117,6 +142,10 @@ export function DeedBoard({
   timezone?: string | null;
   /** What this villager has heard of a quest the hero finished (`pickMention`), as plain text; the hero's own visit only. */
   mention?: string | null;
+  /** The Realm's walk (R-H14): a run whose every task is a clue is handed here by "Set off", which closes the board. The world's board only. */
+  onWalk?: (run: RunStart) => void;
+  /** A walked run, finished: the board opens on its result card in place of the talk. */
+  walked?: { run: RunStart; summary: RunSummary } | null;
 }) {
   const [run, setRun] = useState<RunStart | null>(null);
   const [busy, setBusy] = useState(false);
@@ -152,16 +181,24 @@ export function DeedBoard({
   );
 
   if (run) {
-    const title = run.kind === "challenge" ? `${CROWN_CHALLENGE}: ${run.deed.title}` : run.deed.title;
+    const title = runTitle(run);
     // A build run has no building to raise, so nothing of it ever reaches the raise path.
-    const handUp = (done: RunSummary) =>
-      done.kind !== "build" && done.building && onResult(site.id, {
-        ...done.building, counted: done.counted, earned: countsTowardBuilding(done.stars), minutesEarned: done.minutesEarned, deed: { id: run.deed.id, bestStars: done.deedBest, crowned: done.crowned },
-        ...(done.kind === "challenge" ? { challenge: { won: done.flawless } } : {}),
-      });
+    const handUp = (done: RunSummary) => {
+      const result = deedResultOf(done, run.deed.id);
+      if (result) onResult(site.id, result);
+    };
     return (
       <Panel title={title} label={title} wide className="r3-board--deed" icon={<GameIcon name={site.icon as GameIconName} className="r3-board-icon" />} onClose={onClose}>
-        <DeedRun run={run} villagerName={villager.name} profile={profile} calm={calm} numerals={numerals} onResult={handUp} onClose={onClose} doneLabel={doneLabel} />
+        <DeedRun run={run} villagerName={villager.name} profile={profile} calm={calm} numerals={numerals} onResult={handUp} onClose={onClose} doneLabel={doneLabel} onWalk={runContext === "realm" ? onWalk : undefined} />
+      </Panel>
+    );
+  }
+
+  if (walked) {
+    const title = runTitle(walked.run);
+    return (
+      <Panel title={title} label={title} wide className="r3-board--deed" icon={<GameIcon name={site.icon as GameIconName} className="r3-board-icon" />} onClose={onClose}>
+        <RunResultCard run={walked.run} summary={walked.summary} villagerName={villager.name} doneLabel={doneLabel} onClose={onClose} />
       </Panel>
     );
   }
@@ -235,6 +272,55 @@ export function DeedBoard({
 }
 
 /**
+ * A finished run's card: the seal, the headline, the stars, the minutes, what grew stronger and the
+ * building's progress, and the way out. Shown by `DeedRun` once its run is finished, and by the
+ * villager's board for a run walked in the Realm (`walked`).
+ */
+export function RunResultCard({ run, summary, villagerName, doneLabel = BACK_TO_THE_REALM, onClose }: { run: RunStart; summary: RunSummary; villagerName?: string; doneLabel?: string; onClose: () => void }) {
+  const head = resultHeadline(summary, run.deed.title);
+  const stars = resultStarsLine(summary, villagerName);
+  const minutesLine = resultMinutesLine(summary);
+  return (
+    <div className="r3-result">
+      <span className={`r3-result-seal${summary.flawless ? " r3-result-seal--flawless" : ""}`}>
+        <GameIcon name={summary.flawless ? (summary.kind === "challenge" ? "crown" : "star") : "check"} className="r3-result-icon" />
+      </span>
+      <h3 className="r3-result-title">{head.title}</h3>
+      {(summary.kind === "deed" || summary.kind === "build") && <BoardStars stars={summary.stars} />}
+      {stars && <p className="r3-result-stars-line">{stars}</p>}
+      {minutesLine && (
+        <p className="r3-result-minutes">
+          <GameIcon name="hourglass" className="r3-result-building-icon" /> {minutesLine}
+        </p>
+      )}
+      {/* A title alone ("It was already open.", "Floor solved!") has no line, and no lone subject seal. */}
+      {head.line && (
+        <p className="r3-result-line">
+          <Subject area={run.deed.area} /> {head.line}
+        </p>
+      )}
+      {summary.masteryChanges.length > 0 && (
+        <ul className="r3-result-mastery">
+          {summary.masteryChanges.map((c) => (
+            <li key={c}>{c}</li>
+          ))}
+        </ul>
+      )}
+      {summary.building && (
+        <p className="r3-result-building">
+          <GameIcon name="house" className="r3-result-building-icon" /> {resultBuildingLine(summary.building)}
+        </p>
+      )}
+      <div className="r3-board-foot">
+        <button type="button" className="r3-menu-item r3-menu-item--go" autoFocus onClick={onClose}>
+          <GameIcon name="journey" className="r3-menu-icon" /> {doneLabel}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
  * One run, question by question. `DeedPlayer`'s rules, in the frame's clothes, plus the number
  * keys: a child at a keyboard can answer with 1 to 4, the way they cast. A wrong pick on a
  * question with room for it gets a hint and a second try (`useDeedFlow`), or "Show me".
@@ -249,7 +335,8 @@ export function DeedRun({
   numerals,
   onResult,
   onClose,
-  doneLabel = "Back to the Realm",
+  doneLabel,
+  onWalk,
 }: {
   run: RunStart;
   /** Who is pleased by a right answer; absent (a riddle stone), nobody is named. */
@@ -260,6 +347,8 @@ export function DeedRun({
   onResult: (done: RunSummary) => void;
   onClose: () => void;
   doneLabel?: string;
+  /** The Realm's walk (R-H14): reaches the clue's surface as "Set off", only for a run whose every task is a clue. */
+  onWalk?: (run: RunStart) => void;
 }) {
   // A wrong answer is a soft low "hmm", a right one rises and resolves (`realm-sound.tsx`).
   const { flow, meter, nudge, site, busy, error, setError, guarded, choose, showMe, next } = useDeedFlow(run, (r) => realmCue(r.correct ? "deed-right" : "deed-wrong"));
@@ -275,25 +364,28 @@ export function DeedRun({
   const nextRef = useRef<HTMLButtonElement>(null);
   const feedback = flow.result ? attemptFeedback(flow.result, flow.ruledOut.length > 0, villagerName, question) : null;
 
-  // Read-aloud, as `DeedPlayer` does it: the profile asks, the effect obeys, and leaving stops it —
-  // but only this run's own line. The click that closes the board also says the building is
-  // rising, and that must be heard. A worked example (Aldo's or Pip's) is read first, when there is one.
+  // Read-aloud, as `DeedPlayer` does it: the profile asks (or, for a Kindergarten hero's clue, the
+  // run: `autoSpeaks`, R-H17), the effect obeys, and leaving stops it — but only this run's own line.
+  // The click that closes the board also says the building is rising, and that must be heard. A
+  // worked example (Aldo's or Pip's) is read first, when there is one.
   const spoken = useRef<SpeechToken | null>(null);
   const say = (text: string) => {
     spoken.current = speak(text);
   };
+  const speaks = question ? autoSpeaks(question, profile.readAloud, run.narrateClues === true) : false;
   useEffect(() => {
-    if (profile.readAloud && question) spoken.current = speak(demo.demo ? taskDemoCopy(demo.demo) : (question.readAloud ?? question.prompt));
+    if (speaks && question) spoken.current = speak(demo.demo ? taskDemoCopy(demo.demo) : (question.readAloud ?? question.prompt));
     return () => stopSpeaking(spoken.current);
-  }, [profile.readAloud, question, demo.demo]);
+  }, [speaks, question, demo.demo]);
 
-  // The hint is read once, when the second chance opens.
-  const hint = phase === "second-chance" ? flow.result?.hint : undefined;
+  // What follows an answer is read once: the hint when the second chance opens, and for a clue its
+  // whole line, "Not here." and the redirect, then where it was after a miss (`attemptSpeech`, F-3).
+  const said = speaks ? attemptSpeech(question, flow, feedback?.text) : undefined;
   useEffect(() => {
-    if (!profile.readAloud || !hint) return;
-    const token = speak(hint);
+    if (!said) return;
+    const token = speak(said);
     return () => stopSpeaking(token);
-  }, [profile.readAloud, hint, index]);
+  }, [said, index]);
 
   useEffect(() => {
     if (profile.untimed) return;
@@ -317,49 +409,7 @@ export function DeedRun({
     });
   }
 
-  if (summary) {
-    const head = resultHeadline(summary, run.deed.title);
-    const stars = resultStarsLine(summary, villagerName);
-    const minutesLine = resultMinutesLine(summary);
-    return (
-      <div className="r3-result">
-        <span className={`r3-result-seal${summary.flawless ? " r3-result-seal--flawless" : ""}`}>
-          <GameIcon name={summary.flawless ? (summary.kind === "challenge" ? "crown" : "star") : "check"} className="r3-result-icon" />
-        </span>
-        <h3 className="r3-result-title">{head.title}</h3>
-        {(summary.kind === "deed" || summary.kind === "build") && <BoardStars stars={summary.stars} />}
-        {stars && <p className="r3-result-stars-line">{stars}</p>}
-        {minutesLine && (
-          <p className="r3-result-minutes">
-            <GameIcon name="hourglass" className="r3-result-building-icon" /> {minutesLine}
-          </p>
-        )}
-        {/* A title alone ("It was already open.", "Floor solved!") has no line, and no lone subject seal. */}
-        {head.line && (
-          <p className="r3-result-line">
-            <Subject area={run.deed.area} /> {head.line}
-          </p>
-        )}
-        {summary.masteryChanges.length > 0 && (
-          <ul className="r3-result-mastery">
-            {summary.masteryChanges.map((c) => (
-              <li key={c}>{c}</li>
-            ))}
-          </ul>
-        )}
-        {summary.building && (
-          <p className="r3-result-building">
-            <GameIcon name="house" className="r3-result-building-icon" /> {resultBuildingLine(summary.building)}
-          </p>
-        )}
-        <div className="r3-board-foot">
-          <button type="button" className="r3-menu-item r3-menu-item--go" autoFocus onClick={onClose}>
-            <GameIcon name="journey" className="r3-menu-icon" /> {doneLabel}
-          </button>
-        </div>
-      </div>
-    );
-  }
+  if (summary) return <RunResultCard run={run} summary={summary} villagerName={villagerName} doneLabel={doneLabel} onClose={onClose} />;
 
   const minutes = Math.floor((now - startedAt) / 60_000);
 
@@ -397,7 +447,7 @@ export function DeedRun({
           </button>
         )}
       </div>
-      <TaskPresenter task={question} flow={flow} variant="board" numerals={numerals} calm={calm} readAloud={profile.readAloud} disabled={busy} nudge={nudge} site={site} onRespond={(encoded) => void choose(encoded)} />
+      <TaskPresenter task={question} flow={flow} variant="board" numerals={numerals} calm={calm} readAloud={profile.readAloud} disabled={busy} nudge={nudge} site={site} onRespond={(encoded) => void choose(encoded)} onWalk={onWalk && isWalkingRun(run) ? () => onWalk(run) : undefined} />
       </>)}
       {/* A resolved question with no result is a run picked back up with every answer in: its finish step. */}
       {(feedback || phase === "resolved") && (

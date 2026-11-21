@@ -357,11 +357,12 @@ export function attemptFeedback(result: AttemptResult, retried: boolean, village
   if (result.secondChance) {
     const code = result.feedback;
     // Only the bench's codes reach the bench's words, only a lock's reach a lock's, and a trail's its lead. Which way a
-    // wrong cut is off is said in the words of what it measures (a length is long; an area is over).
+    // wrong cut is off is said in the words of what it measures (a length is long; an area is over). A trail's lead
+    // also follows from the task itself: a second chance picked back up (`initialFlow`, from `pending`) has no code.
     const quantity = task?.kind === "measure" ? task.view.quantity : undefined;
     const lead = code === "too_long" || code === "too_short" ? cutFeedbackLine(quantity, code)
       : isLockFeedback(code) ? lockFeedbackLine(code, task?.kind === "lock" ? task.view.puzzle : undefined)
-      : code === "wrong_place" ? TRAIL_RETRY_LEAD
+      : code === "wrong_place" || task?.kind === "trail" ? TRAIL_RETRY_LEAD
       : "Not quite.";
     return { heading: "Try again", text: `${lead} ${result.hint ?? ""}`.trim() };
   }

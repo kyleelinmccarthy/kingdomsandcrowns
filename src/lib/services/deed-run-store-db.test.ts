@@ -179,6 +179,45 @@ describe("each of Pip's demos shows once, by its own puzzles (RF-g)", () => {
   });
 });
 
+describe("demoAt for a trail: Watch Pip follow a clue (R-H16)", () => {
+  // As the browser is shown a clue, and as the server stores one.
+  const shown = (id = "t1") => ({ kind: "trail", id, skillId: "read-g1", prompt: "Go to the mill.", view: {} });
+  const stored = { kind: "trail", id: "old", skillId: "read-g1", prompt: "Go to the mill.", answer: "landmark:mill", redirect: "r", trail: "trail-k1/mill" };
+  const storedLock = { kind: "lock", id: "lk", skillId: "logic-k1", prompt: "p", puzzle: "pattern", sequence: [null], tray: [], solution: { puzzle: "pattern", cells: [1] } };
+  const run = (questions: unknown[], responses?: (string | null)[]) =>
+    ({ runId: "now", kind: "deed", questions, responses: responses ?? questions.map(() => null) }) as Pick<RunStart, "runId" | "kind" | "questions" | "responses">;
+
+  it("marks a K hero's first clue, and a grade-3 hero's, never an older hero's", async () => {
+    await expect(demoAt("trail-new", "K", run([shown("a"), shown("b")]))).resolves.toBe(0);
+    await expect(demoAt("trail-new", "3", run([shown()]))).resolves.toBe(0);
+    await expect(demoAt("trail-new", "4", run([shown()]))).resolves.toBeNull();
+  });
+
+  it("is not shown after a clue answered in another run, nor past one answered in this run", async () => {
+    await seed("trail-seen", JSON.stringify([stored]), JSON.stringify(["landmark:well"]));
+    await expect(demoAt("trail-seen", "K", run([shown()]))).resolves.toBeNull();
+    await expect(demoAt("trail-mid", "K", run([shown("a"), shown("b")], ["landmark:mill", null]))).resolves.toBeNull();
+  });
+
+  it("a clue left unanswered in another run is not enough", async () => {
+    await seed("trail-left", JSON.stringify([stored]), JSON.stringify([null]));
+    await expect(demoAt("trail-left", "1", run([shown()]))).resolves.toBe(0);
+  });
+
+  it("a lock or a bench task answered elsewhere does not hide it", async () => {
+    await seed("trail-lock", JSON.stringify([storedLock]), JSON.stringify(["pattern:1"]));
+    await seed("trail-lock", JSON.stringify([measure]), JSON.stringify([[0, 1]]));
+    await expect(demoAt("trail-lock", "2", run([shown()]))).resolves.toBe(0);
+  });
+
+  it("an answered clue hides neither Pip's lock demo nor Aldo's", async () => {
+    await seed("trail-only", JSON.stringify([stored]), JSON.stringify(["landmark:mill"]));
+    const pattern = { kind: "lock", id: "lp", skillId: "logic-k1", prompt: "p", view: { puzzle: "pattern", sequence: [null], tray: [] } };
+    await expect(demoAt("trail-only", "K", run([pattern]))).resolves.toBe(0);
+    await expect(demoAt("trail-only", "K", current)).resolves.toBe(0);
+  });
+});
+
 describe("loadRecentTrailIds: the trails a hero met in their last reading side quests (R-H11)", () => {
   /** A stored clue of trail `key`, as the server keeps it. */
   const clue = (key: string, i = 0) => ({

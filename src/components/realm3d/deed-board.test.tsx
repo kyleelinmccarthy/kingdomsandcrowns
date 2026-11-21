@@ -13,8 +13,9 @@ vi.mock("@/lib/utils/speech", () => ({ canSpeak: () => true, speak: vi.fn(), sto
 import { answerDeedQuestion, completeDeedRun, resolveDeedQuestion, retryDeedQuestion, startDeedRun } from "@/lib/actions/deeds";
 import { villagerById } from "@/lib/realm/villagers";
 import { speak } from "@/lib/utils/speech";
-import { DeedBoard } from "./deed-board";
+import { DeedBoard, deedResultOf } from "./deed-board";
 import { ALL_ANSWERED } from "@/lib/utils/deed-run-flow";
+import type { RunStart } from "@/lib/utils/deed-run-types";
 
 afterEach(cleanup);
 beforeEach(() => {
@@ -680,5 +681,152 @@ describe("a lock on the board (F4)", () => {
     expect(screen.getByRole("button", { name: "Space 5: red circle" })).toBeDisabled();
     // Said once, by the feedback line beside the solved board; the face draws, it does not repeat it.
     expect(screen.getAllByText(/Here is one way it fits\./)).toHaveLength(1);
+  });
+});
+
+describe("a reading trail on the board (H8)", () => {
+  const clue = (n: number, prompt: string, readAloud?: string) => ({ kind: "trail" as const, id: `read-g1:trail:0000000${n}`, skillId: "read-g1", prompt, view: {}, ...(readAloud ? { readAloud } : {}) });
+  const CLUE_1 = clue(1, "Go where the big wheel turns.", "Go where the big wheel turns, and grain becomes flour.");
+  const trailRun: RunStart = {
+    ...run,
+    deed: { id: "well-signs", title: "Signs for the Well", story: "The sign-painter left clues.", area: "reading" },
+    questions: [CLUE_1, clue(2, "Go where the water is drawn.")],
+    responses: [null, null],
+  };
+  const OPEN = { correct: false, secondChance: true, hint: "That is where water is drawn.", feedback: "wrong_place" as const, firstPick: "landmark:well" };
+  const MISS = { correct: false, secondChance: false, answer: "It was the mill.", explain: "Flour is ground at the mill.", reveal: "landmark:mill" };
+  const summary = {
+    correctCount: 2, total: 2, flawless: true, masteryChanges: [], stars: 3 as const, previousBest: 2 as const, deedBest: 3 as const, counted: true, crowned: false, kind: "deed" as const,
+    building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 6, maxStars: 9, practice: false }, minutesEarned: 3, sideQuestPayFull: false,
+  };
+
+  async function begin(r: RunStart, over: Partial<React.ComponentProps<typeof DeedBoard>> = {}) {
+    vi.mocked(startDeedRun).mockResolvedValue(r);
+    board(over);
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
+  }
+  const click = (name: string | RegExp) => act(async () => void fireEvent.click(screen.getByRole("button", { name })));
+  const search = async (label: string) => {
+    await click(label);
+    await click("Search here");
+  };
+
+  it("a two-clue trail run in the Realm shows the clue and Set off, which hands the run to the walk", async () => {
+    const onWalk = vi.fn();
+    await begin(trailRun, { onWalk });
+    expect(screen.getByText("Go where the big wheel turns.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "the mill" })).toBeNull();
+    await click("Set off");
+    expect(onWalk).toHaveBeenCalledTimes(1);
+    expect(onWalk).toHaveBeenCalledWith(trailRun);
+  });
+
+  it("a mixed run shows no Set off: its clue is answered on the map", async () => {
+    await begin({ ...trailRun, questions: [CLUE_1, run.questions[1]] }, { onWalk: vi.fn() });
+    expect(screen.queryByRole("button", { name: "Set off" })).toBeNull();
+    expect(screen.getByRole("button", { name: "the mill" })).toBeInTheDocument();
+  });
+
+  it("the gate's board never walks: its clue is answered on the map", async () => {
+    await begin(trailRun, { onWalk: vi.fn(), runContext: "gate" });
+    expect(screen.queryByRole("button", { name: "Set off" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Search here" })).toBeInTheDocument();
+  });
+
+  it("a walked run comes back as its result card, titled by the deed, and its way out closes the board", () => {
+    const onClose = vi.fn();
+    board({ walked: { run: trailRun, summary }, onClose });
+    expect(screen.getByRole("heading", { name: "Signs for the Well" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "3 of 3 stars" })).toBeInTheDocument();
+    expect(screen.getByText("New best!")).toBeInTheDocument();
+    expect(screen.getByText("+3 minutes earned")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Begin/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Back to the Realm/ }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("a walked Crown Challenge is titled as one", () => {
+    board({ walked: { run: { ...trailRun, kind: "challenge" }, summary: { ...summary, kind: "challenge", stars: 0, counted: false, crowned: true } } });
+    expect(screen.getByRole("heading", { name: "Crown Challenge: Signs for the Well" })).toBeInTheDocument();
+    expect(screen.getByText("Crowned!")).toBeInTheDocument();
+  });
+
+  it("deedResultOf is what the board hands up: a side quest's and a challenge's, never a build's", () => {
+    expect(deedResultOf(summary, "well-signs")).toEqual({
+      label: "Village Well", done: 3, total: 5, complete: false, stars: 6, maxStars: 9, practice: false,
+      counted: true, earned: true, minutesEarned: 3, deed: { id: "well-signs", bestStars: 3, crowned: false },
+    });
+    expect(deedResultOf({ ...summary, kind: "challenge", stars: 0, counted: false, crowned: true }, "well-signs")).toEqual({
+      label: "Village Well", done: 3, total: 5, complete: false, stars: 6, maxStars: 9, practice: false,
+      counted: false, earned: false, minutesEarned: 3, deed: { id: "well-signs", bestStars: 3, crowned: true }, challenge: { won: true },
+    });
+    expect(deedResultOf({ ...summary, kind: "build" }, "build:village-banners:2")).toBeNull();
+    expect(deedResultOf({ ...summary, building: null }, "well-signs")).toBeNull();
+  });
+
+  it("a K hero hears the clue with read-aloud off, and the second chance's line", async () => {
+    vi.mocked(answerDeedQuestion).mockResolvedValue(OPEN);
+    await begin({ ...trailRun, narrateClues: true });
+    expect(speak).toHaveBeenLastCalledWith("Go where the big wheel turns, and grain becomes flour.");
+    await search("the well");
+    expect(answerDeedQuestion).toHaveBeenCalledWith("run-1", 0, "landmark:well");
+    expect(speak).toHaveBeenLastCalledWith("Not here. That is where water is drawn.");
+  });
+
+  it("the board speaks a trail's second-chance and miss lines (F-3)", async () => {
+    vi.mocked(answerDeedQuestion).mockResolvedValue(OPEN);
+    vi.mocked(retryDeedQuestion).mockResolvedValue(MISS);
+    await begin({ ...trailRun, narrateClues: true });
+    await search("the well");
+    expect(screen.getByText("Not here. That is where water is drawn.")).toBeInTheDocument();
+    expect(speak).toHaveBeenLastCalledWith("Not here. That is where water is drawn.");
+    await search("the garden");
+    expect(retryDeedQuestion).toHaveBeenCalledWith("run-1", 0, "landmark:garden");
+    expect(speak).toHaveBeenLastCalledWith("It was the mill. Flour is ground at the mill.");
+    expect(screen.getByRole("button", { name: "the mill" })).toHaveTextContent("It was here.");
+    await click("Next question");
+    expect(speak).toHaveBeenLastCalledWith("Go where the water is drawn.");
+  });
+
+  it("a grade-1 hero's clue is not spoken unless asked", async () => {
+    vi.mocked(answerDeedQuestion).mockResolvedValue(OPEN);
+    await begin(trailRun);
+    expect(speak).not.toHaveBeenCalled();
+    await click("Read aloud");
+    expect(speak).toHaveBeenLastCalledWith("Go where the big wheel turns, and grain becomes flour.");
+    vi.mocked(speak).mockClear();
+    await search("the well");
+    expect(speak).not.toHaveBeenCalled();
+  });
+
+  it("a K hero hears Pip's trail demo first, with read-aloud off", async () => {
+    await begin({ ...trailRun, narrateClues: true, demo: { at: 0 } });
+    expect(screen.getByRole("heading", { name: "Watch Pip" })).toBeInTheDocument();
+    expect(speak).toHaveBeenLastCalledWith("Watch Pip follow a clue. The clue says: Go to the well. Pip reads it, walks to the well, and searches there. Found it!");
+    await click("Got it");
+    expect(speak).toHaveBeenLastCalledWith("Go where the big wheel turns, and grain becomes flour.");
+  });
+
+  it("a trail second chance picked back up still says Not here.", async () => {
+    await begin({ ...trailRun, responses: ["landmark:well", null], pending: { index: 0, ruledOut: "landmark:well", hint: "That is where water is drawn." } });
+    expect(screen.getByText("Not here. That is where water is drawn.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "the well" })).toBeDisabled();
+  });
+
+  it("other kinds' speech is unchanged: a choice's second chance speaks only its hint, and its miss says nothing more", async () => {
+    vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: false, secondChance: true, hint: "Count on." });
+    vi.mocked(resolveDeedQuestion).mockResolvedValue({ correct: false, secondChance: false, answer: "5", explain: "2 + 3 makes 5." });
+    const four: RunStart = { ...run, questions: [{ ...run.questions[0], view: { choices: ["4", "5", "6", "7"] } }, run.questions[1]], responses: [null, null] };
+    await begin({ ...four, narrateClues: true }, { profile: { readAloud: true, untimed: true } });
+    await click("4");
+    expect(speak).toHaveBeenLastCalledWith("Count on.");
+    const calls = vi.mocked(speak).mock.calls.length;
+    await click("Show me");
+    expect(vi.mocked(speak).mock.calls.length).toBe(calls);
+  });
+
+  it("narrated clues make no choice task speak with read-aloud off", async () => {
+    await begin({ ...run, responses: [null, null], narrateClues: true });
+    expect(speak).not.toHaveBeenCalled();
   });
 });

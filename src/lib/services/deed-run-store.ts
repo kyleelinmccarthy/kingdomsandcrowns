@@ -4,7 +4,7 @@ import * as schema from "@/lib/db/schema";
 import { RUN_EFFECTS, kindsThatFeedReview, type RunKind } from "@/lib/utils/deed-scoring";
 import { records, resumeIndex, statusOf } from "@/lib/utils/deed-attempts";
 import { isRegisteredKind, isTaskCorrect, kindOf, secondChanceHint, toClientTask, type Task } from "@/lib/tasks/registry";
-import { demoKeyOf, isLockDemo, LOCK_DEMO_PUZZLES, type DemoKey } from "@/lib/tasks/demos";
+import { demoKeyOf, demoKind, isLockDemo, LOCK_DEMO_PUZZLES, type DemoKey } from "@/lib/tasks/demos";
 import type { HandsOnKind } from "@/lib/tasks/kinds";
 import type { RunStart } from "@/lib/utils/deed-run-types";
 import type { ImprovementId } from "@/lib/realm/improvements";
@@ -185,13 +185,14 @@ const DEMO_RUN_KINDS: readonly RunKind[] = ["deed", "build", "world"];
 /**
  * Which demos one answered task counts as seen: Aldo's two are one, so any bench task (as since
  * R-C9); each of Pip's is its own puzzles (`LOCK_DEMO_PUZZLES`, RF-g), so a word sort answered
- * never hides the shape grid's demo.
+ * never hides the shape grid's demo; and Pip's clue is any trail task (R-H16).
  */
-const demoGroup = (key: DemoKey): string => (isLockDemo(key) ? key : "bench");
+const demoGroup = (key: DemoKey): string => (demoKind(key) === "measure" ? "bench" : key);
 
 /**
  * Whether the hero has answered a task of demo `key`'s group (`demoGroup`) in any run but `runId`:
- * for a bench key any bench task, for a lock key a lock of one of its puzzles, with a stored
+ * for a bench key any bench task, for a lock key a lock of one of its puzzles, for the trail's any
+ * clue, with a stored
  * response, finished run or not. A run that merely held one, left unanswered, is not enough. Read
  * in the database (SQLite's JSON functions, on the stored task's own `kind` and `puzzle`), so it
  * costs one row whatever the history; a row whose JSON will not parse, or parses to an odd shape
@@ -199,7 +200,7 @@ const demoGroup = (key: DemoKey): string => (isLockDemo(key) ? key : "bench");
  */
 export async function hasAnsweredDemo(childId: string, key: DemoKey, runId: string): Promise<boolean> {
   const { questions, responses } = schema.deedRun;
-  const kind: HandsOnKind = isLockDemo(key) ? "lock" : "measure";
+  const kind: HandsOnKind = demoKind(key);
   const field = (path: string) => sql`CASE WHEN task.type = 'object' THEN json_extract(task.value, ${path}) ELSE NULL END`;
   const ofPuzzle = isLockDemo(key)
     ? sql` AND ${field("$.puzzle")} IN (${sql.join(LOCK_DEMO_PUZZLES[key].map((p) => sql`${p}`), sql`, `)})`
@@ -223,8 +224,8 @@ export async function hasAnsweredDemo(childId: string, key: DemoKey, runId: stri
 }
 
 /**
- * Where a run shows a worked example, if it does (R-C9, R-F10): Aldo at the bench, or Pip at a lock
- * (`demoKeyOf` says which tasks have one). For a hero whose grade in the strand is K to 3, it is the
+ * Where a run shows a worked example, if it does (R-C9, R-F10, R-H16): Aldo at the bench, Pip at a
+ * lock, or Pip following a clue (`demoKeyOf` says which tasks have one). For a hero whose grade in the strand is K to 3, it is the
  * first task whose demo the hero has never seen in another run (`hasAnsweredDemo`, per demo: Aldo's
  * once, each of Pip's once), wherever it falls. That is the run's one demo: once a task of that demo
  * is answered in this run (a resumed run, past it), the run shows none, never a second. A side

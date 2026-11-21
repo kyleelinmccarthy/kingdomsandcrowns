@@ -14,6 +14,7 @@ import { ALL_ANSWERED } from "@/lib/utils/deed-run-flow";
 import { attemptFeedback, finishLabel } from "@/lib/realm3d/talk";
 import { TaskPresenter } from "@/components/tasks/presenters";
 import { TaskDemo, taskDemoCopy, useTaskDemo } from "@/components/tasks/task-demo";
+import { attemptSpeech, autoSpeaks } from "@/lib/tasks/narration";
 import type { ProfileLike } from "@/lib/utils/deed-engine";
 import { canSpeak, speak } from "@/lib/utils/speech";
 
@@ -41,14 +42,16 @@ export function DeedPlayer({
   const isLast = index === run.questions.length - 1;
   const finish = finishLabel(run.kind);
 
-  // Read-aloud is a side effect, not state: the profile asks for it, the effect obeys. A worked
-  // example (Aldo's or Pip's) is read first, when there is one, then the question.
+  // Read-aloud is a side effect, not state: the profile asks for it (or, for a Kindergarten hero's
+  // clue, the run: `autoSpeaks`, R-H17), the effect obeys. A worked example (Aldo's or Pip's) is read
+  // first, when there is one, then the question.
+  const speaks = question ? autoSpeaks(question, profile.readAloud, run.narrateClues === true) : false;
   useEffect(() => {
-    if (profile.readAloud && question) speak(demo.demo ? taskDemoCopy(demo.demo) : (question.readAloud ?? question.prompt));
+    if (speaks && question) speak(demo.demo ? taskDemoCopy(demo.demo) : (question.readAloud ?? question.prompt));
     return () => {
       if (canSpeak()) window.speechSynthesis.cancel();
     };
-  }, [profile.readAloud, question, demo.demo]);
+  }, [speaks, question, demo.demo]);
 
   // A soft elapsed-time chip when the hero hasn't asked for untimed play.
   useEffect(() => {
@@ -60,15 +63,17 @@ export function DeedPlayer({
   const nextRef = useRef<HTMLButtonElement>(null);
   const feedback = flow.result ? attemptFeedback(flow.result, flow.ruledOut.length > 0, undefined, question) : null;
 
-  // The hint is read once, when the second chance opens.
-  const hint = phase === "second-chance" ? flow.result?.hint : undefined;
+  // What follows an answer is read once, as on the Realm's board: the hint when the second chance
+  // opens, and for a clue its whole line, "Not here." and the redirect, then where it was after a
+  // miss (`attemptSpeech`, F-3).
+  const said = speaks ? attemptSpeech(question, flow, feedback?.text) : undefined;
   useEffect(() => {
-    if (!profile.readAloud || !hint) return;
-    speak(hint);
+    if (!said) return;
+    speak(said);
     return () => {
       if (canSpeak()) window.speechSynthesis.cancel();
     };
-  }, [profile.readAloud, hint, index]);
+  }, [said, index]);
 
   // Focus follows the question: the choices take it when one is asked (see `ChoicePresenter`),
   // Next once it is resolved.

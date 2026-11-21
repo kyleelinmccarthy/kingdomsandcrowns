@@ -412,3 +412,73 @@ describe("DeedPlayer (a word sort lock)", () => {
   });
 });
 
+describe("DeedPlayer (a reading trail on the page, H8)", () => {
+  const clue = (n: number, prompt: string, readAloud?: string) => ({ kind: "trail" as const, id: `read-g1:trail:0000000${n}`, skillId: "read-g1", prompt, view: {}, ...(readAloud ? { readAloud } : {}) });
+  const trailRun: RunStart = {
+    ...run,
+    questions: [clue(1, "Go where the big wheel turns.", "Go where the big wheel turns, and grain becomes flour."), clue(2, "Go where the water is drawn.")],
+    responses: [null, null],
+  };
+  const OPEN = { correct: false, secondChance: true, hint: "That is where water is drawn.", feedback: "wrong_place", firstPick: "landmark:well" };
+  const MISS = { correct: false, secondChance: false, answer: "It was the mill.", explain: "Flour is ground at the mill.", reveal: "landmark:mill" };
+
+  async function search(user: ReturnType<typeof userEvent.setup>, label: string) {
+    await user.click(screen.getByRole("button", { name: label }));
+    await user.click(screen.getByRole("button", { name: "Search here" }));
+  }
+
+  it("plays a clue on the village map and answers with the place searched", async () => {
+    const user = userEvent.setup();
+    answerDeedQuestion.mockResolvedValue({ correct: true, secondChance: false, answer: "It was the mill." });
+    render(<DeedPlayer run={trailRun} profile={profile} calm={false} onFinished={() => {}} />);
+    expect(screen.getByText("Go where the big wheel turns.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Set off" })).toBeNull();
+    await search(user, "the mill");
+    expect(answerDeedQuestion).toHaveBeenCalledWith("r1", 0, "landmark:mill");
+    expect(await screen.findByRole("button", { name: "Next question" })).toBeInTheDocument();
+  });
+
+  it("a K run speaks the clue with read-aloud off; the same run without narrateClues does not", () => {
+    render(<DeedPlayer run={{ ...trailRun, narrateClues: true }} profile={profile} calm={false} onFinished={() => {}} />);
+    expect(speak).toHaveBeenLastCalledWith("Go where the big wheel turns, and grain becomes flour.");
+    cleanup();
+    vi.mocked(speak).mockClear();
+    render(<DeedPlayer run={trailRun} profile={profile} calm={false} onFinished={() => {}} />);
+    expect(speak).not.toHaveBeenCalled();
+  });
+
+  it("speaks a trail's second-chance line and miss line through autoSpeaks, as the board does (F-3)", async () => {
+    const user = userEvent.setup();
+    answerDeedQuestion.mockResolvedValue(OPEN);
+    retryDeedQuestion.mockResolvedValue(MISS);
+    render(<DeedPlayer run={{ ...trailRun, narrateClues: true }} profile={profile} calm={false} onFinished={() => {}} />);
+    await search(user, "the well");
+    expect(await screen.findByText("Not here. That is where water is drawn.")).toBeInTheDocument();
+    expect(speak).toHaveBeenLastCalledWith("Not here. That is where water is drawn.");
+    await search(user, "the garden");
+    expect(retryDeedQuestion).toHaveBeenCalledWith("r1", 0, "landmark:garden");
+    expect(await screen.findByText("It was the mill. Flour is ground at the mill.")).toBeInTheDocument();
+    expect(speak).toHaveBeenLastCalledWith("It was the mill. Flour is ground at the mill.");
+    expect(screen.getByRole("button", { name: "the mill" })).toHaveTextContent("It was here.");
+  });
+
+  it("says nothing unprompted to a hero who is not narrated and has read-aloud off", async () => {
+    const user = userEvent.setup();
+    answerDeedQuestion.mockResolvedValue(OPEN);
+    render(<DeedPlayer run={trailRun} profile={profile} calm={false} onFinished={() => {}} />);
+    await search(user, "the well");
+    expect(await screen.findByText("Not here. That is where water is drawn.")).toBeInTheDocument();
+    expect(speak).not.toHaveBeenCalled();
+  });
+
+  it("a choice run's speech is unchanged: with read-aloud on, a second chance speaks only its hint", async () => {
+    const user = userEvent.setup();
+    answerDeedQuestion.mockResolvedValue({ correct: false, secondChance: true, hint: "Sound it out." });
+    render(<DeedPlayer run={{ ...run, narrateClues: true }} profile={{ ...profile, readAloud: true }} calm={false} onFinished={() => {}} />);
+    expect(speak).toHaveBeenLastCalledWith("because");
+    await user.click(screen.getByRole("button", { name: "become" }));
+    expect(await screen.findByText("Not quite. Sound it out.")).toBeInTheDocument();
+    expect(speak).toHaveBeenLastCalledWith("Sound it out.");
+  });
+});
+
