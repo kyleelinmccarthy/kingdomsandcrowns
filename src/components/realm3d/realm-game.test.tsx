@@ -1627,7 +1627,7 @@ describe("a reading trail, walked in the Realm (R-H14)", () => {
     expect(handed.props!.trailOn).toBe(true);
   });
 
-  it("a missed clue's answer flies the gold flag; a reveal that is no anchor flies none (F-17)", async () => {
+  it("a missed clue's answer turns its stake gold; a reveal that is no anchor turns none (F-17)", async () => {
     vi.mocked(answerDeedQuestion).mockResolvedValue(OPEN);
     vi.mocked(retryDeedQuestion).mockResolvedValueOnce(MISS);
     const { bus } = await setOff();

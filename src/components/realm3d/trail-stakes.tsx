@@ -4,7 +4,7 @@
  * THE SEARCH STAKES of a reading trail: one at each of the fourteen anchors (`ANCHORS`), drawn only
  * while a walk is on (`on`), where E searches (`buildSpots`' `anchors`). Every stake is the same
  * shape (`anchor-boxes.ts`' `stakeBoxes`), so none tells the clue's answer from the rest; after a
- * missed clue the answer's stake (`revealed`) flies a gold flag: "It was here."
+ * missed clue the answer's stake (`revealed`) turns its sign and cap gold: "It was here."
  *
  * A sibling of the memoised `World`: one geometry, rebuilt only when the walk starts or ends or the
  * revealed stake changes, never per frame. Nothing here is solid.

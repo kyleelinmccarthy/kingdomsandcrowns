@@ -1303,7 +1303,7 @@ export type RealmCanvasProps = {
   worldLocks?: WorldCanvas;
   /** A reading trail is being walked (`use-trail-walk.ts`): its stakes are drawn and searched with E. */
   trailOn?: boolean;
-  /** A missed clue's answer: its stake flies a gold flag (`trail-stakes.tsx`). */
+  /** A missed clue's answer: its stake's sign and cap turn gold (`trail-stakes.tsx`). */
   trailRevealed?: AnchorId | null;
 };
 

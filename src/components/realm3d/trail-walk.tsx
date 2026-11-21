@@ -49,7 +49,7 @@ export function TrailWalk({
   hidden: boolean;
   /** Where E at a stake reaches this walk's `answer`. */
   answerRef: MutableRefObject<((id: AnchorId) => void) | null>;
-  /** A missed clue's answer, for its stake's gold flag; null once the hero searches again. */
+  /** A missed clue's answer, for its stake's gold sign and cap; null once the hero searches again. */
   onReveal: (id: AnchorId | null) => void;
   onFinished: (summary: RunSummary) => void;
   onLeave: () => void;
@@ -158,7 +158,14 @@ export function TrailWalk({
         <button type="button" className="r3-link-button trail-walk-fold" aria-expanded={!folded} onClick={() => setFolded((f) => !f)}>
           {folded ? TRAIL_SHOW : TRAIL_HIDE}
         </button>
+        {/* In the head, never in the scrolling body, so it is always in reach (a short phone, larger text). */}
+        {!folded && canSpeak() && (
+          <button type="button" className="r3-round r3-read trail-walk-read" aria-label="Read aloud" title="Read aloud" onClick={() => speak(clueWords)}>
+            <GameIcon name="sparkles" className="r3-read-icon" />
+          </button>
+        )}
       </div>
+      {/* The head and the foot are pinned; only the body (the lines and the clue) scrolls when the card is capped. */}
       {!folded && (
         <div className="trail-walk-body">
           {line && (
@@ -167,46 +174,42 @@ export function TrailWalk({
             </p>
           )}
           {lookedHere && <p className="trail-walk-line">{TRAIL_LOOKED_HERE}</p>}
-          <div className="trail-walk-clue">
-            <p className="trail-walk-text" aria-live="polite">
-              {clue?.prompt}
-            </p>
-            {canSpeak() && (
-              <button type="button" className="r3-round r3-read trail-walk-read" aria-label="Read aloud" title="Read aloud" onClick={() => speak(clueWords)}>
-                <GameIcon name="sparkles" className="r3-read-icon" />
-              </button>
-            )}
-          </div>
-          {error && (
-            <p className="r3-board-error trail-walk-error" role="alert">
-              {error}{" "}
-              {ready && (
-                <button type="button" className="r3-link-button" disabled={busy} onClick={() => void finish()}>
-                  {TRAIL_FINISH}
-                </button>
-              )}
-            </p>
-          )}
-          <div className="trail-walk-foot">
-            {flow.phase === "second-chance" && (
-              <button
-                type="button"
-                className="r3-link-button"
-                disabled={busy}
-                onClick={() => {
-                  setSearchedHere(true);
-                  setLookedHere(false);
-                  void showMe();
-                }}
-              >
-                Show me
-              </button>
-            )}
-            {/* Not while the finish is out: the run is done on the server, and its result board must open. */}
-            <button type="button" className="r3-link-button trail-walk-leave" disabled={ready && busy} onClick={onLeave}>
-              {TRAIL_LEAVE}
+          <p className="trail-walk-text" aria-live="polite">
+            {clue?.prompt}
+          </p>
+        </div>
+      )}
+      {/* Pinned with the foot: a failed finish's "Finish the trail" never scrolls out of reach. */}
+      {!folded && error && (
+        <p className="r3-board-error trail-walk-error" role="alert">
+          {error}{" "}
+          {ready && (
+            <button type="button" className="r3-link-button" disabled={busy} onClick={() => void finish()}>
+              {TRAIL_FINISH}
             </button>
-          </div>
+          )}
+        </p>
+      )}
+      {!folded && (
+        <div className="trail-walk-foot">
+          {flow.phase === "second-chance" && (
+            <button
+              type="button"
+              className="r3-link-button"
+              disabled={busy}
+              onClick={() => {
+                setSearchedHere(true);
+                setLookedHere(false);
+                void showMe();
+              }}
+            >
+              Show me
+            </button>
+          )}
+          {/* Not while the finish is out: the run is done on the server, and its result board must open. */}
+          <button type="button" className="r3-link-button trail-walk-leave" disabled={ready && busy} onClick={onLeave}>
+            {TRAIL_LEAVE}
+          </button>
         </div>
       )}
     </section>

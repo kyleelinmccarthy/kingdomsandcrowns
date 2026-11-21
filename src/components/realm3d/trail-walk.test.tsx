@@ -197,7 +197,7 @@ describe("TrailWalk, the tracker", () => {
     expect(screen.queryByRole("button", { name: "Show me" })).toBeNull();
   });
 
-  it("the gold flag comes down with the hero's next search", async () => {
+  it("the gold stake goes back with the hero's next search", async () => {
     vi.mocked(answerDeedQuestion).mockResolvedValueOnce(OPEN).mockResolvedValueOnce(RIGHT);
     vi.mocked(retryDeedQuestion).mockResolvedValue(MISS);
     vi.mocked(completeDeedRun).mockReturnValue(new Promise(() => {}));
@@ -424,20 +424,54 @@ describe("the tracker's layout (H10 smoke: larger text at 390 px, the 1280 px he
     expect(rule(css, ".trail-walk-count")).toMatch(/flex:\s*none/);
   });
 
-  it("on a phone, sits under the minimap while a walk is shown, with the objective card stepping aside, and the column still clears the spell bar", () => {
-    // The minimap is 12.5rem at 1rem from the top (`.r3-map`): the column starts below its foot.
-    for (const sel of [walking, `${larger} ${walking}`]) {
-      expect(rule(phone, sel), sel).toMatch(/top:\s*14rem/);
-      expect(rule(phone, sel), sel).toMatch(/max-height:\s*calc\(100% - 14rem - 11rem\)/);
-    }
-    expect(rule(phone, `${walking} > .r3-quest`)).toMatch(/display:\s*none/);
+  // Everything outside the phone block: the rules that hold at every size.
+  const everywhere = css.replace(phone, "");
+
+  it("on a phone, sits under the minimap while a walk is shown, and the column stops above the E prompt", () => {
+    // The minimap is 12.5rem at 1rem from the top (`.r3-map`): the column starts below its foot. The
+    // column is not zoomed, so its cap is in real rems: 15rem clears the E prompt, 18rem its zoomed self.
+    expect(rule(phone, walking)).toMatch(/top:\s*14rem/);
+    expect(rule(phone, walking)).toMatch(/max-height:\s*calc\(100% - 14rem - 15rem\)/);
+    expect(rule(phone, `${larger} ${walking}`)).toMatch(/top:\s*14rem/);
+    expect(rule(phone, `${larger} ${walking}`)).toMatch(/max-height:\s*calc\(100% - 14rem - 18rem\)/);
   });
 
-  it("renders the parts those rules hold: the count, the fold, and the foot's buttons", () => {
-    const { view } = show();
+  it("rests the objective card during any walk, at every size, and caps the column above the E prompt and the spell bar", () => {
+    expect(rule(everywhere, `${walking} > .r3-quest`)).toMatch(/display:\s*none/);
+    expect(rule(phone, `${walking} > .r3-quest`)).toBe("");
+    expect(rule(everywhere, walking)).toMatch(/max-height:\s*calc\(100% - 5\.6rem - 15rem\)/);
+    expect(rule(everywhere, walking)).toMatch(/overflow:\s*hidden/);
+    expect(rule(everywhere, `${larger} ${walking}`)).toMatch(/max-height:\s*calc\(100% - 6\.72rem - 18rem\)/);
+  });
+
+  it("keeps its head and foot in reach: a flex column whose body scrolls, capped in its own (zoomed) units", () => {
+    expect(rule(everywhere, ".trail-walk")).toMatch(/display:\s*flex/);
+    expect(rule(everywhere, ".trail-walk")).toMatch(/flex-direction:\s*column/);
+    expect(rule(everywhere, ".trail-walk")).toMatch(/min-height:\s*0/);
+    expect(rule(everywhere, ".trail-walk")).toMatch(/max-height:\s*calc\(100dvh - 5\.6rem - 15rem\)/);
+    // Zoomed 1.2, every length is drawn 1.2 times over: the cap is the room left, over 1.2.
+    expect(rule(everywhere, `${larger} .trail-walk`)).toMatch(/max-height:\s*calc\(\(100dvh - 6\.72rem - 18rem\) \/ 1\.2\)/);
+    expect(rule(phone, ".trail-walk")).toMatch(/max-height:\s*calc\(100dvh - 14rem - 15rem\)/);
+    expect(rule(phone, `${larger} .trail-walk`)).toMatch(/max-height:\s*calc\(\(100dvh - 14rem - 18rem\) \/ 1\.2\)/);
+    expect(rule(everywhere, ".trail-walk-head")).toMatch(/flex:\s*none/);
+    expect(rule(everywhere, ".trail-walk-foot")).toMatch(/flex:\s*none/);
+    expect(rule(everywhere, ".trail-walk-body")).toMatch(/overflow-y:\s*auto/);
+    expect(rule(everywhere, ".trail-walk-body")).toMatch(/min-height:\s*0/);
+  });
+
+  it("renders the parts those rules hold: the head holds Hide and Read aloud, and the foot sits outside the scrolling body", async () => {
+    vi.mocked(answerDeedQuestion).mockResolvedValue(OPEN);
+    const { view, search } = show();
+    await search("landmark:well");
+    const card = view.container.querySelector(".trail-walk")!;
     // The tracker is the column's direct child in the frame (`realm-game.tsx`), which `:has(> .trail-walk)` reads.
-    expect(view.container.querySelector(".trail-walk-head .trail-walk-count, .trail-walk-head .r3-run-dots")).not.toBeNull();
-    expect(view.container.querySelector(".trail-walk-head .trail-walk-fold")).not.toBeNull();
-    expect(view.container.querySelector(".trail-walk-foot .r3-link-button.trail-walk-leave")).not.toBeNull();
+    expect(card.querySelector(".trail-walk-head .trail-walk-count, .trail-walk-head .r3-run-dots")).not.toBeNull();
+    expect(card.querySelector(".trail-walk-head .trail-walk-fold")).not.toBeNull();
+    expect(card.querySelector(".trail-walk-head .trail-walk-read")).toBe(screen.getByRole("button", { name: "Read aloud" }));
+    const foot = card.querySelector(":scope > .trail-walk-foot")!;
+    expect(foot).not.toBeNull();
+    expect(card.querySelector(".trail-walk-body .trail-walk-foot")).toBeNull();
+    expect(foot.querySelector(".r3-link-button.trail-walk-leave")).not.toBeNull();
+    expect(foot).toHaveTextContent("Show me");
   });
 });
