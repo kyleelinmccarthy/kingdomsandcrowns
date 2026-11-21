@@ -106,12 +106,14 @@ export async function startDeedRun(
   const story = deedStory(deed, hero.tone);
 
   // The focus picks are read alongside the open-run check: which pools to load depends on them.
-  // So is the building's site, for the bench's drawing: only a side quest's own run raises it.
+  // So is the building's site, for the bench's drawing: only a side quest's own run raises it. The
+  // grown-up's settings ride in the same round: which skills a run can play depends on them too (R-H8).
   const building = kind === "deed" ? findBuilding(deed.buildingId) : null;
-  const [open, focusSkillIds, site] = await Promise.all([
+  const [open, focusSkillIds, site, settings] = await Promise.all([
     findOpenRun(and(eq(schema.deedRun.childId, childId), eq(schema.deedRun.deedId, deedId), eq(schema.deedRun.kind, kind))),
     loadFocusSkillIds(childId, hero.grades),
     building ? loadSiteState(childId, building) : Promise.resolve(null),
+    loadRealmSettings(childId),
   ]);
   // The deed's OWN strand decides the grade — never a fixed one, and never another
   // strand's. `gradeForDeed` is where that is pinned by test. A focus skill in the deed's strand
@@ -123,9 +125,13 @@ export async function startDeedRun(
     return at === null ? start : { ...start, demo: { at } };
   };
   if (open) return withDemo(resumedStart(open, { id: deed.id, title: deed.title, story, area: deed.area }, site ?? undefined));
-  const skills = runCandidates(deed, grade, focusSkillIds);
+  // The grown-up's switches decide which hands-on kinds a NEW run may draw (an open run is a
+  // snapshot and never asks); the gate is multiple choice whatever they say (R-C4). Worked out before
+  // the candidates, which keep only the skills the run can play (R-H8).
+  const enabledKinds: ReadonlySet<TaskKind> = ctx === "gate" ? new Set<TaskKind>() : enabledHandsOnKinds(settings);
+  const skills = runCandidates(deed, grade, focusSkillIds, enabledKinds);
   const poolSkillIds = skills.filter((s) => s.source.kind === "pool").map((s) => s.id);
-  const [profileRow, masteryRows, poolRows, recentMisses, settings] = await Promise.all([
+  const [profileRow, masteryRows, poolRows, recentMisses] = await Promise.all([
     // Memoized per request, so this is the same round trip loadHeroLevels just made.
     loadLearningProfileRow(childId),
     loadMasteryRows(childId),
@@ -135,7 +141,6 @@ export async function startDeedRun(
     // A challenge mixes nothing in, so it needs no misses. Only this side quest's candidate skills
     // count toward the cap, so another strand's misses (Puzzle practice's logic) never crowd them out.
     challenge ? Promise.resolve([] as Question[]) : loadRecentMisses(childId, (t) => skills.some((s) => s.id === t.skillId)),
-    loadRealmSettings(childId),
   ]);
   const profile = profileFromRow(profileRow);
   const masteryBySkill: Record<string, number> = {};
@@ -157,9 +162,6 @@ export async function startDeedRun(
     masteryRows.map((m) => ({ skillId: m.skillId, level: m.level, lastPracticedAt: lastPracticedBySkill[m.skillId] })),
     skills.map((s) => s.id), Date.now(),
   );
-  // The grown-up's switches decide which hands-on kinds a NEW run may draw (an open run is a
-  // snapshot and never asks); the gate is multiple choice whatever they say (R-C4).
-  const enabledKinds: ReadonlySet<TaskKind> = ctx === "gate" ? new Set<TaskKind>() : enabledHandsOnKinds(settings);
   const built = buildDeedRun({
     deed, grade, masteryBySkill, lastPracticedBySkill, profile, seed: Date.now() >>> 0, poolItems, focusSkillIds, enabledKinds,
     ...(challenge

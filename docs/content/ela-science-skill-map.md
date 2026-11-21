@@ -50,10 +50,10 @@ it. Passages stay short enough to read inside the side-quest panel.
 | 3 | `read-g3` | Passage: the main idea | RI.3.2 | new |
 | 4 | `read-g4` | Passage: drawing an inference and saying what it rests on | RL.4.1 | new |
 | 5 | `read-g5` | Passage: theme, and summarising | RL.5.2 | new |
-| 6 | `read-g6` | Passage: the author's purpose and point of view | RI.6.6 | new |
+| 6 | `read-g6` | Passage: the author's purpose and point of view | RI.6.6 | new — played as reading trails; no multiple-choice pool yet |
 | 7 | `read-g7` | Passage: central idea, and the evidence for it | RI.7.2 | new |
 | 8 | `read-g8` | Passage: judging an argument and spotting an unsupported claim | RI.8.8 | new |
-| 9 | `read-g9` | Passage: tone, and what word choice does to it | RL.9-10.4 | new |
+| 9 | `read-g9` | Passage: tone, and what word choice does to it | RL.9-10.4 | new — played as reading trails; no multiple-choice pool yet |
 | 10 | `read-g10` | Passage: how a text is put together, and why | RI.9-10.5 | new |
 | 11 | `read-g11` | Passage: rhetoric — how a writer persuades | RI.11-12.6 | new |
 | 12 | `read-g12` | Passage: holding two accounts together and reconciling them | RI.11-12.7 | new |

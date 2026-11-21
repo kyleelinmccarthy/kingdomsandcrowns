@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { applyProfile, buildDeedRun, chooseSkills, drawForSkill, gradeAnswer, runCandidates, selectSkills, type BuildRunInput, type PoolItem } from "./deed-engine";
-import { DEEDS, SIDE_QUEST_QUESTIONS, findDeed } from "./deeds";
+import { DEEDS, SIDE_QUEST_QUESTIONS, findDeed, type Deed } from "./deeds";
 import { REVIEW } from "./review-schedule";
 import { CHALLENGE } from "./deed-scoring";
 import { GENERATORS, seededRng } from "./drill-generators";
-import { SKILLS } from "./skills";
+import { SKILLS, choiceDrawable } from "./skills";
 import { FOCUS_WEIGHT } from "./focus";
 import { GRADES } from "./grade-levels";
 import { skillsFor } from "./skills";
@@ -12,6 +12,7 @@ import type { Question } from "./drill-generators";
 import type { ChoiceTask, LockTask, MeasureTask, Task, TaskKind } from "@/lib/tasks/types";
 import { BENCH } from "@/lib/tasks/bench";
 import { TASK_KINDS, kindOf } from "@/lib/tasks/registry";
+import { HANDS_ON_KINDS } from "@/lib/tasks/kinds";
 import { __setDrawerForTest, type TaskDrawer } from "@/lib/tasks/draw";
 import { choiceKind } from "@/lib/tasks/choice";
 import { __setSortPoolsForTest, sortTaskFromId } from "@/lib/tasks/locks/sort";
@@ -26,6 +27,14 @@ function poolItems(skillId: string, n: number, level = 2): PoolItem[] {
     id: `${skillId}-item-${i}`, skillId, prompt: `Prompt ${i}`, answer: `A${i}`, distractors: [`B${i}`, `C${i}`, `D${i}`], readAloud: null, level,
   }));
 }
+
+/**
+ * Reading as multiple choice, whatever the real deed's mechanic is (F-5): H7 flips `well-signs` to
+ * trails, and the candidate cases below are about what a run can PLAY, so they use this fixture.
+ */
+const choiceReading = { ...findDeed("well-signs")!, mechanic: "choice" as const };
+/** Every hands-on kind on: the run asks for no restriction beyond what it can play. */
+const ALL_ON: ReadonlySet<TaskKind> = new Set<TaskKind>(HANDS_ON_KINDS);
 
 const profile = { fewerChoices: false, predictableRoutine: false, untimed: false, readAloud: false };
 
@@ -50,7 +59,11 @@ describe("chooseSkills", () => {
   });
   it("falls back to the nearest grade when the area has no skill there", () => {
     expect(chooseSkills(deedLanguage, "7").map((s) => s.id)).toEqual(["vocab-g68"]);
-    expect(chooseSkills(deedReading, "9").map((s) => s.id)).toEqual(["read-g4"]);
+    // Unfiltered: `chooseSkills` knows nothing of what a run can play, so grade 9 finds the trail-only `read-g9`.
+    // The run's own candidates (`runCandidates`) are what leave it out where trails cannot play (R-H8).
+    expect(chooseSkills(deedReading, "9").map((s) => s.id)).toEqual(["read-g9"]);
+    expect(chooseSkills(deedReading, "12").map((s) => s.id)).toEqual(["read-g9"]);
+    expect(chooseSkills(deedReading, "7").map((s) => s.id)).toEqual(["read-g6"]);
   });
 
   /**
@@ -222,7 +235,6 @@ describe("grading", () => {
 });
 
 const mathDeed = findDeed("well-stones")!;   // area: "math"
-const readingDeed = findDeed("well-signs")!; // area: "reading"
 
 describe("chooseSkills by grade", () => {
   it("gives a grade-3 hero the skills their grade's content is authored for", () => {
@@ -238,10 +250,11 @@ describe("chooseSkills by grade", () => {
   });
 
   it("walks to easier grades, never harder, when a grade has nothing", () => {
-    // Reading is now authored up to grade 4, so a grade-6 hero falls back two years rather
-    // than the four they used to fall. It is still a fall, not a climb, which is the point
-    // here; the remaining reading grades are what close the gap.
-    const ids = chooseSkills(readingDeed, "6").map((s) => s.id);
+    // Reading's multiple-choice pools reach grade 4, so a grade-6 hero's PLAYABLE reading (what a run
+    // draws where trails cannot play) falls back two years. It is still a fall, not a climb, which is
+    // the point here; the remaining reading grades are what close the gap. `chooseSkills` alone now
+    // lands on the trail-only `read-g6`; `runCandidates` is what filters it out (R-H8).
+    const ids = runCandidates(choiceReading, "6", [], ALL_ON).map((s) => s.id);
     expect(ids.length).toBeGreaterThan(0);
     expect(ids).toContain("read-g4");
   });
@@ -303,7 +316,9 @@ describe("every skill at a hero's grade can actually be served", () => {
 
   it.each(AREA_DEEDS)("reaches every %s skill at every grade across a run of seeds", (area, deed) => {
     for (const grade of GRADES) {
-      const available = skillsFor(area, grade).map((s) => s.id);
+      // Trail-only skills (`read-g6`, `read-g9`) are reached through the trail mechanic and nothing else
+      // (R-H8): a choice run never draws them. Their reachability is pinned with the trail run (H7).
+      const available = skillsFor(area, grade).filter(choiceDrawable).map((s) => s.id);
       if (available.length === 0) continue;
       // Pool skills need items or they can be selected and still produce nothing, which
       // would read as unreachable for the wrong reason.
@@ -859,9 +874,11 @@ describe("a focus skill a grade off the hero's own", () => {
   };
 
   it("adds nothing to chooseSkills when there is no focus, for every deed strand and grade", () => {
-    for (const deed of [deedMath, deedReading, deedLanguage, deedScience]) {
+    // Reading is left out: its trail-only rows are filtered by `runCandidates` and not by `chooseSkills` (R-H8, below).
+    for (const deed of [deedMath, deedLanguage, deedScience]) {
       for (const g of GRADES) expect(runCandidates(deed, g, [])).toEqual(chooseSkills(deed, g));
     }
+    for (const g of ["K", "1", "2", "3", "4", "5"] as const) expect(runCandidates(deedReading, g, [])).toEqual(chooseSkills(deedReading, g));
     expect(runCandidates(deedMath, "3", ["add-100", "read-g4", "nope", "add-100", "mul-facts"]).map((s) => s.id))
       .toEqual([...chooseSkills(deedMath, "3").map((s) => s.id), "add-100"]);
   });
@@ -1315,5 +1332,120 @@ describe("a grown-up's vocabulary focus is sorted on a lock's face (R-F11)", () 
     const benched = math.questions.filter((q) => q.skillId === "area-perimeter");
     expect(benched.length).toBeGreaterThan(0);
     for (const t of benched) expect(kindOf(t)).toBe("measure");
+  });
+});
+
+describe("a run draws only what it can play (R-H8)", () => {
+  const ids = (deed: Deed, g: (typeof GRADES)[number], focus: readonly string[] = [], on: ReadonlySet<TaskKind> = ALL_ON) =>
+    runCandidates(deed, g, focus, on).map((s) => s.id);
+
+  it("keeps reading multiple choice where trails cannot play: every grade 6 to 12 is read-g4", () => {
+    for (const g of ["6", "7", "8", "9", "10", "11", "12"] as const) expect(ids(choiceReading, g), `grade ${g}`).toEqual(["read-g4"]);
+  });
+
+  it("never gives a reader an empty run: K and 2 keep their sight words, 1 and 3 and 4 and 5 their pools (Review Focus 3)", () => {
+    expect(ids(choiceReading, "K")).toEqual(["sight-k1"]);
+    expect(ids(choiceReading, "2")).toEqual(["sight-g23"]);
+    expect(ids(choiceReading, "1")).toEqual(["read-g1"]);
+    expect(ids(choiceReading, "3")).toEqual(["read-g3"]);
+    expect(ids(choiceReading, "4")).toEqual(["read-g4"]);
+    expect(ids(choiceReading, "5")).toEqual(["read-g4"]);
+    for (const g of GRADES) expect(ids(choiceReading, g).length, `grade ${g}`).toBeGreaterThan(0);
+  });
+
+  it("changes nothing for math, science and language at any grade, with every kind on, none on, or no set at all", () => {
+    for (const deed of [deedMath, deedLanguage, deedScience]) {
+      for (const g of GRADES) {
+        const all = chooseSkills(deed, g).map((s) => s.id);
+        expect(ids(deed, g), `${deed.area} ${g} all on`).toEqual(all);
+        expect(runCandidates(deed, g, [], CHOICE_ONLY).map((s) => s.id), `${deed.area} ${g} none on`).toEqual(all);
+        expect(runCandidates(deed, g).map((s) => s.id), `${deed.area} ${g} no set`).toEqual(all);
+      }
+    }
+  });
+
+  it("leaves a grade-6+ reading focus on a trail skill out of a choice run, and keeps one a choice run can draw", () => {
+    expect(ids(choiceReading, "7", ["read-g6", "read-g9"])).toEqual(["read-g4"]);
+    expect(ids(choiceReading, "3", ["read-g6"])).toEqual(["read-g3"]);
+    expect(ids(choiceReading, "3", ["read-g4", "read-g6"])).toEqual(["read-g3", "read-g4"]);
+  });
+
+  describe("when the deed's mechanic presents a trail skill", () => {
+    const trailReading = { ...choiceReading, mechanic: "trail" as const };
+    const TRAILS_ON: ReadonlySet<TaskKind> = new Set<TaskKind>(["trail"]);
+    afterEach(() => vi.restoreAllMocks());
+    const presenting = (...skillIds: string[]) =>
+      vi.spyOn(TASK_KINDS.trail, "presents").mockImplementation((id: string) => skillIds.includes(id));
+
+    it("keeps the trail skill while its switch is on, and drops it with the switch off or at the gate", () => {
+      presenting("read-g6");
+      expect(ids(trailReading, "7", [], TRAILS_ON)).toEqual(["read-g6"]);
+      expect(ids(trailReading, "7", [], ALL_ON)).toEqual(["read-g6"]);
+      expect(runCandidates(trailReading, "7", []).map((s) => s.id), "no set means every kind on").toEqual(["read-g6"]);
+      // Trails off, or the gate (no hands-on kind at all): today's multiple choice, never empty.
+      expect(ids(trailReading, "7", [], new Set<TaskKind>(["measure", "lock"]))).toEqual(["read-g4"]);
+      expect(ids(trailReading, "7", [], CHOICE_ONLY)).toEqual(["read-g4"]);
+    });
+
+    it("keeps only the trail-only skills the mechanic presents", () => {
+      presenting("read-g9");
+      // read-g6 is trail-only and not presented: it is not playable, so grade 7 falls to read-g4.
+      expect(ids(trailReading, "7", [], TRAILS_ON)).toEqual(["read-g4"]);
+      expect(ids(trailReading, "10", [], TRAILS_ON)).toEqual(["read-g9"]);
+    });
+
+    it("keeps a choice-drawable skill whether or not the mechanic presents it", () => {
+      presenting();
+      expect(ids(trailReading, "3", [], TRAILS_ON)).toEqual(["read-g3"]);
+      expect(ids(trailReading, "K", [], TRAILS_ON)).toEqual(["sight-k1"]);
+    });
+
+    it("lets a focus extra in only when it is playable", () => {
+      presenting("read-g6");
+      expect(ids(trailReading, "4", ["read-g6"], TRAILS_ON)).toEqual(["read-g4", "read-g6"]);
+      expect(ids(trailReading, "4", ["read-g6"], CHOICE_ONLY)).toEqual(["read-g4"]);
+    });
+
+    it("a lock mechanic does not make a trail skill playable: a lock presents no reading skill", () => {
+      presenting("read-g6");
+      expect(ids({ ...choiceReading, mechanic: "lock" }, "7", [], ALL_ON)).toEqual(["read-g4"]);
+    });
+  });
+
+  it("a lock skill is playable on a deed whose mechanic is a lock that presents it, and only while locks are on", () => {
+    const logicDeed = { ...choiceReading, area: "logic", mechanic: "lock" } as unknown as Deed;
+    expect(ids(logicDeed, "5")).toEqual(["logic-g45"]);
+    expect(ids(logicDeed, "5", [], new Set<TaskKind>(["measure", "trail"]))).toEqual([]);
+    expect(runCandidates(logicDeed, "5").map((s) => s.id)).toEqual(["logic-g45"]);
+  });
+});
+
+describe("what a trail skill's choice draw is, and what buildDeedRun hands the candidates (R-H8)", () => {
+  it("a choice draw of a trail skill is empty, never a throw", () => {
+    const skill = SKILLS.find((s) => s.id === "read-g6")!;
+    expect(drawForSkill(skill, 0, 4, seededRng(1), [], new Set(), new Set())).toEqual([]);
+    expect(drawForSkill(SKILLS.find((s) => s.id === "read-g9")!, 3, 4, seededRng(2), [], new Set(), new Set())).toEqual([]);
+  });
+
+  it("a grade 6 to 12 reading run is read-g4 multiple choice, eight questions, with trails off", () => {
+    for (const g of ["6", "7", "9", "12"] as const) {
+      const run = buildDeedRun(input({ deed: choiceReading, grade: g, poolItems: poolItems("read-g4", 30), enabledKinds: CHOICE_ONLY }));
+      expect(run.skillIds, `grade ${g}`).toEqual(["read-g4"]);
+      expect(run.questions, `grade ${g}`).toHaveLength(8);
+      choices(run.questions);
+    }
+  });
+
+  it("a grade-7 reading run is read-g4 whichever kinds are on, since a choice deed presents no trail skill", () => {
+    for (const enabledKinds of [CHOICE_ONLY, ALL_ON, undefined]) {
+      const run = buildDeedRun(input({ deed: choiceReading, grade: "7", poolItems: poolItems("read-g4", 30), enabledKinds }));
+      expect(run.skillIds).toEqual(["read-g4"]);
+      expect(run.questions).toHaveLength(8);
+    }
+  });
+
+  it("a trail skill that is a run's one candidate is still picked by selectSkills (H7 relies on it); a lock skill is not", () => {
+    expect(selectSkills([SKILLS.find((s) => s.id === "read-g6")!], {}, seededRng(1)).map((s) => s.id)).toEqual(["read-g6"]);
+    expect(selectSkills([SKILLS.find((s) => s.id === "logic-g45")!], {}, seededRng(1))).toEqual([]);
   });
 });

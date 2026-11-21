@@ -1,12 +1,13 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
-import { SKILLS, skillsFor, findSkill, skillForPool, schoolLines, AREA_SCHOOL, AREA_LABELS, LOGIC_SKILL_IDS, type SkillArea } from "./skills";
+import { SKILLS, skillsFor, findSkill, skillForPool, schoolLines, choiceDrawable, AREA_SCHOOL, AREA_LABELS, LOGIC_SKILL_IDS, type SkillArea } from "./skills";
 import { GENERATORS } from "./drill-generators";
 import { lockFor } from "@/lib/tasks/locks";
 import { GRADES, gradeIndex } from "./grade-levels";
 import { chooseSkills } from "./deed-engine";
 import type { Deed } from "./deeds";
+import { mapRows } from "@/test/skill-map";
 
 describe("SKILLS", () => {
   it("has unique ids and resolvable sources", () => {
@@ -15,6 +16,8 @@ describe("SKILLS", () => {
     for (const s of SKILLS) {
       if (s.source.kind === "generator") expect(GENERATORS[s.source.generatorId]).toBeTypeOf("function");
       else if (s.source.kind === "lock") expect(s.area, `${s.id} is a lock skill outside logic`).toBe("logic");
+      // A trail skill has no pool file to find: its clues live in `src/content/trails/` (H4), and only reading plays them.
+      else if (s.source.kind === "trail") expect(s.area, `${s.id} is a trail skill outside reading`).toBe("reading");
       else expect(fs.existsSync(path.join(__dirname, "../../content/drills", `${s.source.poolId}.json`))).toBe(true);
     }
   });
@@ -108,10 +111,14 @@ describe("which grade each strand is actually served at", () => {
             "read-g4",
           ],
           "5": [],
-          "6": [],
+          "6": [
+            "read-g6",
+          ],
           "7": [],
           "8": [],
-          "9": [],
+          "9": [
+            "read-g9",
+          ],
           "K": [
             "sight-k1",
           ],
@@ -146,50 +153,44 @@ describe("which grade each strand is actually served at", () => {
   });
 });
 
+describe("the trail skills (R-H8)", () => {
+  it("adds reading at six and nine as trail-only rows, labelled from the ELA map", () => {
+    expect(findSkill("read-g6")).toEqual({
+      id: "read-g6", label: "Author's purpose and point of view", area: "reading", grades: ["6"], source: { kind: "trail" },
+    });
+    expect(findSkill("read-g9")).toEqual({
+      id: "read-g9", label: "Tone and word choice", area: "reading", grades: ["9"], source: { kind: "trail" },
+    });
+    expect(skillsFor("reading", "6").map((s) => s.id)).toEqual(["read-g6"]);
+    expect(skillsFor("reading", "9").map((s) => s.id)).toEqual(["read-g9"]);
+  });
+
+  it("is played only as reading, and nothing else uses the trail source", () => {
+    expect(SKILLS.filter((s) => s.source.kind === "trail").map((s) => s.id)).toEqual(["read-g6", "read-g9"]);
+  });
+
+  it("choiceDrawable is true for a generator or pool skill, false for a lock or trail skill", () => {
+    for (const id of ["read-g4", "add-10", "sight-k1", "vocab-g68"]) expect(choiceDrawable(findSkill(id)!), id).toBe(true);
+    for (const id of ["read-g6", "read-g9", "logic-g45", "logic-k1"]) expect(choiceDrawable(findSkill(id)!), id).toBe(false);
+  });
+
+  it("every skill is choice-drawable unless it is a lock or a trail skill", () => {
+    for (const s of SKILLS) expect(choiceDrawable(s), s.id).toBe(s.source.kind === "generator" || s.source.kind === "pool");
+  });
+
+  it("the climb inventory: chooseSkills (unfiltered) now finds read-g6 at 6 to 8 and read-g9 at 9 to 12, never a climb", () => {
+    const reading = { area: "reading" } as Deed;
+    for (const g of ["6", "7", "8"] as const) expect(chooseSkills(reading, g).map((s) => s.id), `grade ${g}`).toEqual(["read-g6"]);
+    for (const g of ["9", "10", "11", "12"] as const) expect(chooseSkills(reading, g).map((s) => s.id), `grade ${g}`).toEqual(["read-g9"]);
+  });
+});
+
 /**
  * A skill map is the curriculum's source of truth, and it is a document a parent can edit.
- * This reads one directly so the table cannot drift from it — if someone moves a skill to a
- * different grade in a map and not in the code, this fails and names the skill.
- *
- * ONE parser, for both maps. They differ in two cosmetic ways and in nothing that matters:
- * the math map bolds its grade cell and the ELA and science map leaves it plain, and the ELA
- * map splits its rows across a `## ` heading per strand where math has a single table. So a
- * row carries the strand it was found under, `null` for math. A second copy of this walk
- * would be a second thing to keep true.
+ * These tests read one directly (through the shared parser in `src/test/skill-map.ts`, F-12) so the
+ * table cannot drift from it: if someone moves a skill to a different grade in a map and not in the
+ * code, they fail and name the skill.
  */
-const MAP_STRANDS: Record<string, SkillArea> = {
-  Logic: "logic",
-  Reading: "reading",
-  "Language Arts": "language",
-  Science: "science",
-};
-
-type MapRow = { grade: string; skillId: string; strand: SkillArea | null; status: string };
-
-function mapRows(file: string): MapRow[] {
-  const md = fs.readFileSync(path.join(process.cwd(), "docs/content", file), "utf8");
-  const rows: MapRow[] = [];
-  let grade: string | null = null;
-  let strand: SkillArea | null = null;
-  for (const line of md.split("\n")) {
-    const heading = /^## (.+)$/.exec(line);
-    if (heading) {
-      strand = MAP_STRANDS[heading[1].trim()] ?? null;
-      continue;
-    }
-    if (!line.startsWith("|")) continue;
-    const cells = line.split("|").map((c) => c.trim());
-    // A grade cell is "**K**", "**9** *(Algebra I)*", "K" or "9 *(Biology)*"; a continuation
-    // row in the math table leaves it empty and keeps the grade of the row above it.
-    const g = /^\*{0,2}([K0-9]{1,2})\*{0,2}(?:\s|$)/.exec(cells[1] ?? "");
-    if (g) grade = g[1];
-    const id = /^`([a-z0-9-]+)`$/.exec(cells[2] ?? "");
-    // The last cell of a row is Status in both maps, whether or not there is a Standard column.
-    if (id && grade) rows.push({ grade, skillId: id[1], strand, status: cells[cells.length - 2] ?? "" });
-  }
-  return rows;
-}
-
 const mathMapRows = () => mapRows("math-skill-map.md");
 const elaMapRows = () => mapRows("ela-science-skill-map.md");
 const logicMapRows = () => mapRows("logic-skill-map.md");
@@ -238,8 +239,8 @@ describe("the ELA and science skill tables follow the skill map", () => {
    * either direction. When it is empty, the comparison below is the map, unfiltered.
    */
   const POOLS_NOT_YET_WRITTEN = [
-    "read-g5", "read-g6",
-    "read-g7", "read-g8", "read-g9", "read-g10", "read-g11", "read-g12",
+    "read-g5",
+    "read-g7", "read-g8", "read-g10", "read-g11", "read-g12",
     "lang-g7", "lang-g8", "lang-g10", "lang-g11", "lang-g12",
     "science-g1", "science-g3", "science-g5", "science-g7",
     "science-g8", "science-g10", "science-g11", "science-g12",
@@ -248,6 +249,14 @@ describe("the ELA and science skill tables follow the skill map", () => {
   it("has a skill for every map row except the pools not yet written", () => {
     const missing = elaMapRows().filter((r) => findSkill(r.skillId) === null).map((r) => r.skillId);
     expect(missing.sort(), "the unwritten-pool list is not the real one").toEqual([...POOLS_NOT_YET_WRITTEN].sort());
+  });
+
+  it("says in the map that the trail-only rows are played as reading trails, with no multiple-choice pool", () => {
+    const status = (id: string) => elaMapRows().find((r) => r.skillId === id)?.status;
+    expect(status("read-g6")).toBe("new — played as reading trails; no multiple-choice pool yet");
+    expect(status("read-g9")).toBe("new — played as reading trails; no multiple-choice pool yet");
+    // Every other row keeps the status it had.
+    expect(elaMapRows().filter((r) => r.status.includes("trails")).map((r) => r.skillId)).toEqual(["read-g6", "read-g9"]);
   });
 
   it("serves exactly the ELA and science map's skills at every grade", () => {

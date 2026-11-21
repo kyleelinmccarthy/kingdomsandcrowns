@@ -77,6 +77,16 @@ describe("/dev/content", () => {
     expect(screen.queryAllByTestId("question")).toHaveLength(0);
   });
 
+  it.each([["6", "read-g6"], ["9", "read-g9"]] as const)(
+    "shows a trail skill with no sample yet, and no crash (F-14, grade %s)",
+    async (grade, skillId) => {
+      await show(grade, "Reading");
+      expect(screen.getAllByTestId("skill").map((el) => el.getAttribute("data-skill"))).toEqual([skillId]);
+      expect(screen.getByTestId("trail-note")).toHaveTextContent(/no sample yet/i);
+      expect(screen.queryAllByTestId("question")).toHaveLength(0);
+    },
+  );
+
   it.each(GRADES)(
     "marks exactly one choice as the answer for every question it renders (grade %s)",
     async (grade) => {

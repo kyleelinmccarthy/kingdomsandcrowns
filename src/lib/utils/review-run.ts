@@ -1,7 +1,7 @@
 import { seededRng, shuffle } from "./drill-generators";
 import { applyProfile, drawForSkill, type PoolItem, type ProfileLike } from "./deed-engine";
 import { overdueSkills, type MasteryTiming } from "./review-schedule";
-import { findSkill, type Skill } from "./skills";
+import { choiceDrawable, findSkill, type Skill } from "./skills";
 import { MASTERY_MAX } from "./mastery";
 import type { ChoiceTask, Task } from "@/lib/tasks/types";
 
@@ -34,7 +34,7 @@ function knownRows(mastery: readonly MasteryTiming[]): Map<string, MasteryTiming
   for (const r of mastery) {
     if (!rows.has(r.skillId)) {
       const skill = findSkill(r.skillId);
-      if (skill && skill.source.kind !== "lock") rows.set(r.skillId, r);
+      if (skill && choiceDrawable(skill)) rows.set(r.skillId, r);
     }
   }
   return rows;

@@ -53,6 +53,17 @@ describe("reviewDue", () => {
     expect(r.questions.length).toBeGreaterThan(0);
     expect(r.questions.every((q) => q.skillId === "science-g23")).toBe(true);
   });
+  it("ignores a trail skill: a review run is choice only, and read-g6 has no choice questions", () => {
+    expect(reviewDue([row("read-g6", 2, 300), row("read-g9", 1, null)], NOW)).toBe(false);
+    expect(reviewDue([row("read-g6", 2, 300), row("science-g23", 1, 3)], NOW)).toBe(true);
+    expect(run({ mastery: [row("read-g6", 2, 300), row("read-g9", 2, 300)], poolItems: poolFor("read-g6", "read-g9") }))
+      .toEqual({ skillIds: [], questions: [] });
+  });
+  it("is never offered a trail skill as review, even with a miss stored for it", () => {
+    const r = run({ mastery: [row("read-g6", 2, 300), row("science-g23", 1, 9)], recentMisses: [miss("read-g6", "t1")], poolItems: poolFor("science-g23") });
+    expect(r.skillIds).toEqual(["science-g23"]);
+    expect(r.questions.map((q) => q.id)).not.toContain("t1");
+  });
   it("builds nothing for a hero with only logic rows", () => {
     expect(run({ mastery: [row("logic-g23", 2, 300)] })).toEqual({ skillIds: [], questions: [] });
   });

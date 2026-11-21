@@ -90,6 +90,9 @@ export const SKILL_HINTS: Readonly<Record<string, string>> = {
   "read-g1": "Say each word out loud and listen for the sound. Stretch the sound out, slowly.",
   "read-g3": "Ask what all the sentences are mostly about together. A choice about only one detail is too small.",
   "read-g4": "Find clues in the story, then ask what they point to. The answer is not said straight out, so check that a clue backs it up.",
+  // Played as clues answered by a place, so nothing here talks about choices.
+  "read-g6": "Ask who wrote the note and why they wrote it. Then check each fact against the places, and keep the one that fits them all.",
+  "read-g9": "Notice the exact words the writer chose and how they feel. Work out what each one means, then check the facts against the places.",
 
   // Language arts
   "lang-gk": "Say the word slowly and point to each letter. Think about the first sound, the last sound, and the letters in between.",

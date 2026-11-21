@@ -1,7 +1,7 @@
 import { GENERATORS, seededRng, shuffle, type Question, type Rng } from "./drill-generators";
 import { nearestGrades, type Grade } from "./grade-levels";
 import { MASTERY_MAX } from "./mastery";
-import { findSkill, skillsFor, type Skill } from "./skills";
+import { choiceDrawable, findSkill, skillsFor, type Skill } from "./skills";
 import { FOCUS_WEIGHT } from "./focus";
 import { SIDE_QUEST_QUESTIONS, deedRunLength, type Deed } from "./deeds";
 import { REVIEW } from "./review-schedule";
@@ -93,9 +93,11 @@ const SET_TRIES = 32;
  * grade 2 and nowhere above, so a grade-9 hero's reading quest is grade-2 work. That is the
  * walk doing what it says.
  */
-export function chooseSkills(deed: Pick<Deed, "area">, grade: Grade): Skill[] {
+export function chooseSkills(deed: Pick<Deed, "area">, grade: Grade, playable: (s: Skill) => boolean = () => true): Skill[] {
   for (const g of nearestGrades(grade)) {
-    const candidates = skillsFor(deed.area, g);
+    // `playable` is applied BEFORE the walk stops, so a grade whose only skills a run cannot play is
+    // passed over and the walk carries on to the next grade, never ending on an empty list there.
+    const candidates = skillsFor(deed.area, g).filter(playable);
     if (candidates.length > 0) return candidates;
   }
   return [];
@@ -110,13 +112,27 @@ export function chooseSkills(deed: Pick<Deed, "area">, grade: Grade): Skill[] {
  *
  * The focus skills go on the END, so with none the list (and every draw over it) is exactly
  * `chooseSkills`'s.
+ *
+ * **A run draws only what it can play (R-H8).** A skill is playable when a multiple-choice
+ * question can be drawn for it (`choiceDrawable`), or when the deed's own mechanic presents it and
+ * that mechanic is on (`enabledKinds`; every kind when absent, as in `buildDeedRun`). So with trails
+ * off, or at the gate (no hands-on kind on), a grade 6 to 12 reading side quest is `read-g4`
+ * multiple choice exactly as it was before the trail-only rows existed, never an empty run. Both the
+ * base walk and the focus extras are held to it.
  */
-export function runCandidates(deed: Deed, grade: Grade, focusSkillIds: readonly string[] = []): Skill[] {
-  const base = chooseSkills(deed, grade);
+export function runCandidates(
+  deed: Deed,
+  grade: Grade,
+  focusSkillIds: readonly string[] = [],
+  enabledKinds?: ReadonlySet<TaskKind>,
+): Skill[] {
+  const mechanicOn = deed.mechanic !== "choice" && (!enabledKinds || enabledKinds.has(deed.mechanic));
+  const playable = (s: Skill): boolean => choiceDrawable(s) || (mechanicOn && TASK_KINDS[deed.mechanic].presents(s.id));
+  const base = chooseSkills(deed, grade, playable);
   const extra: Skill[] = [];
   for (const id of focusSkillIds) {
     const skill = findSkill(id);
-    if (!skill || skill.area !== deed.area) continue;
+    if (!skill || skill.area !== deed.area || !playable(skill)) continue;
     if (base.some((s) => s.id === id) || extra.some((s) => s.id === id)) continue;
     extra.push(skill);
   }
@@ -217,8 +233,9 @@ export function selectSkills(
   const picked = [generator, pool].filter((s): s is Skill => !!s);
   // A `lock` skill is practised on lock puzzles only and is never drawn as choice, so it is
   // never picked here: a run whose candidates are all locks has nothing to draw and is empty.
-  // Anything else that fell through both filters (a source kind added later) still gets one
-  // pick rather than handing a hero an empty run.
+  // Anything else that fell through both filters still gets one pick rather than handing a hero an
+  // empty run: a trail-only skill (`read-g6`) that is the run's one candidate is picked here, which
+  // is how a grade-7 reader's trail run starts (`runCandidates` only offers it when trails can play).
   return picked.length > 0 ? picked : candidates.filter((s) => s.source.kind !== "lock").slice(0, 1);
 }
 
@@ -469,8 +486,8 @@ export function drawForSkill(
   kind: TaskKind = "choice",
 ): Task[] {
   if (kind !== "choice") return drawByKind(kind, skill, level, count, rng, excludeIds);
-  // A lock skill has no choice questions: nothing to draw, and nothing to throw about.
-  if (skill.source.kind === "lock") return [];
+  // A lock or trail skill has no choice questions: nothing to draw, and nothing to throw about.
+  if (!choiceDrawable(skill)) return [];
   return skill.source.kind === "generator"
     ? drawGenerated(skill, level, count, rng, excludeIds, excludePrompts)
     : drawPool(poolItems.filter((p) => p.skillId === skill.id && !excludeIds.has(p.id)), level, count, rng);
@@ -497,7 +514,7 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
     return k;
   };
   const rng = seededRng(seed);
-  const candidates = runCandidates(deed, grade, input.focusSkillIds);
+  const candidates = runCandidates(deed, grade, input.focusSkillIds, enabled);
   const skills = selectSkills(candidates, masteryBySkill, rng, lastPracticedBySkill ?? {}, focus);
   const skillIds = skills.map((s) => s.id);
   if (skills.length === 0) return { skillIds: [], questions: [] };

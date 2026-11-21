@@ -127,6 +127,8 @@ function SkillBlock({ sampled }: { sampled: SampledSkill }) {
           </>
         ) : sampled.kind === "lock" ? (
           <code className="text-xs text-zinc-500">lock puzzle</code>
+        ) : sampled.kind === "trail" ? (
+          <code className="text-xs text-zinc-500">reading trail</code>
         ) : (
           <code className="text-xs text-zinc-500">pool: {sampled.poolId}</code>
         )}
@@ -136,6 +138,11 @@ function SkillBlock({ sampled }: { sampled: SampledSkill }) {
         <p data-testid="lock-note" className="mt-2 text-zinc-400">
           Logic skills are played on lock puzzles, never as multiple choice, so there are no questions to
           read here. Each lock generator is checked by a brute-force solver in its own tests.
+        </p>
+      ) : sampled.kind === "trail" ? (
+        <p data-testid="trail-note" className="mt-2 text-zinc-400">
+          Reading trails are played as clues answered by a place in the village, never as multiple choice.
+          No sample yet: this page does not read the trail pools.
         </p>
       ) : sampled.kind === "pool" ? (
         <p data-testid="pool-note" className="mt-2 text-zinc-400">

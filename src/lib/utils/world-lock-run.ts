@@ -11,22 +11,17 @@
  *                     choice question.
  */
 import { TASK_KINDS } from "@/lib/tasks/registry";
-import { bandForGrade, nearestGrades, type Grade } from "./grade-levels";
+import { bandSkill } from "./band-skill";
+import type { Grade } from "./grade-levels";
 import { practiceSkill } from "./practice-run";
-import { skillsFor, type Skill, type SkillArea } from "./skills";
+import type { Skill, SkillArea } from "./skills";
 import type { WorldObject } from "@/lib/realm/world-objects";
 
 /** `grade` is the grade the skill was found at, which names the run's band. */
 export type WorldLockPick = { skill: Skill; grade: Grade };
 
 function sortSkill(area: "language" | "science", grade: Grade): WorldLockPick | null {
-  const band = bandForGrade(grade);
-  for (const g of nearestGrades(grade)) {
-    if (bandForGrade(g) !== band) continue;
-    const skill = skillsFor(area, g).find((s) => TASK_KINDS.lock.presents(s.id));
-    if (skill) return { skill, grade: g };
-  }
-  return null;
+  return bandSkill(area, grade, (s) => TASK_KINDS.lock.presents(s.id));
 }
 
 export function worldLockSkill(

@@ -1469,6 +1469,76 @@ describe("the gate stays multiple choice (R-C4)", () => {
   });
 });
 
+describe("a grade 6 to 12 reading side quest stays multiple choice where trails cannot play (R-H8, Review Focus 3)", () => {
+  /**
+   * REGRESSION GUARD (F-22): green before `read-g6` and `read-g9` joined the catalog, and it must stay
+   * green after. With the rows and no playable filter on the candidates, a grade-7 reader's only
+   * candidate would be the trail-only `read-g6`, whose choice draw is empty: `NONE_READY`.
+   *
+   * It names no trail mechanic and starts the real `well-signs` with trails off or at the gate, so
+   * H7's flip of that deed to `trail` leaves it alone (F-5).
+   */
+  const TRAILS_OFF = { ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true, lock: true, trail: false } };
+  const readerAt = (reading: string) => vi.mocked(loadHeroLevels).mockResolvedValue({
+    enabled: true, tone: "gentle", band: "6-8", grades: { math: "3", reading, language: "3", science: "3" },
+  } as unknown as Awaited<ReturnType<typeof loadHeroLevels>>);
+  async function readingPool() {
+    for (let i = 0; i < 30; i++) {
+      await client.query(
+        `INSERT INTO drill_item (id, pool_id, skill_id, band, prompt, answer, distractors, read_aloud, level, updated_at)
+         VALUES (?1, 'read-g4', 'read-g4', 'g45', ?2, ?3, ?4, NULL, 2, unixepoch())`,
+        [`read-g4-item-${i}`, `Passage ${i}?`, `A${i}`, JSON.stringify([`B${i}`, `C${i}`, `D${i}`])],
+      );
+    }
+  }
+  const storedRun = async (id: string) => (await client.query("SELECT skill_ids, questions FROM deed_run WHERE id = ?1", [id])).rows[0];
+  afterEach(() => vi.mocked(loadHeroLevels).mockResolvedValue({
+    enabled: true, tone: "gentle", band: "3-5", grades: { math: "3", reading: "3", language: "3", science: "3" },
+  } as never));
+
+  it("a grade-7 reading side quest with trails off is read-g4 multiple choice, eight questions", async () => {
+    await readingPool();
+    readerAt("7");
+    vi.mocked(loadRealmSettings).mockResolvedValue(TRAILS_OFF);
+    const start = await startDeedRun("c1", "well-signs", "realm");
+    expect(start.questions).toHaveLength(8);
+    expect(start.questions.every((q) => q.kind === "choice")).toBe(true);
+    const row = await storedRun(start.runId);
+    expect(JSON.parse(row.skill_ids as string)).toEqual(["read-g4"]);
+    const tasks = JSON.parse(row.questions as string) as Task[];
+    expect(tasks.every((t) => t.skillId === "read-g4" && kindOf(t) === "choice")).toBe(true);
+  });
+
+  it("every grade from 6 to 12 gets a run at the gate, which is always multiple choice (R-C4)", async () => {
+    await readingPool();
+    for (const grade of ["6", "7", "8", "9", "10", "11", "12"]) {
+      await client.query("DELETE FROM deed_run");
+      readerAt(grade);
+      const start = await startDeedRun("c1", "well-signs", "gate");
+      expect(start.questions, `grade ${grade}`).toHaveLength(8);
+      expect(JSON.parse((await storedRun(start.runId)).skill_ids as string), `grade ${grade}`).toEqual(["read-g4"]);
+    }
+  });
+
+  it("hands the engine candidates it can play: the focus window reaches a trail skill, which a choice run leaves out", async () => {
+    await readingPool();
+    readerAt("7");
+    vi.mocked(loadRealmSettings).mockResolvedValue(TRAILS_OFF);
+    await client.query("INSERT INTO learning_focus (id, child_id, skill_id, created_at) VALUES ('f6', 'c1', 'read-g6', unixepoch())");
+    const start = await startDeedRun("c1", "well-signs", "realm");
+    expect(start.questions).toHaveLength(8);
+    expect(JSON.parse((await storedRun(start.runId)).skill_ids as string)).toEqual(["read-g4"]);
+  });
+
+  it("hands the engine the grown-up's switches, so the candidates and the draw agree", async () => {
+    await readingPool();
+    readerAt("7");
+    vi.mocked(loadRealmSettings).mockResolvedValue(TRAILS_OFF);
+    await startDeedRun("c1", "well-signs", "realm");
+    expect(vi.mocked(buildDeedRun).mock.calls[0][0].enabledKinds).toEqual(new Set(["measure", "lock"]));
+  });
+});
+
 describe("a grade-3 math side quest is played at the bench (slice 2, C13)", () => {
   const MEASURE_OFF = { ...DEFAULT_REALM_SETTINGS, mechanics: { measure: false, lock: true, trail: true } };
   const GROWN_UP = { access: { userId: "u-parent" }, familyId: "f1" } as unknown as Awaited<ReturnType<typeof requireChildAccess>>;

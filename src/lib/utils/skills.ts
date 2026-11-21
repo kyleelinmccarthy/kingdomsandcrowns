@@ -6,12 +6,16 @@ export type SkillArea = "math" | "reading" | "language" | "science" | "logic";
 /**
  * How a skill's tasks are made. A `lock` skill is practised only on lock puzzles, whose
  * generators are keyed by the skill id (`LOCKS` in `src/lib/tasks/locks/`): it has no choice
- * questions, so it is never drawn as `choice` and a choice draw of it is empty.
+ * questions, so it is never drawn as `choice` and a choice draw of it is empty. A `trail` skill is
+ * the same in this respect: it is practised only as a reading trail (a clue answered by a place),
+ * whose clues live in `src/content/trails/` and are credited to the skill by their pool (R-H8), so
+ * it has no choice questions either. `choiceDrawable` is the one test of "has choice questions".
  */
 export type SkillSource =
   | { kind: "generator"; generatorId: string }
   | { kind: "pool"; poolId: string }
-  | { kind: "lock" };
+  | { kind: "lock" }
+  | { kind: "trail" };
 
 /**
  * `grades` is readonly. Nothing shares an array any more — every row names its own single
@@ -20,6 +24,15 @@ export type SkillSource =
  * Build a new array instead.
  */
 export type Skill = { id: string; label: string; area: SkillArea; grades: readonly Grade[]; source: SkillSource };
+
+/**
+ * True when a multiple-choice question can be drawn for the skill: a generator or a pool. A lock
+ * skill and a trail skill have none (their tasks are another kind), so a choice draw of one is
+ * empty and a run that can only play choice never takes one as a candidate.
+ */
+export function choiceDrawable(s: Skill): boolean {
+  return s.source.kind === "generator" || s.source.kind === "pool";
+}
 
 /**
  * Same mapping the subject defaults use, so deeds and schoolwork pull one way. `none` is for an
@@ -54,6 +67,7 @@ export function schoolLines(): { school: SpellSchool; areas: SkillArea[] }[] {
 const gen = (generatorId: string): SkillSource => ({ kind: "generator", generatorId });
 const pool = (poolId: string): SkillSource => ({ kind: "pool", poolId });
 const lock = (): SkillSource => ({ kind: "lock" });
+const trail = (): SkillSource => ({ kind: "trail" });
 
 export const SKILLS: Skill[] = [
   { id: "add-10", label: "Addition within 10", area: "math", grades: ["K"], source: gen("add") },
@@ -187,6 +201,15 @@ export const SKILLS: Skill[] = [
   { id: "read-g1", label: "Sounds and sight words", area: "reading", grades: ["1"], source: pool("read-g1") },
   { id: "read-g3", label: "Main idea", area: "reading", grades: ["3"], source: pool("read-g3") },
   { id: "read-g4", label: "Reading between the lines", area: "reading", grades: ["4"], source: pool("read-g4") },
+  /**
+   * Reading at grades 6 and 9, the two bands whose reading has no multiple-choice pool: trail-only
+   * rows (R-H8), played as clue trails and labelled from `docs/content/ela-science-skill-map.md`.
+   * They have no choice questions, so a run that cannot play trails (trails off, or the gate)
+   * never takes them (`runCandidates`), and a grade 6 to 12 reader falls back to `read-g4`
+   * multiple choice exactly as before.
+   */
+  { id: "read-g6", label: "Author's purpose and point of view", area: "reading", grades: ["6"], source: trail() },
+  { id: "read-g9", label: "Tone and word choice", area: "reading", grades: ["9"], source: trail() },
 
   /**
    * Logic: one row per band at the band's lowest grade (the carried-forward science-pool
