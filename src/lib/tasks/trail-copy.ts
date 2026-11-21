@@ -42,6 +42,8 @@ export const TRAIL_LEAVE = "Leave the trail";
 export const TRAIL_FINISH = "Finish the trail";
 export const TRAIL_HIDE = "Hide the clue";
 export const TRAIL_SHOW = "Show the clue";
+/** The tracker's button that says the clue again (a compact icon; this is its name and title). */
+export const TRAIL_READ_ALOUD = "Read aloud";
 /** Where the walk is: "Clue 2 of 4", shown with numerals on and said to a screen reader always. */
 export const trailClueCount = (n: number, of: number): string => `Clue ${n} of ${of}`;
 

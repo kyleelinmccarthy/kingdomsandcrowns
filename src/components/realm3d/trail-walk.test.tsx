@@ -22,6 +22,7 @@ import {
   TRAIL_HIDE,
   TRAIL_LEAVE,
   TRAIL_LOOKED_HERE,
+  TRAIL_READ_ALOUD,
   TRAIL_SEARCH_VERB,
   TRAIL_SHOW,
   TRAIL_TRACKER_LABEL,
@@ -415,13 +416,30 @@ describe("the tracker's layout (H10 smoke: larger text at 390 px, the 1280 px he
     expect(rule(phone, `${larger} .trail-walk`)).toMatch(/width:\s*calc\(\(100vw - 2\.2rem\) \/ 1\.2\)/);
   });
 
-  it("never squeezes a word onto two lines: the count and the buttons keep to one line, and wrap as a whole onto their own row", () => {
-    expect(rule(css, ".trail-walk-head")).toMatch(/flex-wrap:\s*wrap/);
+  it("never squeezes a word onto two lines: the head is one row that never wraps, the foot's buttons wrap whole", () => {
+    expect(rule(css, ".trail-walk-head")).toMatch(/flex-wrap:\s*nowrap/);
     expect(rule(css, ".trail-walk-foot")).toMatch(/flex-wrap:\s*wrap/);
-    for (const sel of [".trail-walk-count", ".trail-walk-fold", ".trail-walk-foot .r3-link-button"]) {
+    for (const sel of [".trail-walk-count", ".trail-walk-foot .r3-link-button"]) {
       expect(rule(css, sel), sel).toMatch(/white-space:\s*nowrap/);
     }
     expect(rule(css, ".trail-walk-count")).toMatch(/flex:\s*none/);
+    // The head's two buttons are compact icons, sized past `.r3-round.r3-read`'s own 2.6rem.
+    expect(rule(css, ".trail-walk-head .r3-round.trail-walk-btn")).toMatch(/width:\s*1\.5rem;[^}]*height:\s*1\.5rem/);
+  });
+
+  it("keeps about three lines of clue in view, whatever the cap: the clue area has a floor, tighter under larger text", () => {
+    expect(rule(css, ".trail-walk-text")).toMatch(/line-height:\s*1\.35/);
+    expect(rule(css, ".trail-walk-body")).toMatch(/min-height:\s*calc\(3 \* 1\.35 \* 1\.05rem\)/);
+    expect(rule(css, `${larger} .trail-walk-text`)).toMatch(/line-height:\s*1\.25/);
+    expect(rule(css, `${larger} .trail-walk-body`)).toMatch(/min-height:\s*calc\(3 \* 1\.25 \* 1\.05rem\)/);
+    // Larger text trims the card's own padding and the gaps round the body.
+    expect(rule(css, `${larger} .trail-walk`)).toMatch(/padding:\s*0\.3rem 0\.6rem 0\.35rem/);
+  });
+
+  it("on a short screen, puts the clue first in the body, so a miss line scrolls under it", () => {
+    const start = css.indexOf("@media (max-height: 720px)");
+    expect(start).toBeGreaterThan(-1);
+    expect(rule(css.slice(start), ".trail-walk-text")).toMatch(/order:\s*-1/);
   });
 
   // Everything outside the phone block: the rules that hold at every size.
@@ -456,7 +474,6 @@ describe("the tracker's layout (H10 smoke: larger text at 390 px, the 1280 px he
     expect(rule(everywhere, ".trail-walk-head")).toMatch(/flex:\s*none/);
     expect(rule(everywhere, ".trail-walk-foot")).toMatch(/flex:\s*none/);
     expect(rule(everywhere, ".trail-walk-body")).toMatch(/overflow-y:\s*auto/);
-    expect(rule(everywhere, ".trail-walk-body")).toMatch(/min-height:\s*0/);
   });
 
   it("renders the parts those rules hold: the head holds Hide and Read aloud, and the foot sits outside the scrolling body", async () => {
@@ -466,8 +483,18 @@ describe("the tracker's layout (H10 smoke: larger text at 390 px, the 1280 px he
     const card = view.container.querySelector(".trail-walk")!;
     // The tracker is the column's direct child in the frame (`realm-game.tsx`), which `:has(> .trail-walk)` reads.
     expect(card.querySelector(".trail-walk-head .trail-walk-count, .trail-walk-head .r3-run-dots")).not.toBeNull();
-    expect(card.querySelector(".trail-walk-head .trail-walk-fold")).not.toBeNull();
-    expect(card.querySelector(".trail-walk-head .trail-walk-read")).toBe(screen.getByRole("button", { name: "Read aloud" }));
+    // The head's compact icon buttons keep their words as their names, and as their titles.
+    const fold = screen.getByRole("button", { name: TRAIL_HIDE });
+    const read = screen.getByRole("button", { name: TRAIL_READ_ALOUD });
+    for (const [b, words] of [[fold, TRAIL_HIDE], [read, TRAIL_READ_ALOUD]] as const) {
+      expect(card.querySelector(".trail-walk-head")!.contains(b)).toBe(true);
+      expect(b).toHaveClass("r3-round", "trail-walk-btn");
+      expect(b).toHaveAttribute("title", words);
+      expect(b.querySelector("svg, [aria-hidden='true']")).not.toBeNull();
+    }
+    fireEvent.click(fold);
+    expect(screen.getByRole("button", { name: TRAIL_SHOW })).toHaveAttribute("title", TRAIL_SHOW);
+    fireEvent.click(screen.getByRole("button", { name: TRAIL_SHOW }));
     const foot = card.querySelector(":scope > .trail-walk-foot")!;
     expect(foot).not.toBeNull();
     expect(card.querySelector(".trail-walk-body .trail-walk-foot")).toBeNull();

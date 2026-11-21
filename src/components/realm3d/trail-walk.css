@@ -27,12 +27,14 @@
 }
 .trail-walk[hidden] { display: none; }
 
+/* One row at every size, never wrapped (H10 re-check: Read aloud dropped to a row of its own and took
+   the clue's room): the icon, the dots, the count, then two compact icon buttons. */
 .trail-walk-head {
   flex: none;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 0.25rem 0.5rem;
+  gap: 0.5rem;
 }
 .trail-walk-icon { flex: none; width: 1.2rem; height: 1.2rem; color: var(--r3-gold); }
 /* The dots a little smaller than a board's, so the head keeps one row at the column's width. */
@@ -45,17 +47,35 @@
   color: #d9bf87;
   white-space: nowrap;
 }
-.trail-walk-fold {
-  margin-left: auto;
-  font-size: 0.8rem;
-  color: #d9bf87;
-  white-space: nowrap;
+/* Hide or Show the clue, and Read aloud: compact round icons (their words are their names and
+   titles), sized past `.r3-round.r3-read`'s own 2.6rem. */
+.trail-walk-head .r3-round.trail-walk-btn {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border-width: 2px;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.32);
 }
-.trail-walk-read { flex: none; width: 2rem; height: 2rem; }
+.trail-walk-head .trail-walk-btn .r3-read-icon { width: 0.85rem; height: 0.85rem; }
+.trail-walk-fold { margin-left: auto; }
+/* A chevron: up while the clue shows (Hide), down once folded (Show). */
+.trail-walk-chevron {
+  width: 0.45rem;
+  height: 0.45rem;
+  margin-top: 0.2rem;
+  border-left: 2px solid currentColor;
+  border-top: 2px solid currentColor;
+  transform: rotate(45deg);
+}
+.trail-walk-fold[aria-expanded="false"] .trail-walk-chevron { margin-top: -0.2rem; transform: rotate(225deg); }
 
+/* The clue area never collapses below about three lines of clue (H10 re-check: it fell to 3 px). */
 .trail-walk-body {
   flex: 1 1 auto;
-  min-height: 0;
+  min-height: calc(3 * 1.35 * 1.05rem);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -64,7 +84,7 @@
 }
 .trail-walk-line { margin: 0; font-size: 0.85rem; font-weight: 700; color: #f1d9a6; }
 .trail-walk-line--right { color: #c9f0a2; }
-.trail-walk-text { margin: 0; min-width: 0; font-size: 1.05rem; font-weight: 800; line-height: 1.35; color: #fff6de; text-shadow: 0 1px 0 var(--r3-bark); overflow-wrap: anywhere; }
+.trail-walk-text { flex: none; margin: 0; min-width: 0; font-size: 1.05rem; font-weight: 800; line-height: 1.35; color: #fff6de; text-shadow: 0 1px 0 var(--r3-bark); overflow-wrap: anywhere; }
 .trail-walk-error { flex: none; margin: 0.4rem 0 0; font-size: 0.85rem; }
 .trail-walk-foot {
   flex: none;
@@ -78,7 +98,12 @@
 .trail-walk-foot .r3-link-button { white-space: nowrap; }
 .trail-walk-leave { margin-left: auto; color: #d9bf87; }
 
-.r3-root[data-larger-text="on"] .trail-walk { zoom: 1.2; max-height: calc((100dvh - 6.72rem - 18rem) / 1.2); }
+.r3-root[data-larger-text="on"] .trail-walk { zoom: 1.2; max-height: calc((100dvh - 6.72rem - 18rem) / 1.2); padding: 0.3rem 0.6rem 0.35rem; }
+/* Larger text trims a little, so a short phone keeps three lines of clue: the card's padding, the
+   gaps round the body, the foot's line, and the clue's line height. */
+.r3-root[data-larger-text="on"] .trail-walk-body { margin-top: 0.25rem; min-height: calc(3 * 1.25 * 1.05rem); }
+.r3-root[data-larger-text="on"] .trail-walk-text { line-height: 1.25; }
+.r3-root[data-larger-text="on"] .trail-walk-foot { margin-top: 0.2rem; line-height: 1.1; }
 
 /* During any walk, at every size: the tracker is the objective, so the card rests (it is back the
    moment the walk ends, or under the pause menu, where the tracker is hidden), and the column stops
@@ -97,6 +122,12 @@
      tall), never over it, and stops above the E prompt. */
   .r3-left-stack:has(> .trail-walk:not([hidden])) { top: 14rem; max-height: calc(100% - 14rem - 15rem); }
   .r3-root[data-larger-text="on"] .r3-left-stack:has(> .trail-walk:not([hidden])) { top: 14rem; max-height: calc(100% - 14rem - 18rem); }
+}
+
+/* A short screen: the clue first in the body, so when it must scroll the line under it scrolls, not
+   the clue. Taller screens keep the line above the clue, as it reads after a search. */
+@media (max-height: 720px) {
+  .trail-walk-text { order: -1; }
 }
 
 @media (prefers-reduced-motion: reduce) {

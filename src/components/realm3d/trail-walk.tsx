@@ -23,7 +23,7 @@ import { isAnchorId, type AnchorId } from "@/lib/realm/anchors";
 import { realmCue } from "@/lib/realm3d/sound/store";
 import { attemptFeedback } from "@/lib/realm3d/talk";
 import { attemptSpeech, autoSpeaks } from "@/lib/tasks/narration";
-import { TRAIL_FINISH, TRAIL_HIDE, TRAIL_LEAVE, TRAIL_LOOKED_HERE, TRAIL_SHOW, TRAIL_TRACKER_LABEL, trailClueCount } from "@/lib/tasks/trail-copy";
+import { TRAIL_FINISH, TRAIL_HIDE, TRAIL_LEAVE, TRAIL_LOOKED_HERE, TRAIL_READ_ALOUD, TRAIL_SHOW, TRAIL_TRACKER_LABEL, trailClueCount } from "@/lib/tasks/trail-copy";
 import { readyToFinish } from "@/lib/utils/deed-run-flow";
 import type { RunSummary } from "@/lib/utils/deed-run-types";
 import { canSpeak, speak, stopSpeaking } from "@/lib/utils/speech";
@@ -155,12 +155,20 @@ export function TrailWalk({
             {count}
           </span>
         )}
-        <button type="button" className="r3-link-button trail-walk-fold" aria-expanded={!folded} onClick={() => setFolded((f) => !f)}>
-          {folded ? TRAIL_SHOW : TRAIL_HIDE}
+        {/* Compact icon buttons, so the head is one row at every size (their words are their names and titles).
+            In the head, never in the scrolling body, so they are always in reach (a short phone, larger text). */}
+        <button
+          type="button"
+          className="r3-round trail-walk-btn trail-walk-fold"
+          aria-label={folded ? TRAIL_SHOW : TRAIL_HIDE}
+          title={folded ? TRAIL_SHOW : TRAIL_HIDE}
+          aria-expanded={!folded}
+          onClick={() => setFolded((f) => !f)}
+        >
+          <span className="trail-walk-chevron" aria-hidden="true" />
         </button>
-        {/* In the head, never in the scrolling body, so it is always in reach (a short phone, larger text). */}
         {!folded && canSpeak() && (
-          <button type="button" className="r3-round r3-read trail-walk-read" aria-label="Read aloud" title="Read aloud" onClick={() => speak(clueWords)}>
+          <button type="button" className="r3-round r3-read trail-walk-btn trail-walk-read" aria-label={TRAIL_READ_ALOUD} title={TRAIL_READ_ALOUD} onClick={() => speak(clueWords)}>
             <GameIcon name="sparkles" className="r3-read-icon" />
           </button>
         )}
