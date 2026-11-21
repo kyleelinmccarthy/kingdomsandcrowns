@@ -1,4 +1,4 @@
-/* The walk's tracker (`trail-walk.tsx`): a small plank at the head of the top-left column, over the
+/* The walk's tracker (`walk-card.tsx`, worn by `trail-walk.tsx` and `rune-walk.tsx`, RI-a / S14): a small plank at the head of the top-left column, over the
    world, holding the clue while the hero walks. It takes the pointer (the frame does not) and never
    the focus. On a phone it spans the width less the 16 px gutters, under the minimap.
 
@@ -123,6 +123,12 @@
 .r3-left-stack:has(> .trail-walk:not([hidden])) > .r3-quest { display: none; }
 .r3-left-stack:has(> .trail-walk:not([hidden])) { max-height: calc(100% - 5.6rem - 15rem); overflow: hidden; }
 .r3-root[data-larger-text="on"] .r3-left-stack:has(> .trail-walk:not([hidden])) { max-height: calc(100% - 6.72rem - 18rem); }
+/* The rune walk's card is portalled into the column's walk slot (`rune-walk.tsx`, RI-a / B2). The slot
+   draws no box, so the card is the column's item as the trail's is, and the same rules hold for it. */
+.r3-walk-slot { display: contents; }
+.r3-left-stack:has(> .r3-walk-slot > .trail-walk:not([hidden])) > .r3-quest { display: none; }
+.r3-left-stack:has(> .r3-walk-slot > .trail-walk:not([hidden])) { max-height: calc(100% - 5.6rem - 15rem); overflow: hidden; }
+.r3-root[data-larger-text="on"] .r3-left-stack:has(> .r3-walk-slot > .trail-walk:not([hidden])) { max-height: calc(100% - 6.72rem - 18rem); }
 
 @media (max-width: 480px) {
   .trail-walk { width: calc(100vw - 32px); max-height: calc(100dvh - 14rem - 15rem); }
@@ -133,6 +139,8 @@
      tall), never over it, and stops above the E prompt. */
   .r3-left-stack:has(> .trail-walk:not([hidden])) { top: 14rem; max-height: calc(100% - 14rem - 15rem); }
   .r3-root[data-larger-text="on"] .r3-left-stack:has(> .trail-walk:not([hidden])) { top: 14rem; max-height: calc(100% - 14rem - 18rem); }
+  .r3-left-stack:has(> .r3-walk-slot > .trail-walk:not([hidden])) { top: 14rem; max-height: calc(100% - 14rem - 15rem); }
+  .r3-root[data-larger-text="on"] .r3-left-stack:has(> .r3-walk-slot > .trail-walk:not([hidden])) { top: 14rem; max-height: calc(100% - 14rem - 18rem); }
 }
 
 /* A short screen: the clue first in the body, so when it must scroll the line under it scrolls, not

@@ -14,16 +14,17 @@
  * A rune walk (R-I2) is shown on the objects themselves: the stops it names (`named`) wear the gold
  * mark over them until they are `mended` on this walk (R-I21: the right cast shows its fixed boxes
  * at once, before the record lands). Both are ids; they are keyed as strings, so a caller's new
- * array with the same ids never rebuilds the geometry.
+ * array with the same ids never rebuilds the geometry. What each object is drawn as is the pure
+ * `runeObjectPaint` (`rune-boxes.ts`, tested there without `three`).
  */
 
 import { useMemo } from "react";
 import type { RuneSpotView } from "@/lib/realm/world-state";
-import { runeMarkBoxes, runeObjectBoxes } from "@/lib/realm3d/rune-boxes";
+import { runeObjectPaint } from "@/lib/realm3d/rune-boxes";
 import { groundHost, mergeBoxHosts } from "./geo-kit";
 import { MergedMesh } from "./merged-mesh";
 
-const idSet = (key: string): ReadonlySet<string> => new Set(key === "" ? [] : key.split("|"));
+const idList = (key: string): string[] => (key === "" ? [] : key.split("|"));
 
 export function RuneObjects({
   runes,
@@ -40,17 +41,9 @@ export function RuneObjects({
 }) {
   const namedKey = (named ?? []).join("|");
   const mendedKey = (mended ?? []).join("|");
-  const geometry = useMemo(() => {
-    const walking = idSet(namedKey);
-    const done = idSet(mendedKey);
-    return mergeBoxHosts(
-      (runes ?? []).map((r) => {
-        const fixed = r.fixed || done.has(r.id);
-        const boxes = runeObjectBoxes(r.effect, fixed);
-        if (walking.has(r.id) && !done.has(r.id)) boxes.push(...runeMarkBoxes());
-        return groundHost(boxes, r.x, r.z, r.ry, heightAt);
-      }),
-    );
-  }, [runes, namedKey, mendedKey, heightAt]);
+  const geometry = useMemo(
+    () => mergeBoxHosts(runeObjectPaint(runes, idList(namedKey), idList(mendedKey)).map((p) => groundHost(p.boxes, p.x, p.z, p.ry, heightAt))),
+    [runes, namedKey, mendedKey, heightAt],
+  );
   return <MergedMesh geometry={geometry} />;
 }

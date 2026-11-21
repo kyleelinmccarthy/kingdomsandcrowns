@@ -141,3 +141,26 @@ export function runeObjectBoxes(effect: RuneEffect, fixed: boolean): YardBox[] {
 export function runeMarkBoxes(): YardBox[] {
   return [box(GOLD, 0, 0, 0.12, 0.12, 2.45, 0.45), box(GOLD, 0, 0, 0.3, 0.3, 2.3, 0.15), box(GOLD, 0, 0, 0.16, 0.16, 2.15, 0.15)];
 }
+
+/** One object as the painter places it: where it stands, its turn, and its boxes in its own frame. */
+export type RunePaint = { id: string; x: number; z: number; ry: number; boxes: YardBox[] };
+
+/**
+ * What the painter (`rune-objects.tsx`) draws for each rune object, pure so it is tested here
+ * without `three`. An object is drawn fixed when its record says so or it was `mended` on this walk
+ * (R-I21: the right cast shows at once, before the record lands). A `named` object the walk is still
+ * going to, and not yet mended, wears the gold mark over it, a fixed one too (its rune is renewed,
+ * R-I22). With runes off the canvas lists no runes, so nothing is drawn.
+ */
+export function runeObjectPaint(
+  runes: readonly { id: string; effect: RuneEffect; x: number; z: number; ry: number; fixed: boolean }[] | undefined,
+  named: readonly string[] = [],
+  mended: readonly string[] = [],
+): RunePaint[] {
+  return (runes ?? []).map((r) => {
+    const done = mended.includes(r.id);
+    const boxes = runeObjectBoxes(r.effect, r.fixed || done);
+    if (named.includes(r.id) && !done) boxes.push(...runeMarkBoxes());
+    return { id: r.id, x: r.x, z: r.z, ry: r.ry, boxes };
+  });
+}

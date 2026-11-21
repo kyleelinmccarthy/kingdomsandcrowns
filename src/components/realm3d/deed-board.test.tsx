@@ -921,6 +921,17 @@ describe("a rune on the board (R-I11, R-I18)", () => {
     expect(onWalk).toHaveBeenCalledWith(two);
   });
 
+  it("the Set off card shows no stop's prompt: each is asked at its own stone (I8 carry-over)", async () => {
+    await begin(runeRun([k1(1), k1(2, LANTERN)]), { onWalk: vi.fn() });
+    expect(screen.getByRole("button", { name: "Set off" })).toBeInTheDocument();
+    expect(screen.queryByText("The wagon is broken. Build the word you hear.")).toBeNull();
+    expect(document.querySelector(".r3-question-text")).toBeNull();
+    // On the stone (no walk), the prompt is the question line as before.
+    cleanup();
+    await begin(runeRun([k1(1), k1(2, LANTERN)]));
+    expect(screen.getByText("The wagon is broken. Build the word you hear.")).toHaveClass("r3-question-text");
+  });
+
   it("nothing is spoken at Set off, even a dictation with read-aloud on (RI-a / S5)", async () => {
     await begin(runeRun([k1(1), k1(2, LANTERN)]), { onWalk: vi.fn(), profile: { readAloud: true, untimed: true } });
     expect(screen.getByRole("button", { name: "Set off" })).toBeInTheDocument();

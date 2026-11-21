@@ -470,6 +470,8 @@ export function DeedRun({
         </p>
       )}
       {demo.demo ? <TaskDemo demo={demo.demo} calm={calm} onDone={demo.finish} /> : (<>
+      {/* A rune walk's Set off names its stops; each stop's prompt is asked at its own stone (I10). */}
+      {!settingOff && (
       <div className="r3-question">
         <p className="r3-question-text">{question.prompt}</p>
         {/* A rune's one read control is the stone's own (RI-a / S4). */}
@@ -479,6 +481,7 @@ export function DeedRun({
           </button>
         )}
       </div>
+      )}
       <TaskPresenter task={question} flow={flow} variant="board" numerals={numerals} calm={calm} readAloud={profile.readAloud} disabled={busy} nudge={nudge} site={site} onRespond={(encoded) => void choose(encoded)} onWalk={walk} stops={walk ? runeStops(run).map((s) => s.label) : undefined} />
       </>)}
       {/* A resolved question with no result is a run picked back up with every answer in: its finish step. */}

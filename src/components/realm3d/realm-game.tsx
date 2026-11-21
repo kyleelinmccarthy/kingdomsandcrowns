@@ -127,6 +127,10 @@ import { roomChestFor, type WorldStateView } from "@/lib/realm/world-state";
 import { worldObjectById } from "@/lib/realm/world-objects";
 import { runeObjectById } from "@/lib/realm/rune-objects";
 import { RuneObjectBoard } from "./rune-object-board";
+import { RuneWalk } from "./rune-walk";
+import { useRuneWalk } from "./use-rune-walk";
+import { useWalks } from "./use-walks";
+import { RUNE_HOLDS_HERE, runeFirstLine } from "@/lib/tasks/rune-copy";
 
 const RealmCanvas = dynamic(() => import("./spike-scene"), {
   ssr: false,
@@ -410,6 +414,10 @@ export function RealmGame({
   const paused = overlay !== null;
   // A reading trail being walked (R-H14): "Set off" hands its run here, E at a stake answers it.
   const trail = useTrailWalk(overlay?.kind ?? null);
+  // A rune walk (R-I2, I10): "Set off" on a language side quest hands its run here, E at its stop opens the stone.
+  const runeWalk = useRuneWalk(overlay?.kind ?? null);
+  /** The column's slot the rune walk's card is portalled into (RI-a / B2). */
+  const [runeCardSlot, setRuneCardSlot] = useState<HTMLDivElement | null>(null);
 
   /* ---- indoors ---------------------------------------------------------- */
   // Which room the child is in, if any. Not an overlay: indoors is PLAYING — the clock runs, the
@@ -604,8 +612,10 @@ export function RealmGame({
     placeName: (id) => world.landmarks.find((l) => l.id === id)?.name ?? "a far place",
     overlayOpen: overlay !== null,
   });
-  /** A rune walk's stone is open (I10): E at a rune object opens no board of its own while it is. */
-  const runeCasting = false;
+  /** A rune walk's stone is open (I10): E at a rune object opens no board of its own while it is. By the stop's index alone (RI-a / B1). */
+  const runeCasting = overlay?.kind === "interact" && overlay.target.kind === "rune" && runeWalk.casts(overlay.target.id);
+  /** Which walk a Set off begins, and whether a run may be walked (RI-a / N15, S7). */
+  const walks = useWalks(trail, runeWalk, lockState.view.runesOn);
   /** A side quest paid minutes: re-ask the gate now, so a quiet world wakes (the clock's `refresh`, set below). */
   const askGate = useRef<() => void>(() => {});
   const trackedRef = useRef(surfaces.trackedObjectives);
@@ -739,10 +749,18 @@ export function RealmGame({
   const { atPost, refuseCast } = riding;
   /** Whether E at the Ring's arch opens its board now (`use-recess.ts`, made below the clock). */
   const archOpens = useRef<() => boolean>(() => false);
+  const { stopOf: runeStopAt, sayRef: runeSay, stops: runeStopList, at: runeAt } = runeWalk;
   /** Pressing E at something, or clicking the prompt. A person, or their site, is a conversation. */
   const openTarget = useCallback(
     (t: InteractTarget) => {
       if (overlayRef.current !== null) return;
+      // A rune walk's stops (RI-a / S2): a later one is named and one mended on this walk holds, on the card.
+      // The stop on now falls through to the stone, and a passed, missed stop or an object off the walk to its own board.
+      if (t.kind === "rune") {
+        const stop = runeStopAt(t.id);
+        if (stop === "later") return void runeSay.current?.(runeFirstLine(runeStopList[runeAt]?.label ?? ""));
+        if (stop === "done") return void runeSay.current?.(RUNE_HOLDS_HERE);
+      }
       // A trail's stake: the walk's tracker searches there (no walk, no tracker, nothing). Never a panel.
       if (t.kind === "anchor") {
         if (isAnchorId(t.id)) trail.answerRef.current?.(t.id);
@@ -783,7 +801,7 @@ export function RealmGame({
       go({ kind: "interact", target: t });
       if (talks) signal({ kind: "talked" });
     },
-    [go, signal, leave, enter, castleUnlocked, heroName, atPost, heroWrites, takeMention, trail.answerRef],
+    [go, signal, leave, enter, castleUnlocked, heroName, atPost, heroWrites, takeMention, trail.answerRef, runeStopAt, runeSay, runeStopList, runeAt],
   );
 
   /** A walked trail is finished: the villager's board opens on its result, and the building rises when it closes. */
@@ -797,6 +815,20 @@ export function RealmGame({
       if (result) pendingDeed.current.set(trailWalk.buildingId, result);
     },
     [trailWalk, finishTrail, go],
+  );
+  /** A walked rune run is finished (R-I21): the fixes are mirrored, then the villager's board opens on its result, and the building rises when it closes. */
+  const { walk: runeWalkOn, finish: finishRune } = runeWalk;
+  const { applyRuneOutcomes } = lockState;
+  const onRuneFinished = useCallback(
+    (summary: RunSummary) => {
+      if (!runeWalkOn) return;
+      applyRuneOutcomes(summary.runes ?? []);
+      const result = deedResultOf(summary, runeWalkOn.run.deed.id);
+      finishRune(summary);
+      go({ kind: "interact", target: { kind: "villager", id: runeWalkOn.villager.id, label: runeWalkOn.villager.name } });
+      if (result) pendingDeed.current.set(runeWalkOn.buildingId, result);
+    },
+    [runeWalkOn, finishRune, applyRuneOutcomes, go],
   );
 
   // What the scene tells the frame: what is in reach, that E was pressed at it, that a spell
@@ -1090,6 +1122,7 @@ export function RealmGame({
         worldLocks={lockState.canvas}
         trailOn={trail.walk !== null}
         trailRevealed={trail.revealed}
+        runeWalk={runeWalk.canvas}
       />
       {outCount > 0 && !inside && <div key={outCount} className="r3-fade" aria-hidden="true" />}
       {inside && (
@@ -1135,6 +1168,7 @@ export function RealmGame({
           <LookReticle paused={paused} />
           <div className={`r3-frame${paused ? " r3-frame--paused" : ""}`}>
             <div className="r3-left-stack">
+              {runeWalk.walk && <div ref={setRuneCardSlot} className="r3-walk-slot" />}
               {trail.walk && (
                 <TrailWalk key={trail.walk.key} walk={trail.walk} profile={{ readAloud }} calm={calm} numerals={numerals} hidden={paused} answerRef={trail.answerRef} onReveal={trail.reveal} onFinished={onTrailFinished} onLeave={trail.leave} />
               )}
@@ -1193,6 +1227,26 @@ export function RealmGame({
               quiet={realm.isChildView}
             />
           </div>
+          {/* Beside the panels, outside the dimmed frame: the stone is never dimmed; its card is portalled into the column (RI-a / B2). */}
+          {runeWalk.walk && (
+            <RuneWalk
+              key={runeWalk.walk.key}
+              walk={runeWalk.walk}
+              profile={{ readAloud }}
+              calm={calm}
+              numerals={numerals}
+              hidden={overlay !== null && !runeCasting}
+              casting={runeCasting}
+              cardSlot={runeCardSlot}
+              mended={runeWalk.mended}
+              onAt={runeWalk.setAt}
+              onMended={runeWalk.markMended}
+              onCastClose={closeOverlay}
+              onFinished={onRuneFinished}
+              onLeave={runeWalk.leave}
+              sayRef={runeWalk.sayRef}
+            />
+          )}
           {overlay?.kind === "pause" && (
             <PauseMenu
               heroName={heroName}
@@ -1298,10 +1352,12 @@ export function RealmGame({
               }}
               onClose={closeOverlay}
               onWalk={(run) => {
-                trail.begin(run, talkTo.villager, talkTo.site.id);
+                walks.begin(run, talkTo.villager, talkTo.site.id);
                 go(null);
               }}
-              walked={trail.walked?.villagerId === talkTo.villager.id ? trail.walked : null}
+              walked={walks.walkedFor(talkTo.villager.id)}
+              canWalk={walks.canWalk}
+              onRuneOutcomes={lockState.applyRuneOutcomes}
             />
           )}
           {overlay?.kind === "interact" && overlay.target.kind === "riddle" && (
