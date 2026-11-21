@@ -117,6 +117,17 @@ describe("/dev/content", () => {
       expect(screen.getByTestId("trail-note")).not.toHaveTextContent(/no sample yet/i);
     });
 
+    it.each([["1", "read-g1"], ["3", "read-g3"], ["4", "read-g4"]] as const)(
+      "a pool skill a trail pool also credits shows its clues too, beside the pool note (M3, grade %s)",
+      async (grade, skillId) => {
+        await show(grade, "Reading");
+        const section = screen.getAllByTestId("skill").find((el) => el.getAttribute("data-skill") === skillId)!;
+        expect(within(section).getByTestId("pool-note")).toBeInTheDocument();
+        expect(within(section).getByTestId("trail-note")).toHaveTextContent(/reading trail/i);
+        expect(within(section).getAllByTestId("trail-clue")).toHaveLength(5);
+      },
+    );
+
     it("shows the same clues on a reload: they are drawn from the page's fixed seeds", async () => {
       __setTrailPoolsForTest([cloneTrailPool("g68")]);
       await show("6", "Reading");

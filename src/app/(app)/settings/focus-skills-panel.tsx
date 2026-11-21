@@ -12,6 +12,9 @@ export type { FocusOption };
 
 const AREA_ORDER: SkillArea[] = ["math", "reading", "language", "science", "logic"];
 
+/** Beside a trail-only skill: it has no multiple choice, so with Reading trails off it is never drawn. */
+const FOCUS_TRAIL_ONLY_NOTE = "Played only as reading trails";
+
 function sameSet(a: readonly string[], b: readonly string[]) {
   return a.length === b.length && a.every((id) => b.includes(id));
 }
@@ -106,17 +109,24 @@ export function FocusSkillsPanel({
           <ul className="space-y-1.5">
             {skills.map((skill) => {
               const on = picked.includes(skill.id);
+              const noteId = skill.trailOnly ? `focus-trail-${skill.id}` : undefined;
               return (
-                <li key={skill.id}>
+                <li key={skill.id} className="flex flex-wrap items-center gap-x-2">
                   <label className="flex items-center gap-2 text-sm">
                     <input
                       type="checkbox"
                       checked={on}
                       disabled={busy || (full && !on)}
                       onChange={() => toggle(skill.id)}
+                      aria-describedby={noteId}
                     />
                     <span>{labels.get(skill.id)}</span>
                   </label>
+                  {noteId && (
+                    <span id={noteId} className="text-xs text-muted-foreground">
+                      {FOCUS_TRAIL_ONLY_NOTE}
+                    </span>
+                  )}
                 </li>
               );
             })}

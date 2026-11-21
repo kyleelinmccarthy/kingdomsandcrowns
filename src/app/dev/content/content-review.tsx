@@ -147,22 +147,21 @@ function SkillBlock({ sampled }: { sampled: SampledSkill }) {
             No sample yet: no trail pool credits this skill.
           </p>
         ) : (
-          <div className="mt-2">
-            <p data-testid="trail-note" className="text-zinc-400">
-              A reading trail: each clue below leads to one place in the village. One clue is shown per level.
-            </p>
-            <ul className="mt-1 divide-y divide-zinc-800">
-              {sampled.clues.map((clue) => (
-                <TrailClueRow key={clue.level} clue={clue} />
-              ))}
-            </ul>
-          </div>
+          <TrailClues clues={sampled.clues} note="A reading trail: each clue below leads to one place in the village. One clue is shown per level." />
         )
       ) : sampled.kind === "pool" ? (
-        <p data-testid="pool-note" className="mt-2 text-zinc-400">
-          Authored pools arrive in a later plan. This page does not read the database, so there is
-          nothing to check by eye here yet.
-        </p>
+        <>
+          <p data-testid="pool-note" className="mt-2 text-zinc-400">
+            Authored pools arrive in a later plan. This page does not read the database, so there is
+            nothing to check by eye here yet.
+          </p>
+          {sampled.clues.length > 0 && (
+            <TrailClues
+              clues={sampled.clues}
+              note="Also walked as a reading trail where trails are on: each clue below leads to one place in the village. One clue is shown per level."
+            />
+          )}
+        </>
       ) : (
         <div className="mt-2 space-y-3">
           {sampled.levels.map((l) => (
@@ -178,6 +177,21 @@ function SkillBlock({ sampled }: { sampled: SampledSkill }) {
         </div>
       )}
     </section>
+  );
+}
+
+function TrailClues({ clues, note }: { clues: readonly SampledTrailClue[]; note: string }) {
+  return (
+    <div className="mt-2">
+      <p data-testid="trail-note" className="text-zinc-400">
+        {note}
+      </p>
+      <ul className="mt-1 divide-y divide-zinc-800">
+        {clues.map((clue) => (
+          <TrailClueRow key={clue.level} clue={clue} />
+        ))}
+      </ul>
+    </div>
   );
 }
 

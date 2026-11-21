@@ -106,14 +106,12 @@ export async function startDeedRun(
   const story = deedStory(deed, hero.tone);
 
   // The focus picks are read alongside the open-run check: which pools to load depends on them.
-  // So is the building's site, for the bench's drawing: only a side quest's own run raises it. The
-  // grown-up's settings ride in the same round: which skills a run can play depends on them too (R-H8).
+  // So is the building's site, for the bench's drawing: only a side quest's own run raises it.
   const building = kind === "deed" ? findBuilding(deed.buildingId) : null;
-  const [open, focusSkillIds, site, settings] = await Promise.all([
+  const [open, focusSkillIds, site] = await Promise.all([
     findOpenRun(and(eq(schema.deedRun.childId, childId), eq(schema.deedRun.deedId, deedId), eq(schema.deedRun.kind, kind))),
     loadFocusSkillIds(childId, hero.grades),
     building ? loadSiteState(childId, building) : Promise.resolve(null),
-    loadRealmSettings(childId),
   ]);
   // The deed's OWN strand decides the grade — never a fixed one, and never another
   // strand's. `gradeForDeed` is where that is pinned by test. A focus skill in the deed's strand
@@ -128,8 +126,9 @@ export async function startDeedRun(
   };
   if (open) return withDemo(resumedStart(open, { id: deed.id, title: deed.title, story, area: deed.area }, site ?? undefined));
   // The grown-up's switches decide which hands-on kinds a NEW run may draw (an open run is a
-  // snapshot and never asks); the gate is multiple choice whatever they say (R-C4). Worked out before
-  // the candidates, which keep only the skills the run can play (R-H8).
+  // snapshot and never asks, so a resume never reads them, M2); the gate is multiple choice whatever
+  // they say (R-C4). Worked out before the candidates, which keep only the skills the run can play (R-H8).
+  const settings = await loadRealmSettings(childId);
   const enabledKinds: ReadonlySet<TaskKind> = ctx === "gate" ? new Set<TaskKind>() : enabledHandsOnKinds(settings);
   const skills = runCandidates(deed, grade, focusSkillIds, enabledKinds);
   const poolSkillIds = skills.filter((s) => s.source.kind === "pool").map((s) => s.id);
@@ -169,7 +168,7 @@ export async function startDeedRun(
   );
   const built = buildDeedRun({
     deed, grade, masteryBySkill, lastPracticedBySkill, profile, seed: Date.now() >>> 0, poolItems, focusSkillIds, enabledKinds,
-    ...(recentTrails ? { recentSets: recentTrails } : {}),
+    ...(recentTrails ? { recentTrails } : {}),
     ...(challenge
       ? { recentMisses: [], dueSkillIds: [], questionCount: CHALLENGE.questions, levelBoost: CHALLENGE.levelBoost }
       // The grown-up's length, which the engine scales for this side quest: a science side quest's sorts

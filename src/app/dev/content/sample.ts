@@ -45,7 +45,8 @@ export type SampledTrailClue = { level: number; text: string; readAloud?: string
 
 export type SampledSkill =
   | { skill: Skill; kind: "generator"; generatorId: string; levels: SampledLevel[]; disagreements: number }
-  | { skill: Skill; kind: "pool"; poolId: string }
+  /** `clues`: a pool skill a trail pool also credits (`read-g1`, `read-g3`, `read-g4`) is walked as a trail where trails are on. */
+  | { skill: Skill; kind: "pool"; poolId: string; clues: SampledTrailClue[] }
   | { skill: Skill; kind: "lock" }
   | { skill: Skill; kind: "trail"; clues: SampledTrailClue[] };
 
@@ -98,10 +99,11 @@ function drawLevel(skillId: string, generatorId: string, level: number): Sampled
  */
 export function sampleGrade(area: SkillArea, grade: Grade, trails: Readonly<Record<string, SampledTrailClue[]>> = {}): SampledSkill[] {
   return skillsFor(area, grade).map((skill) => {
-    if (skill.source.kind === "pool") return { skill, kind: "pool", poolId: skill.source.poolId };
-    if (skill.source.kind === "lock") return { skill, kind: "lock" };
     // A reading trail's clues come from its pool (`trailPoolFor`), sampled by the server page and passed in.
-    if (skill.source.kind === "trail") return { skill, kind: "trail", clues: Object.prototype.hasOwnProperty.call(trails, skill.id) ? trails[skill.id] : [] };
+    const clues = Object.prototype.hasOwnProperty.call(trails, skill.id) ? trails[skill.id] : [];
+    if (skill.source.kind === "pool") return { skill, kind: "pool", poolId: skill.source.poolId, clues };
+    if (skill.source.kind === "lock") return { skill, kind: "lock" };
+    if (skill.source.kind === "trail") return { skill, kind: "trail", clues };
     const generatorId = skill.source.generatorId;
     const levels = LEVELS.map((level) => ({ level, questions: drawLevel(skill.id, generatorId, level) }));
     const disagreements = levels.reduce(

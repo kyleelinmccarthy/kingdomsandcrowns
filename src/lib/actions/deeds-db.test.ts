@@ -847,6 +847,14 @@ describe("the Crown Challenge", () => {
 });
 
 describe("startDeedRun begins a fresh run on the grown-up's settings", () => {
+  it("a resume never reads the settings: an open run is a snapshot (M2)", async () => {
+    const fresh = await startDeedRun("c1", "well-stones", "realm");
+    vi.mocked(loadRealmSettings).mockClear();
+    const resumed = await startDeedRun("c1", "well-stones", "realm");
+    expect(resumed.runId).toBe(fresh.runId);
+    expect(loadRealmSettings).not.toHaveBeenCalled();
+  });
+
   it("asks the side-quest length and snapshots second chances onto the row", async () => {
     vi.mocked(loadRealmSettings).mockResolvedValue({ ...DEFAULT_REALM_SETTINGS, sideQuestLength: 5, secondChances: false });
     const r = await startDeedRun("c1", "well-stones", "realm");
@@ -2034,21 +2042,21 @@ describe("reading side quests are clue trails (H7)", () => {
     atSeed(1);
     const second = await startDeedRun("c1", "library-catalog", "realm");
     // The memory is every reading deed's, so another reading deed reads it too.
-    expect(vi.mocked(buildDeedRun).mock.calls[1][0].recentSets).toEqual(keysOf(firstTasks));
+    expect(vi.mocked(buildDeedRun).mock.calls[1][0].recentTrails).toEqual(keysOf(firstTasks));
     const secondKeys = keysOf(await storedTasks(second.runId));
     for (const k of keysOf(firstTasks)) expect(secondKeys).not.toContain(k);
   });
 
   it("asks the memory only for a reading side quest with trails on (R-H19)", async () => {
     await startDeedRun("c1", "well-stones", "realm");
-    expect(vi.mocked(buildDeedRun).mock.calls[0][0].recentSets).toBeUndefined();
+    expect(vi.mocked(buildDeedRun).mock.calls[0][0].recentTrails).toBeUndefined();
     vi.mocked(loadRealmSettings).mockResolvedValue(TRAILS_OFF);
     await readingItems("read-g3");
     await startDeedRun("c1", "well-signs", "realm");
-    expect(vi.mocked(buildDeedRun).mock.calls[1][0].recentSets).toBeUndefined();
+    expect(vi.mocked(buildDeedRun).mock.calls[1][0].recentTrails).toBeUndefined();
     await client.query("DELETE FROM deed_run");
     await startDeedRun("c1", "well-signs", "gate");
-    expect(vi.mocked(buildDeedRun).mock.calls[2][0].recentSets).toBeUndefined();
+    expect(vi.mocked(buildDeedRun).mock.calls[2][0].recentTrails).toBeUndefined();
   });
 
   it("a week of three reading side quests a day never repeats a trail, at every band (F-11)", async () => {

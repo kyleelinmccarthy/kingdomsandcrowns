@@ -59,7 +59,7 @@ export type BuildRunInput = {
    * that draws trails passes over them until every other trail is used; no other kind reads it. Every
    * draw of the run gets it: fresh, due and refill (F-21).
    */
-  recentSets?: readonly string[];
+  recentTrails?: readonly string[];
 };
 
 export type BuiltRun = { skillIds: string[]; questions: Task[] };
@@ -84,22 +84,16 @@ const SET_TRIES = 32;
  * the hero's grade they are never handed harder work than their own. Math has content at every
  * grade and this is simply true there.
  *
- * **It is not true everywhere, and the comment here used to say it was.** Where a strand has
- * nothing at or below a grade the walk runs off the bottom and carries on UPWARD, handing the
- * hero a harder grade's work rather than an empty quest. `nearestGrades("K")` is
- * `[K, 1, 2, ...]`: there is no easier grade to find, so it climbs. Today that happens for
- * Language Arts at K and at grade 1, which plan 3 has not filled — a kindergartener on a mill
- * quest is handed grade-2 spelling.
+ * Where a strand had nothing at or below a grade the walk would run off the bottom and carry on
+ * UPWARD (`nearestGrades("K")` is `[K, 1, 2, ...]`), handing the hero a harder grade's work
+ * rather than an empty quest. That fallback stays, because an empty quest is worse than a hard
+ * one, but today it never fires: every strand has content at K (`lang-gk` and `lang-g1` filled
+ * the last gaps), and `deed-engine.test.ts` and `skills.test.ts` both pin the list of climbs at
+ * `[]`, so a new one fails the suite.
  *
- * **The fallback is not being changed.** An empty quest is worse than a hard one, and plan 3
- * fills those grades. What is changing is that it is written down and counted:
- * `deed-engine.test.ts` lists exactly which (area, grade) pairs walk upward today, and
- * `skills.test.ts` keeps the same inventory for the three authored strands. When plan 3
- * lands both lists should shrink to nothing and the tests will say so.
- *
- * The same gap from the other side is not a defect at all: Reading is authored at K and
- * grade 2 and nowhere above, so a grade-9 hero's reading quest is grade-2 work. That is the
- * walk doing what it says.
+ * `playable` can make the walk fall, never climb: a grade whose only skills a run cannot play is
+ * passed over for the next easier one. So where trails cannot play, a grade 6 to 12 reading side
+ * quest (`read-g6`, `read-g9`: trail-only) walks down to `read-g4` multiple choice (R-H8).
  */
 export function chooseSkills(deed: Pick<Deed, "area">, grade: Grade, playable: (s: Skill) => boolean = () => true): Skill[] {
   for (const g of nearestGrades(grade)) {
@@ -530,7 +524,7 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
   const levelOf = (skillId: string) => Math.min((masteryBySkill[skillId] ?? 0) + (input.levelBoost ?? 0), MASTERY_MAX);
   const enabled = input.enabledKinds ?? new Set(Object.keys(TASK_KINDS) as TaskKind[]);
   const focus = new Set(input.focusSkillIds);
-  const avoid: ReadonlySet<string> = new Set(input.recentSets ?? []);
+  const avoid: ReadonlySet<string> = new Set(input.recentTrails ?? []);
   const rng = seededRng(seed);
   const candidates = runCandidates(deed, grade, input.focusSkillIds, enabled);
   const skills = selectSkills(candidates, masteryBySkill, rng, lastPracticedBySkill ?? {}, focus);

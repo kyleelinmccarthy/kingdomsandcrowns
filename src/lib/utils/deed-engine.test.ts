@@ -1513,7 +1513,7 @@ describe("a trail run: whole trails of the skill's pool (H4, R-H9, R-H11)", () =
     };
     // Mastery 0 draws near levels 0-1: every near trail is avoided, so the draw falls to the far ones.
     for (const seed of [1, 2, 3]) {
-      const run = buildDeedRun(input({ deed: trailDeed, seed, questionCount: 4, enabledKinds: ALL_ON, recentSets: recent }));
+      const run = buildDeedRun(input({ deed: trailDeed, seed, questionCount: 4, enabledKinds: ALL_ON, recentTrails: recent }));
       expect(run.questions).toHaveLength(4);
       for (const q of run.questions) expect(recent, `seed ${seed}`).not.toContain((q as { trail: string }).trail);
     }
@@ -1532,7 +1532,7 @@ describe("a trail run: whole trails of the skill's pool (H4, R-H9, R-H11)", () =
       // The first draw comes up one short, so the engine goes back for the rest.
       return calls.length === 1 ? drawn.slice(0, count - 1) : drawn;
     };
-    const run = buildDeedRun(input({ deed: trailDeed, seed: 9, questionCount: 4, enabledKinds: ALL_ON, recentSets: recent }));
+    const run = buildDeedRun(input({ deed: trailDeed, seed: 9, questionCount: 4, enabledKinds: ALL_ON, recentTrails: recent }));
     expect(calls.length).toBeGreaterThanOrEqual(2);
     expect(calls[1].count).toBe(1);
     for (const call of calls) expect(call.avoid).toEqual([...recent].sort());
@@ -1550,7 +1550,7 @@ describe("a trail run: whole trails of the skill's pool (H4, R-H9, R-H11)", () =
     };
     // Grade 4 with a grade-3 focus: both skills are candidates, one is picked, the other comes back as a due reminder.
     const run = buildDeedRun(input({
-      deed: trailDeed, grade: "4", seed: 3, questionCount: 4, enabledKinds: ALL_ON, recentSets: recent,
+      deed: trailDeed, grade: "4", seed: 3, questionCount: 4, enabledKinds: ALL_ON, recentTrails: recent,
       focusSkillIds: ["read-g3"], dueSkillIds: ["read-g3", "read-g4"], poolItems: [...poolItems("read-g3", 30), ...poolItems("read-g4", 30)],
     }));
     expect(new Set(calls.map((c) => c.skillId)).size, "both skills were drawn from: one fresh, one due").toBe(2);
@@ -1562,9 +1562,9 @@ describe("a trail run: whole trails of the skill's pool (H4, R-H9, R-H11)", () =
   it("leaves the measure and sort draws alone: threading avoid moves no recorded id", () => {
     // `avoid` is the trail drawer's alone: handing it to a run must not move a measure or sort run's ids.
     const base = buildDeedRun(input({ deed: deedMath, grade: "3", seed: 21, enabledKinds: ALL_ON }));
-    expect(buildDeedRun(input({ deed: deedMath, grade: "3", seed: 21, enabledKinds: ALL_ON, recentSets: ["trail-g23/fx-01-trail"] }))).toEqual(base);
+    expect(buildDeedRun(input({ deed: deedMath, grade: "3", seed: 21, enabledKinds: ALL_ON, recentTrails: ["trail-g23/fx-01-trail"] }))).toEqual(base);
     const sci = buildDeedRun(input({ deed: deedScience, grade: "3", seed: 5, enabledKinds: ALL_ON }));
-    expect(buildDeedRun(input({ deed: deedScience, grade: "3", seed: 5, enabledKinds: ALL_ON, recentSets: ["trail-g23/fx-01-trail"] }))).toEqual(sci);
+    expect(buildDeedRun(input({ deed: deedScience, grade: "3", seed: 5, enabledKinds: ALL_ON, recentTrails: ["trail-g23/fx-01-trail"] }))).toEqual(sci);
   });
 });
 
@@ -1779,15 +1779,15 @@ describe("reading side quests are clue trails (H7: R-H9, R-H10, R-H21, R-H22)", 
     });
   });
 
-  it("passes over the trails met lately: with every near trail in recentSets, the run walks far ones", () => {
+  it("passes over the trails met lately: with every near trail in recentTrails, the run walks far ones", () => {
     const pool = trailPoolFor("read-g3")!;
     // Mastery 0: the near levels are 0 and 1.
     const recent = pool.trails.filter((t) => t.level <= 1).map((t) => trailKey(pool.poolId, t.id));
     expect(recent.length).toBeGreaterThanOrEqual(18);
     for (let seed = 1; seed <= 10; seed++) {
       const fresh = run({ grade: "3", seed });
-      expect(fresh.questions.some((q) => CLUE_AT.get(q.id)!.level <= 1), `seed ${seed} draws near without recentSets`).toBe(true);
-      const r = run({ grade: "3", seed, recentSets: recent });
+      expect(fresh.questions.some((q) => CLUE_AT.get(q.id)!.level <= 1), `seed ${seed} draws near without recentTrails`).toBe(true);
+      const r = run({ grade: "3", seed, recentTrails: recent });
       expect(r.questions).toHaveLength(4);
       for (const q of r.questions) expect(CLUE_AT.get(q.id)!.level, `seed ${seed}`).toBeGreaterThanOrEqual(2);
     }

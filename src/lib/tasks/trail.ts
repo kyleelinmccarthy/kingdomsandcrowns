@@ -30,7 +30,7 @@ export const trailKind: TaskKindDef<"trail"> = {
   // A stored clue whose answer left the catalog still has words, and never throws (Review Focus 4).
   answerText: (t) => (isAnchorId(t.answer) ? trailAnswerText(anchorLabel(t.answer)) : TRAIL_UNKNOWN_ANSWER),
   feedback: (t, r) => (r === t.answer ? "none" : "wrong_place"),
-  // A skill is played as trails when a pool credits it; with no pool (as shipped until H5) no run changes.
+  // A skill is played as trails when a pool credits it; with no pool no run changes.
   presents: (skillId) => trailPoolFor(skillId) !== undefined,
   reveal: (t) => t.answer,
   retryLine: (t, r) => t.redirects?.[r] ?? t.redirect,

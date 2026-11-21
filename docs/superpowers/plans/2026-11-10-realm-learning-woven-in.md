@@ -3482,7 +3482,7 @@ Parts F and G's constraints still apply, plus:
   - export `TRAIL_CLUES = 4` and `TRAIL_DEED_IDS`.
 - **`deed-engine.ts`:**
   - `runCandidates`'s walking rules (R-H9);
-  - `BuildRunInput.recentSets?: readonly string[]`, threaded as `avoid`;
+  - `BuildRunInput.recentTrails?: readonly string[]`, threaded as `avoid`;
   - in `buildDeedRun`:
     - `focusOffWalk` (R-H22), worked out right after `selectSkills`; when true, `kindOfSkill` starts from `"choice"`;
     - `walking = isWalkingKind(deed.mechanic) && drawsMechanic`, worked out before the review selection;
@@ -3490,7 +3490,7 @@ Parts F and G's constraints still apply, plus:
     - the order is `[...questions, ...nonFresh]`, never shuffled.
 - **`deed-run-store.ts`:** `loadRecentTrailIds` and `TRAIL_MEMORY_RUNS` (F-21).
 - **`actions/deeds.ts` `startDeedRun`:**
-  - `loadRecentTrailIds` in the second round when `deed.mechanic === "trail" && enabledKinds.has("trail")`, passed as `recentSets`;
+  - `loadRecentTrailIds` in the second round when `deed.mechanic === "trail" && enabledKinds.has("trail")`, passed as `recentTrails`;
   - `narrateClues: true` on the returned start (fresh and resumed, through the same wrapper as `withDemo`) when `grade === "K"` and a question is of kind `"trail"`.
 - **`deed-run-types.ts`:** `RunStart.narrateClues?: true`.
 - **Re-record:**
@@ -3531,7 +3531,7 @@ Parts F and G's constraints still apply, plus:
   - "the same focus left undrawn keeps the trail": the same input with a seed where the draw picks `read-g3` gives 4 clues, all `"trail"`, and no `sight-g23` task.
   - "a focus a trail presents keeps the trail": grade 3, `focusSkillIds: ["read-g4"]`, and every recorded seed gives only `"trail"` tasks.
   - "the focus rule waits for trails": with trails off, the grade-2 `sight-g23` focus run is the same multiple-choice run with and without the rule.
-  - "recentSets": with every trail of the near level in `recentSets`, the run draws far-level trails.
+  - "recentTrails": with every trail of the near level in `recentTrails`, the run draws far-level trails.
   - The re-recorded table and its choice twin.
 
   **`deeds-db.test.ts`:**

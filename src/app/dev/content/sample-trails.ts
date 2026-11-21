@@ -1,6 +1,7 @@
 /**
- * The trail clues `/dev/content` shows (F-21): for each trail-source skill, one clue per level drawn
- * from its pool through `trailPoolFor`. Server-only, like the pools: the page (a server component)
+ * The trail clues `/dev/content` shows (F-21): for every skill a trail pool credits (`trailPoolFor`,
+ * so all five pools: `read-g1`, `read-g3` and `read-g4` as well as the trail-only `read-g6` and
+ * `read-g9`, M3), one clue per level drawn from its pool. Server-only, like the pools: the page (a server component)
  * calls this and hands the result to the client reader, so a pool's answers never ride into the
  * browser's bundle. A skill no pool credits has no clues, and the page says so.
  *
@@ -18,7 +19,7 @@ const NONE: ReadonlySet<string> = new Set();
 export function sampleTrails(): Record<string, SampledTrailClue[]> {
   const out: Record<string, SampledTrailClue[]> = {};
   for (const skill of SKILLS) {
-    if (skill.source.kind !== "trail" || !trailPoolFor(skill.id)) continue;
+    if (!trailPoolFor(skill.id)) continue;
     out[skill.id] = LEVELS.flatMap((level): SampledTrailClue[] => {
       const [task] = drawTrailClues(skill, level, 1, seededRng(seedFor(skill.id, level)), NONE, NONE);
       if (!task) return [];
