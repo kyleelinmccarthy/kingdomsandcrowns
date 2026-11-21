@@ -20,7 +20,8 @@
   flex-direction: column;
   min-height: 0;
   max-height: calc(100dvh - 5.6rem - 15rem);
-  width: min(19rem, 36vw);
+  /* Never narrower than its one-row head (H10 re-check 3: at 540 px wide, 36vw left Read aloud outside). */
+  width: min(19rem, max(36vw, 17rem));
   margin: 0;
   padding: 0.5rem 0.8rem 0.6rem;
   border-radius: 16px;
@@ -50,6 +51,7 @@
 /* Hide or Show the clue, and Read aloud: compact round icons (their words are their names and
    titles), sized past `.r3-round.r3-read`'s own 2.6rem. */
 .trail-walk-head .r3-round.trail-walk-btn {
+  position: relative;
   flex: none;
   display: grid;
   place-items: center;
@@ -59,6 +61,15 @@
   border-width: 2px;
   box-shadow: 0 2px 0 rgba(0, 0, 0, 0.32);
 }
+/* The round looks small, but a finger gets 40 px: an invisible ring around it takes the tap. The two
+   buttons sit 1rem apart, so their rings never overlap. */
+.trail-walk-head .r3-round.trail-walk-btn::after {
+  content: "";
+  position: absolute;
+  inset: -0.5rem;
+  border-radius: 50%;
+}
+.trail-walk-head .trail-walk-btn + .trail-walk-btn { margin-left: 0.5rem; }
 .trail-walk-head .trail-walk-btn .r3-read-icon { width: 0.85rem; height: 0.85rem; }
 .trail-walk-fold { margin-left: auto; }
 /* A chevron: up while the clue shows (Hide), down once folded (Show). */

@@ -394,6 +394,15 @@ describe("TrailWalk, the tracker", () => {
 
 describe("the tracker's layout (H10 smoke: larger text at 390 px, the 1280 px header, the minimap)", () => {
   const css = readFileSync(resolve(__dirname, "trail-walk.css"), "utf8");
+
+  it("is never narrower than its one-row head, and its icon buttons take a 40 px tap (H10 re-check 3, 540 px)", () => {
+    // 36vw alone left Read aloud outside a 540 px window; the floor keeps the head's row inside.
+    expect(css).toMatch(/width:\s*min\(19rem,\s*max\(36vw,\s*17rem\)\)/);
+    // A 1.5rem round plus a 0.5rem invisible ring each side = 2.5rem (40 px) to tap.
+    expect(css).toMatch(/\.trail-walk-btn::after\s*\{[^}]*inset:\s*-0\.5rem/);
+    // The rings never overlap: the second button sits a further 0.5rem off (1rem gap in all).
+    expect(css).toMatch(/\.trail-walk-btn \+ \.trail-walk-btn\s*\{\s*margin-left:\s*0\.5rem/);
+  });
   /** The body of the `@media (max-width: 480px)` block. */
   const phone = (() => {
     const start = css.indexOf("@media (max-width: 480px)");
