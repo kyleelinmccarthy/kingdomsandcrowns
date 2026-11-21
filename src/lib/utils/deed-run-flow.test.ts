@@ -26,6 +26,11 @@ describe("initialFlow", () => {
     const s = initialFlow({ ...run, responses: ["a", "b", null], pending: { index: 1, ruledOut: "b", hint: "Try the tens." } });
     expect(s).toMatchObject({ index: 1, phase: "second-chance", ruledOut: ["b"], picked: "b" });
     expect(s.result).toMatchObject({ secondChance: true, hint: "Try the tens." });
+    expect(s.result && "feedback" in s.result).toBe(false);
+  });
+  it("restores the answer's feedback code with it, so the lead is the kind's own (a lock's, a cut's)", () => {
+    const s = initialFlow({ ...run, pending: { index: 0, ruledOut: "x", hint: "Look at the marked rule.", feedback: "rule_broken" } });
+    expect(s.result).toMatchObject({ secondChance: true, hint: "Look at the marked rule.", feedback: "rule_broken" });
   });
 });
 

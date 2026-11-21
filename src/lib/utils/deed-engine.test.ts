@@ -1105,7 +1105,8 @@ describe("a draw knows the kind", () => {
 describe("a measure miss comes back only where the bench plays its skill (R-C6)", () => {
   // No skill is on the bench until the generators land, so one is put there for each test.
   const bench = BENCH as Record<string, unknown>;
-  const measureDeed = { ...deedReading, mechanic: "measure" as TaskKind };
+  // From the choice reading deed: the shipped one is a trail, whose questionCount and walk would leak in.
+  const measureDeed = { ...choiceReading, mechanic: "measure" as TaskKind };
   let n = 0;
   const benchTask = (skillId: string): MeasureTask => ({
     kind: "measure", id: `bench:${skillId}:${n++}`, skillId, prompt: "Cut it", mode: "cut", unit: "ft", answer: "3/4", bridge: "3/4",

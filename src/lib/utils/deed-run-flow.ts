@@ -25,8 +25,9 @@ export type ChoiceTone = "plain" | "ruled-out" | "answer" | "picked-wrong" | "fa
 
 export function initialFlow(run: Pick<RunStart, "questions" | "responses" | "pending">): FlowState {
   if (run.pending) {
-    const { index, ruledOut, hint } = run.pending;
-    return { index, phase: "second-chance", ruledOut: [ruledOut], picked: ruledOut, result: { correct: false, secondChance: true, hint }, streak: 0 };
+    const { index, ruledOut, hint, feedback } = run.pending;
+    const result: AttemptResult = { correct: false, secondChance: true, hint, ...(feedback ? { feedback } : {}) };
+    return { index, phase: "second-chance", ruledOut: [ruledOut], picked: ruledOut, result, streak: 0 };
   }
   const first = run.responses.findIndex((r) => r === null);
   // A run with nothing left unanswered (its finish call failed, and it was picked back up) opens at

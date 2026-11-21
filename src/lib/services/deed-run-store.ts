@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { RUN_EFFECTS, kindsThatFeedReview, type RunKind } from "@/lib/utils/deed-scoring";
 import { records, resumeIndex, statusOf } from "@/lib/utils/deed-attempts";
-import { isRegisteredKind, isTaskCorrect, kindOf, secondChanceHint, toClientTask, type Task } from "@/lib/tasks/registry";
+import { isRegisteredKind, isTaskCorrect, kindOf, secondChanceHint, storedFeedback, toClientTask, type Task } from "@/lib/tasks/registry";
 import { demoKeyOf, demoKind, isLockDemo, LOCK_DEMO_PUZZLES, type DemoKey } from "@/lib/tasks/demos";
 import type { HandsOnKind } from "@/lib/tasks/kinds";
 import type { RunStart } from "@/lib/utils/deed-run-types";
@@ -168,8 +168,11 @@ export function resumedStart(
 ): RunStart {
   const { questions, responses, attempts, statuses } = parseRun(run);
   const at = resumeIndex(statuses);
+  // The answer's feedback code rides along (every kind), so the reopened try leads with the kind's
+  // own words (a lock's, a cut's, a trail's) and never falls back to "Not quite.".
+  const feedback = statuses[at] === "open" ? storedFeedback(questions[at], attempts[at].first) : undefined;
   const pending = statuses[at] === "open"
-    ? { index: at, ruledOut: attempts[at].first ?? "", hint: secondChanceHint(questions[at], attempts[at].first) }
+    ? { index: at, ruledOut: attempts[at].first ?? "", hint: secondChanceHint(questions[at], attempts[at].first), ...(feedback ? { feedback } : {}) }
     : null;
   const start: RunStart = { runId: run.id, deed: header, questions: questions.map(toClientTask), responses, kind: run.kind, pending };
   if (!site && !plan) return start;

@@ -3,7 +3,7 @@ import { choiceKind } from "./choice";
 import { lockKind } from "./lock";
 import { measureKind } from "./measure";
 import { trailKind } from "./trail";
-import type { ClientTask, Task, TaskKind, TaskKindDef } from "./types";
+import type { ClientTask, FeedbackCode, Task, TaskKind, TaskKindDef } from "./types";
 
 export type * from "./types";
 
@@ -65,6 +65,20 @@ export function secondChanceHint(t: Task, firstPick: string | null | undefined):
   const def = taskDefOf(t);
   const pick = def.retryLine && typeof firstPick === "string" ? def.decode(firstPick) : null;
   return pick !== null && def.retryLine ? def.retryLine(t, pick) : taskHint(t);
+}
+
+/**
+ * The kind's coded note on a stored response (a cut too long, a lock's rule broken, a trail's wrong
+ * place), or undefined for `none` or a pick that will not decode. What a resumed run's `pending`
+ * carries, so the reopened second chance leads with the kind's own words, as the fresh answer did.
+ */
+export function storedFeedback(t: Task, stored: string | null | undefined): Exclude<FeedbackCode, "none"> | undefined {
+  if (typeof stored !== "string") return undefined;
+  const def = taskDefOf(t);
+  const pick = def.decode(stored);
+  if (pick === null) return undefined;
+  const code = def.feedback(t, pick);
+  return code === "none" ? undefined : code;
 }
 
 /** The mechanic a skill is played with: `mechanic` if it suits the skill and is enabled, else choice. */

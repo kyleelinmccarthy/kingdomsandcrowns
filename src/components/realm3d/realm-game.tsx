@@ -1272,6 +1272,9 @@ export function RealmGame({
           )}
           {overlay?.kind === "interact" && talkTo && (
             <DeedBoard
+              // One board per villager: a walk's finish that opens its villager while another's run
+              // is on the board starts a fresh board, never that run under this name (M1).
+              key={talkTo.villager.id}
               childId={childId}
               villager={talkTo.villager}
               site={talkTo.site}

@@ -1738,6 +1738,33 @@ describe("a reading trail, walked in the Realm (R-H14)", () => {
     expect(screen.getByRole("dialog", { name: /Signs for the Well/ })).toHaveTextContent("Flawless!");
   });
 
+  it("a finish landing on another villager's open run shows the walk's result, never that run under the walk's villager (M1)", async () => {
+    const withMill = {
+      ...realm,
+      kingdom: {
+        ...realm.kingdom,
+        buildings: realm.kingdom.buildings.map((b) => (b.id === "mill" ? { ...b, done: 1, deeds: [{ id: "mill-sacks", title: "Count the Sacks", story: "Sacks everywhere.", area: "math" as const, bestStars: 0 as const, crowned: false }] } : b)),
+      },
+    };
+    const sacks = { ...run, runId: "run-2", deed: { ...run.deed, id: "mill-sacks", title: "Count the Sacks" } };
+    vi.mocked(answerDeedQuestion).mockResolvedValue(RIGHT);
+    let settle!: (s: typeof walkedSummary) => void;
+    vi.mocked(completeDeedRun).mockReturnValue(new Promise((r) => (settle = r)) as never);
+    const { bus } = await setOff({ realm: withMill });
+    vi.mocked(startDeedRun).mockImplementation(async (_c, deedId) => (deedId === "mill-sacks" ? sacks : trailRun));
+    await act(async () => bus.onInteract(mill));
+    await act(async () => bus.onInteract(beehives));
+    // The finish is out; the hero talks to the miller and begins her side quest before it lands.
+    act(() => bus.onInteract({ kind: "villager", id: "tessa", label: "Miller Tessa" }));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Sacks" })));
+    expect(screen.getByText("What is 2 + 3?")).toBeInTheDocument();
+    await act(async () => settle(walkedSummary));
+    const board = screen.getByRole("dialog", { name: /Signs for the Well/ });
+    expect(within(board).getByText("Flawless!")).toBeInTheDocument();
+    expect(screen.queryByText("What is 2 + 3?")).toBeNull();
+    expect(screen.queryByRole("dialog", { name: /Count the Sacks/ })).toBeNull();
+  });
+
   it("walks in the quiet world too: a side quest is how minutes are earned, and the quiet clock charges nothing", async () => {
     vi.mocked(answerDeedQuestion).mockResolvedValue(RIGHT);
     const { bus, view } = await setOff({ entry: { minutes: 0, visit: null, source: "quiet" } });

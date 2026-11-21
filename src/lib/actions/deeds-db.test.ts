@@ -1199,6 +1199,13 @@ describe("a measure task in a run", () => {
     expect("bridge" in long).toBe(false);
   });
 
+  it("a resumed second chance on a cut still says which way the stored length is off", async () => {
+    await seedMeasure();
+    await answerDeedQuestion("run1", 0, "c:1/2");
+    const r = await startDeedRun("c1", "well-stones", "realm");
+    expect(r.pending).toMatchObject({ index: 0, ruledOut: "c:1/2", feedback: "too_short" });
+  });
+
   it("a repeat of a wrong first length still hears which way the stored one is off", async () => {
     await seedMeasure();
     await answerDeedQuestion("run1", 0, "c:1/2");
@@ -1375,7 +1382,7 @@ describe("a trail task in a run (R-H1, slice 5)", () => {
     await answerDeedQuestion("run1", 0, "landmark:well");
     const r = await startDeedRun("c1", "well-stones", "realm");
     expect(r.runId).toBe("run1");
-    expect(r.pending).toEqual({ index: 0, ruledOut: "landmark:well", hint: WELL_REDIRECT });
+    expect(r.pending).toEqual({ index: 0, ruledOut: "landmark:well", hint: WELL_REDIRECT, feedback: "wrong_place" });
     expect(r.questions[0]).toEqual({ kind: "trail", id: TRAIL.id, skillId: TRAIL.skillId, prompt: TRAIL.prompt, readAloud: TRAIL.readAloud, view: {} });
     for (const secret of SECRETS) expect(JSON.stringify(r), secret).not.toContain(secret);
   });
@@ -1390,7 +1397,7 @@ describe("a trail task in a run (R-H1, slice 5)", () => {
     // Nor on the second try.
     await answerDeedQuestion("run1", 0, "landmark:well");
     const before = (await stored()).second_tries;
-    for (const raw of ["landmark:longwater", "toString", "__proto__", 42, ""]) {
+    for (const raw of ["landmark:longwater", "toString", "__proto__", " landmark:mill", "landmark:mill ", 42, {}, "", "x".repeat(10_000), null]) {
       await expect(retryDeedQuestion("run1", 0, raw)).rejects.toThrow(PICK_SHOWN);
     }
     expect((await stored()).second_tries).toBe(before);
@@ -1841,6 +1848,14 @@ describe("a sort's hint talks about groups, never choices", () => {
     const r = await startDeedRun("c1", "well-stones", "realm");
     expect(r.pending).toMatchObject({ index: 0, hint: "Say each word, then think about which group it belongs in." });
   });
+
+  it("a resumed second chance keeps the answer's feedback code, so the lock's own lead comes back, not \"Not quite.\" (every kind)", async () => {
+    await seedSorts();
+    const open = await answerDeedQuestion("run1", 0, wrong(TASKS[0]));
+    expect(open.feedback).toBeDefined();
+    const r = await startDeedRun("c1", "well-stones", "realm");
+    expect(r.pending).toMatchObject({ index: 0, feedback: open.feedback });
+  });
 });
 
 async function runCountOf(childId: string): Promise<number> {
@@ -2090,7 +2105,26 @@ describe("reading side quests are clue trails (H7)", () => {
       await expect(answerDeedQuestion(start.runId, 0, raw), String(raw).slice(0, 20)).rejects.toThrow(PICK_SHOWN);
     }
     expect(JSON.parse((await stored(start.runId)).responses)).toEqual([null, null, null, null]);
+    expect(JSON.parse((await stored(start.runId)).second_tries)).toEqual([]);
     expect(Number((await client.query("SELECT count(*) AS n FROM skill_mastery")).rows[0].n)).toBe(0);
+    // Nor on the second try of a drawn clue: a forged second place writes no second try.
+    const [first] = clues(await storedTasks(start.runId));
+    await answerDeedQuestion(start.runId, 0, ANCHOR_IDS.find((id) => id !== first.answer)!);
+    const before = (await stored(start.runId)).second_tries;
+    for (const raw of ["landmark:longwater", "toString", "__proto__", ` ${first.answer}`, 42, {}, "", "x".repeat(10_000), null]) {
+      await expect(retryDeedQuestion(start.runId, 0, raw), String(raw).slice(0, 20)).rejects.toThrow(PICK_SHOWN);
+    }
+    expect((await stored(start.runId)).second_tries).toBe(before);
+  });
+
+  it("on a drawn run, a second wrong place through retryDeedQuestion reveals the clue's place (H7)", async () => {
+    const start = await startDeedRun("c1", "well-signs", "realm");
+    const [first] = clues(await storedTasks(start.runId));
+    const [wrong1, wrong2] = ANCHOR_IDS.filter((id) => id !== first.answer);
+    expect(await answerDeedQuestion(start.runId, 0, wrong1)).toMatchObject({ correct: false, secondChance: true, feedback: "wrong_place" });
+    const miss = await retryDeedQuestion(start.runId, 0, wrong2);
+    expect(miss).toMatchObject({ correct: false, secondChance: false, reveal: first.answer });
+    expect(JSON.parse((await stored(start.runId)).second_tries)[0]).toBe(wrong2);
   });
 
   it("a resumed start never carries an answer: only the open redirect for the place chosen (F-10, Review Focus 1)", async () => {
@@ -2103,7 +2137,7 @@ describe("reading side quests are clue trails (H7)", () => {
     expect(await answerDeedQuestion(start.runId, 0, wrong)).toMatchObject({ correct: false, secondChance: true, hint });
     const resumed = await startDeedRun("c1", "well-signs", "realm");
     expect(resumed.runId).toBe(start.runId);
-    expect(resumed.pending).toEqual({ index: 0, ruledOut: wrong, hint });
+    expect(resumed.pending).toEqual({ index: 0, ruledOut: wrong, hint, feedback: "wrong_place" });
     const json = JSON.stringify(resumed);
     // The child's own pick and the line for it may be there; nothing else of the clues is.
     for (const secret of secretsOf(tasks).filter((s) => s !== hint && s !== wrong)) expect(json, secret).not.toContain(secret);

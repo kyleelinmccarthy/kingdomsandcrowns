@@ -14,8 +14,11 @@ import type { ContentBand } from "./content-bands";
 export type RunStart = {
   runId: string; deed: { id: string; title: string; story: string; area: SkillArea | null }; questions: ClientTask[]; responses: (string | null)[];
   kind: RunKind;
-  /** A resumed run left on a second chance: reopen there, the first pick ruled out and the hint shown. */
-  pending: { index: number; ruledOut: string; hint: string } | null;
+  /**
+   * A resumed run left on a second chance: reopen there, the first pick ruled out and the hint shown.
+   * `feedback` is the first pick's code, as the fresh answer had it (`storedFeedback`), so the lead is the kind's own.
+   */
+  pending: { index: number; ruledOut: string; hint: string; feedback?: FeedbackCode } | null;
   /**
    * A side quest's building as the run begins, for the bench's drawing: its site stage
    * (`siteStage`), whether it is finished, and `placed`, how many of the run's bench tasks were

@@ -504,6 +504,11 @@ describe("what a villager says after a lock answer (R-F2, R-F3)", () => {
     expect(attemptFeedback({ correct: false, secondChance: true, hint: "Count on." }, false, undefined, lockTask).text).toBe("Not quite. Count on.");
   });
 
+  it("a second chance picked back up leads with the lock's own line, from the code `pending` carries", () => {
+    const flow = initialFlow({ questions: [lockTask], responses: ["x"], pending: { index: 0, ruledOut: "x", hint: "Try the small ones.", feedback: "rule_broken" } });
+    expect(attemptFeedback(flow.result!, true, undefined, lockTask).text).toBe("Something doesn't fit yet. Look at the marked rule. Try the small ones.");
+  });
+
   it("on a sort's second chance, nothing is marked, so it never points at a marked rule (RF-c)", () => {
     for (const view of [
       { puzzle: "sort1" as const, items: [{ shape: "circle" as const, color: "red" as const }], bins: ["Red", "Blue"] },
