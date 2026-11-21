@@ -3818,6 +3818,7 @@ Parts F and G's constraints still apply, plus:
 - With runes off, rune objects are not drawn, as with locks. Fixed records stay (R-I13).
 - Focus wins for runes too: a language side quest that would draw a grown-up's focus skill no rune pool can play (today `lang-g1`) plays as multiple choice at full length (R-I8, mirroring R-H22).
 - Slice 6 merges into `dev` only on the owner's word (R-I16).
+- Grades 2–3 build the word they hear: the word is always spoken (dictation), with the object's picture, as at K–1 (R-I18).
 
 ## Rulings (record them in spec §2a, "Calls settled for slice 6", in I1's commit)
 
@@ -3923,10 +3924,12 @@ Parts F and G's constraints still apply, plus:
     - any rune copy shown before resolution.
   - **The id, the entry and the hint stay on the server.** The id is opaque; `entry` and `words` never leave; `hint` leaves only as an open second chance's line; `reveal` leaves only on a resolved miss.
   - **One exception: dictation (R-I18).** At k1 and g23 the word is the spoken prompt, so it reaches the browser inside `readAloud`, which is spoken and never printed. This is the spelling pools' existing contract (`spelling-g23`'s items send `readAloud: "friend"`).
-- **R-I18: dictation, meaning and narration (planner call).**
-  - **k1 and g23 are dictation:** a picture, a shown line that never holds the word ("The lantern is dark. Build the word you hear."), and a `readAloud` that says it ("Lit. The lantern is lit. Lit."). The view marks such a task `listen: true`.
-    - *Why:* the spec gives K–1 "picture plus spoken prompt". The skills credited at 2–3 (`spell-g23`, `lang-g3` "Spelling and verbs") are spelling, and their choice pools are dictation already. Building "mend" from tiles needs the hearer to know the word is "mend"; a meaning prompt at seven would turn a spelling skill into a vocabulary guess.
-  - **g45 and up build from a meaning:** a short meaning (g45) or a definition (g68, g912), shown, and spoken only with read-aloud on. `listen: false`.
+- **R-I18: dictation, meaning and narration (owner for grades 2–3, 2026-11-21; planner call for the rest).**
+  - **k1 and g23 are dictation:** the object's picture, a shown line that never holds the word ("The lantern is dark. Build the word you hear."), and a `readAloud` that says it ("Lit. The lantern is lit. Lit."). The view marks such a task `listen: true`.
+    - **Grades 2–3 build the word they hear (owner, 2026-11-21).** The word is always spoken, with the object's picture: in the Realm's walk and any-time board, on the villager's board, and in the off-world picture run on the Side Quests page.
+    - *Why K–1:* the spec gives K–1 "picture plus spoken prompt".
+    - *Why 2–3* (the reasoning behind the owner's answer): the skills credited at 2–3 (`spell-g23`, `lang-g3` "Spelling and verbs") are spelling, and their choice pools are dictation already. Building "mend" from tiles needs the hearer to know the word is "mend".
+  - **g45 and up build from a meaning** (planner call): a short meaning (g45) or a definition (g68, g912), shown, and spoken only with read-aloud on. `listen: false`.
     - *Why:* the band credits `vocab-g45` at grade 5. Recognising the word from its meaning, then spelling it chunk by chunk, practises both rows the band credits.
   - **A `listen` task is always spoken, whatever `profile.readAloud` says.** That covers its prompt when the stone opens and the "Hear the word" button, on the board, on the page and at the stone in the Realm.
     - So every Kindergarten hero hears every rune (R-H17's spirit, met through the task rather than the run). So does every grade 1–3 hero, since a dictation cannot be answered unheard. `RunStart.narrateClues` stays trail-only.
@@ -4084,7 +4087,7 @@ Parts F, G and H's constraints still apply, plus:
 - `src/lib/realm/world-state.ts` + `world-state.test.ts`: `heldNow`, `brokenNow`, the view's and canvas's runes, `applyRuneOutcomes`.
 - `src/lib/utils/deed-run-types.ts`: `RuneOutcome`, `RunSummary.runes?`.
 - Spec §2a: add "Calls settled for slice 6 (2026-11-21)" with the owner's answers and R-I1–R-I22, one line each.
-- Spec §4.7: the g23 and g45 prompt lines (R-I18); "a sibling catalog, `RUNE_OBJECTS`" (R-I4); "side quests name village objects; the named places' objects are fixed any time" (R-I10).
+- Spec §4.7: the g23 line becomes "Grades 2–3: phonogram tiles; the child hears the word, always spoken, with the object's picture (owner, 2026-11-21)", and the g45 prompt line (R-I18); "a sibling catalog, `RUNE_OBJECTS`" (R-I4); "side quests name village objects; the named places' objects are fixed any time" (R-I10).
 - Spec §8: slice 6 "Depends on" becomes "1, 4, 5" (the walk).
 
 **Interfaces (produces):**
@@ -4457,7 +4460,8 @@ A place object's position is its place's plus a local `RUNE_PLACE_OFFSETS` table
 
   **`rune-pools.test.ts`**, with one valid fixture and one mutation per rule. These include:
   - a g45 prompt "To water the plants." with `words: ["water"]` fails `shows-word`, and so does a hint "Think of waters.";
-  - a k1 `readAloud` that lacks the word fails `listen-word`;
+  - a k1 `readAloud` that lacks the word fails `listen-word`, and so does a g23 entry with no `readAloud` (R-I18, owner);
+  - a g23 prompt "Build the word mend." fails `shows-word`, while its `readAloud` "Mend. Mend the wagon." passes;
   - a g68 `readAloud` that holds it fails `shows-word`;
   - tiles `["m", "e", "n"]` for "mend" fail `not-buildable`;
   - two decoys fail `few-decoys`;
@@ -4718,6 +4722,7 @@ A place object's position is its place's plus a local `RUNE_PLACE_OFFSETS` table
   - a resolved miss with `reveal: "r:1,3,4,0"` fills the row with m, e, n, d;
   - "the stone never shows the word's length" (R-I17): before any tap the row holds only `RUNE_EMPTY_ROW`, and no element's text or attribute holds the tile count of the word;
   - "Hear the word" shows only for a `listen` task, and speaks `readAloud`;
+  - "a grade 2–3 dictation on the page is the picture and the word heard" (R-I18, owner): a `rune-g23` task (`listen: true`) on the page shows the picture, the object's label and "Hear the word", and no element's text holds the word;
   - Enter on a tile does not reach a window keydown listener;
   - Tab moves through the tiles in tray order.
 
@@ -4733,7 +4738,7 @@ A place object's position is its place's plus a local `RUNE_PLACE_OFFSETS` table
   - a lock or trail answered elsewhere does not hide the rune demo.
 
   **`deed-board.test.tsx`:**
-  - "a dictation is spoken with read-aloud off": a rune run whose task has `listen: true` and `profile.readAloud: false` calls `speak` with its `readAloud`;
+  - "a dictation is spoken with read-aloud off": a rune run whose task has `listen: true` and `profile.readAloud: false` calls `speak` with its `readAloud`. One case is a k1 task; one is a g23 task for a grade-2 hero (R-I18, owner);
   - "a meaning is not spoken unless asked": a `listen: false` task makes no `speak` call until the read-aloud button;
   - "the board speaks a rune's second-chance and miss lines": a first wrong cast speaks "Not that word. …";
   - a two-rune walking run in the realm shows "Set off", which calls `onWalk(run)`, with both labels in the line;
@@ -4741,7 +4746,7 @@ A place object's position is its place's plus a local `RUNE_PLACE_OFFSETS` table
 
   **`deed-player.test.tsx`:**
   - a rune task on the page plays on the stone and answers through `answerDeedQuestion(runId, 0, "r:…")`;
-  - a dictation is spoken with read-aloud off.
+  - "the picture run speaks a grade-2 hero's word with read-aloud off" (R-I18, owner): a `rune-g23` task on the page calls `speak` with its `readAloud`, and the second-chance line is spoken too.
 - [ ] **Step 2:** `npx vitest run src/components/tasks/rune-presenter.test.tsx src/lib/tasks/rune-stops.test.ts src/components/tasks/task-demo.test.tsx src/lib/services/deed-run-store-db.test.ts src/components/realm3d/deed-board.test.tsx src/components/deed-player.test.tsx src/components/tasks/presenters.test.tsx --maxWorkers=2`. Expected: FAIL.
 - [ ] **Step 3:** implement.
 - [ ] **Step 4:** the same command, `npx eslint` on the changed files, then `npx tsc --noEmit`. Expected: PASS, 0 errors.
@@ -5030,12 +5035,13 @@ A place object's position is its place's plus a local `RUNE_PLACE_OFFSETS` table
   5. The last stop: "Finish the rune walk", then the villager's board shows the result, and closing it raises the building. Reload: the fixed objects stay fixed.
   6. "Leave the rune walk", then talk again: the run resumes at its stop.
   7. The any-time fix: E at a broken object at Appleway opens the stone. Right: "The rune works!", and the object is fixed. E again shows `RUNE_HOLDS_LINE`.
-  8. The Side Quests page, a grade-4 speller: the picture run at 390 px. The tray wraps, tiles are at least 40 px, and Backspace and Clear work.
-  9. The settings switch "Rune spellcraft" off: language is multiple choice in the Realm and on the page, and no rune object is drawn. On again: the fixed ones are still fixed.
-  10. The gate board: language is multiple choice.
-  11. A grade-1 hero with a grown-up's `lang-g1` focus: start language side quests until one draws it. That one is eight multiple-choice questions on the board; one that does not draw it is a rune walk (R-I8).
-  12. `?calm=1`: the rune objects still stand.
-  13. The tracker and the stone at 390×667 and 540×800, at normal and larger text: nothing clipped, the foot buttons in reach (slice 5's round-3 bar).
+  8. A grade-2 hero with read-aloud OFF (R-I18, owner): in the Realm walk, the word is spoken as the stone opens, with the object's picture and phonogram tiles. On the Side Quests page, the picture run shows the picture, speaks the word unprompted, and "Hear the word" says it again; the word is never printed before the cast.
+  9. The Side Quests page, a grade-4 speller: the picture run at 390 px. The tray wraps, tiles are at least 40 px, and Backspace and Clear work.
+  10. The settings switch "Rune spellcraft" off: language is multiple choice in the Realm and on the page, and no rune object is drawn. On again: the fixed ones are still fixed.
+  11. The gate board: language is multiple choice.
+  12. A grade-1 hero with a grown-up's `lang-g1` focus: start language side quests until one draws it. That one is eight multiple-choice questions on the board; one that does not draw it is a rune walk (R-I8).
+  13. `?calm=1`: the rune objects still stand.
+  14. The tracker and the stone at 390×667 and 540×800, at normal and larger text: nothing clipped, the foot buttons in reach (slice 5's round-3 bar).
 - [ ] **Whole-branch review** (opus) on `ab1559e..HEAD`. It checks:
   - the leak rule end to end, including the shuffle and the dictation exception;
   - that no path pays minutes besides the side quest's stars;
