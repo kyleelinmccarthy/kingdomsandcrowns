@@ -4,21 +4,25 @@
  * Demo-first, for every hands-on kind (R-C9, R-F10, R-H16): the players' side of it. The server marks
  * the task a young hero meets a worked example before (`RunStart.demo`, from `demoAt`); `useTaskDemo`
  * shows it once, when the run reaches that task, and `TaskDemo` draws the one that task has
- * (`demoKeyOf`): Aldo at the bench, Pip at a lock, or Pip following a clue.
+ * (`demoKeyOf`): Aldo at the bench, Pip at a lock, Pip following a clue, or Pip building a rune.
  */
 import { useState } from "react";
 import type { RunStart } from "@/lib/utils/deed-run-types";
 import { demoKeyOf, isLockDemo, type DemoKey } from "@/lib/tasks/demos";
+import { RUNE_DEMO_COPY } from "@/lib/tasks/rune-copy";
 import { TRAIL_DEMO_COPY } from "@/lib/tasks/trail-copy";
 import { BenchDemo, demoCopy } from "./bench-demo";
 import { LockDemo, lockDemoCopy } from "./lock-demo";
+import { RuneDemo } from "./rune-demo";
 import { TrailDemo } from "./trail-demo";
 
 /** The demo's words, for read-aloud. */
-export const taskDemoCopy = (key: DemoKey): string => (key === "trail" ? TRAIL_DEMO_COPY : isLockDemo(key) ? lockDemoCopy(key) : demoCopy(key));
+export const taskDemoCopy = (key: DemoKey): string =>
+  key === "trail" ? TRAIL_DEMO_COPY : key === "rune" ? RUNE_DEMO_COPY : isLockDemo(key) ? lockDemoCopy(key) : demoCopy(key);
 
 export function TaskDemo({ demo, onDone, calm, variant = "board" }: { demo: DemoKey; onDone(): void; calm: boolean; variant?: "board" | "page" }) {
   if (demo === "trail") return <TrailDemo calm={calm} variant={variant} onDone={onDone} />;
+  if (demo === "rune") return <RuneDemo calm={calm} variant={variant} onDone={onDone} />;
   return isLockDemo(demo)
     ? <LockDemo mode={demo} calm={calm} variant={variant} onDone={onDone} />
     : <BenchDemo mode={demo} calm={calm} variant={variant} onDone={onDone} />;

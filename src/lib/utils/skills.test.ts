@@ -18,6 +18,8 @@ describe("SKILLS", () => {
       else if (s.source.kind === "lock") expect(s.area, `${s.id} is a lock skill outside logic`).toBe("logic");
       // A trail skill has no pool file to find: its clues live in `src/content/trails/` (H4), and only reading plays them.
       else if (s.source.kind === "trail") expect(s.area, `${s.id} is a trail skill outside reading`).toBe("reading");
+      // A rune skill has no pool file either: its words live in `src/content/runes/` (I4), and only language plays them (R-I7).
+      else if (s.source.kind === "rune") expect(s.area, `${s.id} is a rune skill outside language`).toBe("language");
       else expect(fs.existsSync(path.join(__dirname, "../../content/drills", `${s.source.poolId}.json`))).toBe(true);
     }
   });
@@ -66,6 +68,7 @@ describe("which grade each strand is actually served at", () => {
         "language": {
           "1": [
             "lang-g1",
+            "spell-g1",
           ],
           "10": [],
           "11": [],
@@ -153,6 +156,25 @@ describe("which grade each strand is actually served at", () => {
   });
 });
 
+describe("the rune-only rows (R-I7)", () => {
+  it("adds spelling at grade 1 as a rune-only row, after lang-g1", () => {
+    expect(findSkill("spell-g1")).toEqual({
+      id: "spell-g1", label: "Spelling", area: "language", grades: ["1"], source: { kind: "rune" },
+    });
+    expect(skillsFor("language", "1").map((s) => s.id)).toEqual(["lang-g1", "spell-g1"]);
+    expect(SKILLS.findIndex((s) => s.id === "spell-g1")).toBe(SKILLS.findIndex((s) => s.id === "lang-g1") + 1);
+  });
+
+  it("is the only rune source, and it is never multiple choice", () => {
+    expect(SKILLS.filter((s) => s.source.kind === "rune").map((s) => s.id)).toEqual(["spell-g1"]);
+    expect(choiceDrawable(findSkill("spell-g1")!)).toBe(false);
+    // The existing language rows are untouched.
+    for (const id of ["lang-gk", "lang-g1", "lang-g3", "spell-g23", "spell-g45", "vocab-g45", "vocab-g68", "vocab-g912"]) {
+      expect(choiceDrawable(findSkill(id)!), id).toBe(true);
+    }
+  });
+});
+
 describe("the trail skills (R-H8)", () => {
   it("adds reading at six and nine as trail-only rows, labelled from the ELA map", () => {
     expect(findSkill("read-g6")).toEqual({
@@ -174,7 +196,7 @@ describe("the trail skills (R-H8)", () => {
     for (const id of ["read-g6", "read-g9", "logic-g45", "logic-k1"]) expect(choiceDrawable(findSkill(id)!), id).toBe(false);
   });
 
-  it("every skill is choice-drawable unless it is a lock or a trail skill", () => {
+  it("every skill is choice-drawable unless it is a lock, trail or rune skill", () => {
     for (const s of SKILLS) expect(choiceDrawable(s), s.id).toBe(s.source.kind === "generator" || s.source.kind === "pool");
   });
 
@@ -218,10 +240,12 @@ const AUTHORED_AREAS = ["reading", "language", "science"] as const;
 describe("the ELA and science skill tables follow the skill map", () => {
   it("finds every row in the map, so the comparisons below are not vacuous", () => {
     const rows = elaMapRows();
-    // 39 rows, 12 of them carried forward, is what the plan that fills this map was written
-    // against. If either number moves, the map changed under the plan and the difference needs
-    // a ruling from a person — not a number quietly adjusted here to match.
-    expect(rows.length, "the ELA and science map is no longer 39 rows").toBe(39);
+    // 40 rows, 12 of them carried forward, is what the plan that fills this map was written
+    // against, plus `spell-g1` (R-I7): the spec named it (§2a, §4.7) and the owner approved the
+    // row, so that plan is the ruling this count was waiting for. If either number moves again,
+    // the map changed under the plan and the difference needs a ruling from a person — not a
+    // number quietly adjusted here to match.
+    expect(rows.length, "the ELA and science map is no longer 40 rows").toBe(40);
     expect(
       rows.filter((r) => r.status.includes("carried forward")).length,
       "the ELA and science map no longer carries 12 skills forward",
@@ -231,9 +255,9 @@ describe("the ELA and science skill tables follow the skill map", () => {
   });
 
   /**
-   * **The content progress bar for this plan.** These are the map's 27 rows that no pool has
-   * been written for yet — this task moves the existing twelve onto grades and authors
-   * nothing. **It must reach `[]` by the end of this plan.** Each later task that writes a
+   * **The content progress bar for this plan.** These are the map's rows that no pool has been
+   * written for yet (27 when the plan began; the map's `spell-g1` row is played as runes and is
+   * not one of them). **It must reach `[]` by the end of this plan.** Each later task that writes a
    * pool deletes its line here; the test below fails until the line goes, and it also fails
    * if a line is deleted without the pool actually arriving, so the list cannot be fudged in
    * either direction. When it is empty, the comparison below is the map, unfiltered.
@@ -257,6 +281,11 @@ describe("the ELA and science skill tables follow the skill map", () => {
     expect(status("read-g9")).toBe("new — played as reading trails; no multiple-choice pool yet");
     // Every other row keeps the status it had.
     expect(elaMapRows().filter((r) => r.status.includes("trails")).map((r) => r.skillId)).toEqual(["read-g6", "read-g9"]);
+  });
+
+  it("says in the map that spell-g1 is played as rune spellcraft, with no multiple-choice pool", () => {
+    const row = elaMapRows().find((r) => r.skillId === "spell-g1");
+    expect(row).toEqual({ grade: "1", skillId: "spell-g1", strand: "language", status: "new — played as rune spellcraft; no multiple-choice pool yet" });
   });
 
   it("serves exactly the ELA and science map's skills at every grade", () => {

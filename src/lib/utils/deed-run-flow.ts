@@ -41,6 +41,14 @@ export function initialFlow(run: Pick<RunStart, "questions" | "responses" | "pen
 /** What the finish step says when a run is picked back up with every question already answered. */
 export const ALL_ANSWERED = "Every answer is in.";
 
+/**
+ * Whether this is a run picked back up at its finish step (resolved, with no result to show): nothing
+ * is asked there, so nothing is read aloud unprompted.
+ */
+export function atFinishStep(state: Pick<FlowState, "phase" | "result">): boolean {
+  return state.phase === "resolved" && state.result === null;
+}
+
 /** Whether the run has nothing left to answer: its last question is resolved, so it can be finished. */
 export function readyToFinish(state: FlowState, questions: number): boolean {
   return state.phase === "resolved" && state.index >= questions - 1;

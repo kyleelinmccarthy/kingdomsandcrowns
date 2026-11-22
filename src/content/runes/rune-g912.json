@@ -1,0 +1,1575 @@
+{
+  "poolId": "rune-g912",
+  "band": "g912",
+  "skillIds": [
+    "vocab-g912"
+  ],
+  "entries": [
+    {
+      "id": "fx-mend-01",
+      "effect": "mend",
+      "level": 0,
+      "prompt": "To repair an old building and make it like new.",
+      "words": [
+        "renovate"
+      ],
+      "tiles": [
+        "re",
+        "nov",
+        "ate",
+        "ice",
+        "el",
+        "ty",
+        "ion"
+      ],
+      "hint": "The root nov means new.",
+      "why": "Re- (again) + nov (new) + -ate (to make): to make new again."
+    },
+    {
+      "id": "fx-mend-02",
+      "effect": "mend",
+      "level": 0,
+      "prompt": "To build again something that was torn down.",
+      "words": [
+        "reconstruct"
+      ],
+      "tiles": [
+        "re",
+        "con",
+        "struct",
+        "de",
+        "in",
+        "al"
+      ],
+      "hint": "The root struct means to build.",
+      "why": "Re- (again) + con- (together) + struct (to build): to build together again."
+    },
+    {
+      "id": "fx-mend-03",
+      "effect": "mend",
+      "level": 0,
+      "prompt": "To make a wall or a place stronger against attack.",
+      "words": [
+        "fortify"
+      ],
+      "tiles": [
+        "fort",
+        "ify",
+        "gen",
+        "ress",
+        "ude",
+        "al",
+        "ism"
+      ],
+      "hint": "The root fort means strong.",
+      "why": "Fort (strong) + -ify (to make): to make strong."
+    },
+    {
+      "id": "fx-mend-04",
+      "effect": "mend",
+      "level": 0,
+      "prompt": "To clean, mend and freshen something so it looks new.",
+      "words": [
+        "refurbish",
+        "furbish"
+      ],
+      "tiles": [
+        "re",
+        "furb",
+        "ish",
+        "de",
+        "ous",
+        "ant",
+        "ate",
+        "ion"
+      ],
+      "hint": "The root furb means to polish.",
+      "why": "Re- (again) + furb (to polish) + -ish: to polish and freshen a thing again."
+    },
+    {
+      "id": "fx-mend-05",
+      "effect": "mend",
+      "level": 1,
+      "prompt": "To put right something that is wrong.",
+      "words": [
+        "rectify"
+      ],
+      "tiles": [
+        "rect",
+        "ify",
+        "angle",
+        "ive",
+        "or"
+      ],
+      "hint": "The root rect means straight or right.",
+      "why": "Rect (right, straight) + -ify (to make): to make right."
+    },
+    {
+      "id": "fx-mend-06",
+      "effect": "mend",
+      "level": 1,
+      "prompt": "To join several parts into one strong whole.",
+      "words": [
+        "consolidate"
+      ],
+      "tiles": [
+        "con",
+        "solid",
+        "ate",
+        "ity",
+        "us",
+        "ure",
+        "ism"
+      ],
+      "hint": "The root solid means firm and whole.",
+      "why": "Con- (together) + solid (firm) + -ate (to make): to make firm by joining together."
+    },
+    {
+      "id": "fx-mend-07",
+      "effect": "mend",
+      "level": 1,
+      "prompt": "To make something steady so it will not wobble or fall.",
+      "words": [
+        "stabilize"
+      ],
+      "tiles": [
+        "stabil",
+        "ize",
+        "ity",
+        "ate",
+        "ous",
+        "ure"
+      ],
+      "hint": "The root stabil means firm, standing.",
+      "why": "Stabil (firm, standing) + -ize (to make): to make steady."
+    },
+    {
+      "id": "fx-mend-08",
+      "effect": "mend",
+      "level": 2,
+      "prompt": "To bring something back to good condition, so it can be used again.",
+      "words": [
+        "rehabilitate"
+      ],
+      "tiles": [
+        "re",
+        "habilit",
+        "ate",
+        "in",
+        "ous",
+        "ure"
+      ],
+      "hint": "The root habilit means able.",
+      "why": "Re- (again) + habilit (able) + -ate (to make): to make able again."
+    },
+    {
+      "id": "fx-mend-09",
+      "effect": "mend",
+      "level": 2,
+      "prompt": "Able to stick together well, so the parts hold as one.",
+      "words": [
+        "cohesive"
+      ],
+      "tiles": [
+        "co",
+        "hes",
+        "ive",
+        "ion",
+        "ate",
+        "ous",
+        "ure",
+        "al"
+      ],
+      "hint": "The root hes means to stick.",
+      "why": "Co- (together) + hes (to stick) + -ive: sticking together."
+    },
+    {
+      "id": "fx-mend-10",
+      "effect": "mend",
+      "level": 2,
+      "prompt": "To save what can still be used from a wreck.",
+      "words": [
+        "salvage"
+      ],
+      "tiles": [
+        "salv",
+        "age",
+        "ate",
+        "ous",
+        "ary",
+        "ism",
+        "ure"
+      ],
+      "hint": "The root salv means safe.",
+      "why": "Salv (safe) + -age: to save from loss."
+    },
+    {
+      "id": "fx-mend-11",
+      "effect": "mend",
+      "level": 3,
+      "prompt": "To form or build something up again from its parts.",
+      "words": [
+        "reconstitute"
+      ],
+      "tiles": [
+        "re",
+        "con",
+        "stitut",
+        "e",
+        "de",
+        "al",
+        "ary"
+      ],
+      "hint": "The root stitut means to set up.",
+      "why": "Re- (again) + con- (together) + stitut (to set up): to set up again from its parts."
+    },
+    {
+      "id": "fx-mend-12",
+      "effect": "mend",
+      "level": 3,
+      "prompt": "A stitch that closes a wound.",
+      "words": [
+        "suture"
+      ],
+      "tiles": [
+        "sut",
+        "ure",
+        "tract",
+        "ion",
+        "al",
+        "ive"
+      ],
+      "hint": "The root sut means sewn.",
+      "why": "Sut (sewn) + -ure (the thing): a stitch that closes a wound."
+    },
+    {
+      "id": "fx-mend-13",
+      "effect": "mend",
+      "level": 3,
+      "prompt": "To make a wall or a frame stronger by adding support.",
+      "words": [
+        "reinforce"
+      ],
+      "tiles": [
+        "re",
+        "in",
+        "forc",
+        "e",
+        "ous",
+        "ate",
+        "ion",
+        "ive"
+      ],
+      "hint": "The root forc means strength.",
+      "why": "Re- (again) + in- + forc (strength): to put strength in again."
+    },
+    {
+      "id": "fx-mend-14",
+      "effect": "mend",
+      "level": 4,
+      "prompt": "To get back health or strength after an illness.",
+      "words": [
+        "recuperate"
+      ],
+      "tiles": [
+        "re",
+        "cuper",
+        "ate",
+        "ous",
+        "ion",
+        "al"
+      ],
+      "hint": "The root cuper means to take.",
+      "why": "Re- (back) + cuper (to take) + -ate: to take back your strength."
+    },
+    {
+      "id": "fx-mend-15",
+      "effect": "mend",
+      "level": 4,
+      "prompt": "Able to be mended or put right.",
+      "words": [
+        "reparable"
+      ],
+      "tiles": [
+        "re",
+        "par",
+        "able",
+        "ity",
+        "ous",
+        "ent",
+        "ate",
+        "ure"
+      ],
+      "hint": "The root par means to make ready.",
+      "why": "Re- (again) + par (to make ready) + -able (able to be): able to be made ready again."
+    },
+    {
+      "id": "fx-mend-16",
+      "effect": "mend",
+      "level": 4,
+      "prompt": "To make a bad thing better.",
+      "words": [
+        "ameliorate",
+        "meliorate"
+      ],
+      "tiles": [
+        "a",
+        "melior",
+        "ate",
+        "ism",
+        "ous",
+        "ity",
+        "ure",
+        "ive"
+      ],
+      "hint": "The root melior means better.",
+      "why": "A- (to) + melior (better) + -ate (to make): to make better."
+    },
+    {
+      "id": "fx-light-01",
+      "effect": "light",
+      "level": 0,
+      "prompt": "To shine light upon something; to light it up.",
+      "words": [
+        "illuminate"
+      ],
+      "tiles": [
+        "il",
+        "lumin",
+        "ate",
+        "al",
+        "ex",
+        "ion"
+      ],
+      "hint": "The root lumin means light.",
+      "why": "Il- (upon) + lumin (light) + -ate (to make): to throw light upon."
+    },
+    {
+      "id": "fx-light-02",
+      "effect": "light",
+      "level": 0,
+      "prompt": "Giving off light; glowing in the dark.",
+      "words": [
+        "luminous"
+      ],
+      "tiles": [
+        "lumin",
+        "ous",
+        "micro",
+        "il",
+        "ize",
+        "ity"
+      ],
+      "hint": "The root lumin means light.",
+      "why": "Lumin (light) + -ous (full of): full of light."
+    },
+    {
+      "id": "fx-light-03",
+      "effect": "light",
+      "level": 0,
+      "prompt": "A warm, bright glow given out by something.",
+      "words": [
+        "radiance"
+      ],
+      "tiles": [
+        "radi",
+        "ance",
+        "us",
+        "ology",
+        "ion",
+        "ism"
+      ],
+      "hint": "The root radi means a ray.",
+      "why": "Radi (a ray) + -ance (the state of): the glow of something sending out rays."
+    },
+    {
+      "id": "fx-light-04",
+      "effect": "light",
+      "level": 0,
+      "prompt": "The moment when something catches fire.",
+      "words": [
+        "ignition"
+      ],
+      "tiles": [
+        "ign",
+        "ition",
+        "ion",
+        "eous",
+        "al"
+      ],
+      "hint": "The root ign means fire.",
+      "why": "Ign (fire) + -ition (the act of): the act of catching fire."
+    },
+    {
+      "id": "fx-light-05",
+      "effect": "light",
+      "level": 1,
+      "prompt": "The tiniest bit of light there can be.",
+      "words": [
+        "photon"
+      ],
+      "tiles": [
+        "phot",
+        "on",
+        "graph",
+        "ic",
+        "ism",
+        "ure",
+        "ology"
+      ],
+      "hint": "The root phot means light.",
+      "why": "Phot (light) + -on (a particle): one tiny bit of light."
+    },
+    {
+      "id": "fx-light-06",
+      "effect": "light",
+      "level": 1,
+      "prompt": "Glowing white with heat.",
+      "words": [
+        "incandescent",
+        "candescent"
+      ],
+      "tiles": [
+        "in",
+        "candesc",
+        "ent",
+        "de",
+        "ance",
+        "ous",
+        "ible",
+        "ate"
+      ],
+      "hint": "The root cand means to shine white.",
+      "why": "In- + candesc (to begin to glow white) + -ent: glowing white with heat."
+    },
+    {
+      "id": "fx-light-07",
+      "effect": "light",
+      "level": 1,
+      "prompt": "The burning of something, giving off heat and light.",
+      "words": [
+        "combustion"
+      ],
+      "tiles": [
+        "com",
+        "bust",
+        "ion",
+        "ure",
+        "ive",
+        "ant"
+      ],
+      "hint": "It comes from the Latin comburere, to burn up.",
+      "why": "From the Latin comburere, to burn up: the act of burning."
+    },
+    {
+      "id": "fx-light-08",
+      "effect": "light",
+      "level": 2,
+      "prompt": "Giving off light without heat, as a glowworm does.",
+      "words": [
+        "luminescent"
+      ],
+      "tiles": [
+        "lumin",
+        "escent",
+        "ate",
+        "ity",
+        "ible",
+        "ism"
+      ],
+      "hint": "-escent means beginning to be.",
+      "why": "Lumin (light) + -escent (becoming): beginning to glow, without heat."
+    },
+    {
+      "id": "fx-light-09",
+      "effect": "light",
+      "level": 2,
+      "prompt": "Shining brilliantly; dazzling to look at.",
+      "words": [
+        "resplendent",
+        "splendent"
+      ],
+      "tiles": [
+        "re",
+        "splend",
+        "ent",
+        "ate",
+        "ous",
+        "ive",
+        "ion"
+      ],
+      "hint": "The root splend means to shine.",
+      "why": "Re- (again, intensely) + splend (to shine) + -ent: shining out brilliantly."
+    },
+    {
+      "id": "fx-light-10",
+      "effect": "light",
+      "level": 2,
+      "prompt": "Letting light pass through, but not clearly.",
+      "words": [
+        "translucent"
+      ],
+      "tiles": [
+        "trans",
+        "luc",
+        "ent",
+        "port",
+        "form",
+        "ous"
+      ],
+      "hint": "The root luc means light.",
+      "why": "Trans- (through) + luc (light) + -ent: letting light through."
+    },
+    {
+      "id": "fx-light-11",
+      "effect": "light",
+      "level": 3,
+      "prompt": "Glowing brightly when struck by light or other rays.",
+      "words": [
+        "fluorescent"
+      ],
+      "tiles": [
+        "fluor",
+        "escent",
+        "ide",
+        "ine",
+        "ous",
+        "ism",
+        "ure"
+      ],
+      "hint": "-escent means beginning to be.",
+      "why": "Fluor + -escent (becoming): beginning to glow when rays strike it."
+    },
+    {
+      "id": "fx-light-12",
+      "effect": "light",
+      "level": 3,
+      "prompt": "To give off sparks or flashes; to twinkle.",
+      "words": [
+        "scintillate"
+      ],
+      "tiles": [
+        "scintill",
+        "ate",
+        "ion",
+        "ous",
+        "ent",
+        "ive",
+        "ure"
+      ],
+      "hint": "The root scintill means a spark.",
+      "why": "Scintill (a spark) + -ate (to make): to give off sparks."
+    },
+    {
+      "id": "fx-light-13",
+      "effect": "light",
+      "level": 3,
+      "prompt": "A body that gives light, such as the sun or the moon.",
+      "words": [
+        "luminary"
+      ],
+      "tiles": [
+        "lumin",
+        "ary",
+        "al",
+        "ity",
+        "ism"
+      ],
+      "hint": "The root lumin means light.",
+      "why": "Lumin (light) + -ary (a thing that): a thing that gives light."
+    },
+    {
+      "id": "fx-light-14",
+      "effect": "light",
+      "level": 4,
+      "prompt": "Glowing faintly in the dark after the light has gone.",
+      "words": [
+        "phosphorescent"
+      ],
+      "tiles": [
+        "phos",
+        "phor",
+        "escent",
+        "us",
+        "ate",
+        "ic",
+        "ion"
+      ],
+      "hint": "The first part, phos, means light.",
+      "why": "Phos (light) + phor (to carry) + -escent: carrying light, glowing on in the dark."
+    },
+    {
+      "id": "fx-light-15",
+      "effect": "light",
+      "level": 4,
+      "prompt": "A huge fire that spreads and burns far and wide.",
+      "words": [
+        "conflagration"
+      ],
+      "tiles": [
+        "con",
+        "flagr",
+        "ation",
+        "ous",
+        "ive",
+        "ure",
+        "al"
+      ],
+      "hint": "The root flagr means to blaze.",
+      "why": "Con- (fully) + flagr (to blaze) + -ation: a fire blazing on every side."
+    },
+    {
+      "id": "fx-light-16",
+      "effect": "light",
+      "level": 4,
+      "prompt": "To flash and sparkle, as light on moving water.",
+      "words": [
+        "coruscate"
+      ],
+      "tiles": [
+        "corusc",
+        "ate",
+        "ion",
+        "ous",
+        "ive"
+      ],
+      "hint": "-ate means to do.",
+      "why": "Corusc (to flash) + -ate (to do): to flash and sparkle."
+    },
+    {
+      "id": "fx-water-01",
+      "effect": "water",
+      "level": 0,
+      "prompt": "To bring water to dry land through channels and ditches.",
+      "words": [
+        "irrigate"
+      ],
+      "tiles": [
+        "ir",
+        "rig",
+        "ate",
+        "de",
+        "ous",
+        "sub",
+        "ent",
+        "ism"
+      ],
+      "hint": "A Latin root for watering sits in the middle.",
+      "why": "Ir- (into), rig (to water, from Latin rigare), -ate (to make): to bring water into the land."
+    },
+    {
+      "id": "fx-water-02",
+      "effect": "water",
+      "level": 0,
+      "prompt": "Giving something the water that it needs.",
+      "words": [
+        "hydration"
+      ],
+      "tiles": [
+        "hydr",
+        "ation",
+        "ant",
+        "ology",
+        "ic",
+        "ion",
+        "ure"
+      ],
+      "hint": "The root hydr means water.",
+      "why": "Hydr (water) + -ation (the act of): the act of giving water."
+    },
+    {
+      "id": "fx-water-03",
+      "effect": "water",
+      "level": 0,
+      "prompt": "A long stone bridge or channel that carries water to a town.",
+      "words": [
+        "aqueduct"
+      ],
+      "tiles": [
+        "aque",
+        "duct",
+        "ous",
+        "con",
+        "ive"
+      ],
+      "hint": "The first part means water.",
+      "why": "Aque (water) + duct (to lead): a channel that leads water."
+    },
+    {
+      "id": "fx-water-04",
+      "effect": "water",
+      "level": 0,
+      "prompt": "A pipe or channel that carries water.",
+      "words": [
+        "conduit"
+      ],
+      "tiles": [
+        "con",
+        "duit",
+        "de",
+        "tract",
+        "struct",
+        "ive"
+      ],
+      "hint": "Con- means together; the root means to lead.",
+      "why": "Con- (together) + duit (to lead): a pipe that leads water along."
+    },
+    {
+      "id": "fx-water-05",
+      "effect": "water",
+      "level": 1,
+      "prompt": "To flood a place with more water than it can hold.",
+      "words": [
+        "inundate"
+      ],
+      "tiles": [
+        "in",
+        "und",
+        "ate",
+        "ous",
+        "ent",
+        "ion",
+        "ism"
+      ],
+      "hint": "The root und means a wave.",
+      "why": "In- (upon) + und (a wave) + -ate (to make): to flood over in waves."
+    },
+    {
+      "id": "fx-water-06",
+      "effect": "water",
+      "level": 1,
+      "prompt": "The state of being soaked so full that no more water can go in.",
+      "words": [
+        "saturation"
+      ],
+      "tiles": [
+        "satur",
+        "ation",
+        "ous",
+        "ity",
+        "ent"
+      ],
+      "hint": "The root satur means full.",
+      "why": "Satur (full) + -ation (the state of): the state of being full of water."
+    },
+    {
+      "id": "fx-water-07",
+      "effect": "water",
+      "level": 1,
+      "prompt": "A lake made to store water for a town or farm.",
+      "words": [
+        "reservoir"
+      ],
+      "tiles": [
+        "reserv",
+        "oir",
+        "ation",
+        "ist",
+        "ous",
+        "ate",
+        "ure"
+      ],
+      "hint": "The root reserv means to keep back.",
+      "why": "Reserv (to keep back) + -oir (a place for): a place where water is kept."
+    },
+    {
+      "id": "fx-water-08",
+      "effect": "water",
+      "level": 2,
+      "prompt": "To seep slowly down through soil or sand.",
+      "words": [
+        "percolate"
+      ],
+      "tiles": [
+        "per",
+        "col",
+        "ate",
+        "ony",
+        "ous",
+        "ent",
+        "ism",
+        "ure"
+      ],
+      "hint": "The root col means to strain.",
+      "why": "Per- (through) + col (to strain) + -ate: to strain through slowly."
+    },
+    {
+      "id": "fx-water-09",
+      "effect": "water",
+      "level": 2,
+      "prompt": "To drink in or soak up water, as a seed does.",
+      "words": [
+        "imbibe"
+      ],
+      "tiles": [
+        "im",
+        "bib",
+        "e",
+        "ous",
+        "al",
+        "ent"
+      ],
+      "hint": "The root bib means to drink.",
+      "why": "Im- (in) + bib (to drink): to drink in."
+    },
+    {
+      "id": "fx-water-10",
+      "effect": "water",
+      "level": 2,
+      "prompt": "To spread all the way through, as water through cloth.",
+      "words": [
+        "permeate"
+      ],
+      "tiles": [
+        "per",
+        "me",
+        "ate",
+        "ion",
+        "ous",
+        "ent",
+        "ive"
+      ],
+      "hint": "Per- means through.",
+      "why": "Per- (through) + me (to pass) + -ate: to pass all the way through."
+    },
+    {
+      "id": "fx-water-11",
+      "effect": "water",
+      "level": 3,
+      "prompt": "A layer of rock or sand underground that holds water.",
+      "words": [
+        "aquifer"
+      ],
+      "tiles": [
+        "aqui",
+        "fer",
+        "ous",
+        "ate",
+        "ion",
+        "ive"
+      ],
+      "hint": "The root aqui means water.",
+      "why": "Aqui (water) + fer (to carry): a layer that carries water."
+    },
+    {
+      "id": "fx-water-12",
+      "effect": "water",
+      "level": 3,
+      "prompt": "Dipping something fully under water.",
+      "words": [
+        "immersion"
+      ],
+      "tiles": [
+        "im",
+        "mers",
+        "ion",
+        "ous",
+        "al",
+        "ent"
+      ],
+      "hint": "The root mers means to dip.",
+      "why": "Im- (in) + mers (to dip) + -ion (the act of): the act of dipping in."
+    },
+    {
+      "id": "fx-water-13",
+      "effect": "water",
+      "level": 3,
+      "prompt": "A flowing in, as water floods into a dry ditch.",
+      "words": [
+        "influx"
+      ],
+      "tiles": [
+        "in",
+        "flux",
+        "ion",
+        "ous",
+        "ate",
+        "ism",
+        "ure"
+      ],
+      "hint": "The root flux means flow.",
+      "why": "In- (in) + flux (flow): a flowing in."
+    },
+    {
+      "id": "fx-water-14",
+      "effect": "water",
+      "level": 4,
+      "prompt": "Rain, sleet, hail or snow that falls from the sky.",
+      "words": [
+        "precipitation"
+      ],
+      "tiles": [
+        "pre",
+        "cipit",
+        "ation",
+        "ous",
+        "ive",
+        "al",
+        "ure"
+      ],
+      "hint": "Pre- means before; cipit comes from the Latin for head, as in headlong.",
+      "why": "Pre- + cipit (head) + -ation: water falling headlong from the sky."
+    },
+    {
+      "id": "fx-water-15",
+      "effect": "water",
+      "level": 4,
+      "prompt": "To fill up a store of water again.",
+      "words": [
+        "replenish"
+      ],
+      "tiles": [
+        "re",
+        "plen",
+        "ish",
+        "ty",
+        "ary",
+        "ous"
+      ],
+      "hint": "The root plen means full.",
+      "why": "Re- (again) + plen (full) + -ish, a verb ending: to fill up again."
+    },
+    {
+      "id": "fx-water-16",
+      "effect": "water",
+      "level": 4,
+      "prompt": "To give back water to something that has dried out.",
+      "words": [
+        "rehydrate",
+        "hydrate"
+      ],
+      "tiles": [
+        "re",
+        "hydr",
+        "ate",
+        "ous",
+        "ant",
+        "ology",
+        "ion"
+      ],
+      "hint": "The root hydr means water.",
+      "why": "Re- (again) + hydr (water) + -ate (to make): to give water again."
+    },
+    {
+      "id": "fx-open-01",
+      "effect": "open",
+      "level": 0,
+      "prompt": "To let go of something, or set it free.",
+      "words": [
+        "release"
+      ],
+      "tiles": [
+        "re",
+        "lease",
+        "sub",
+        "ex",
+        "ment",
+        "ism"
+      ],
+      "hint": "Re- means back; the root comes from a Latin word meaning to loosen.",
+      "why": "Re- (back) + lease (to loosen): to let go."
+    },
+    {
+      "id": "fx-open-02",
+      "effect": "open",
+      "level": 0,
+      "prompt": "To open up and show what was hidden.",
+      "words": [
+        "disclose"
+      ],
+      "tiles": [
+        "dis",
+        "clos",
+        "e",
+        "ex",
+        "ion",
+        "ant"
+      ],
+      "hint": "Dis- means apart or undo.",
+      "why": "Dis- (undo) + clos (to close) + e: to undo what was closed."
+    },
+    {
+      "id": "fx-open-03",
+      "effect": "open",
+      "level": 0,
+      "prompt": "To set free from a cage, a chain or a cell.",
+      "words": [
+        "liberate"
+      ],
+      "tiles": [
+        "liber",
+        "ate",
+        "al",
+        "ty",
+        "ous",
+        "ion",
+        "ure"
+      ],
+      "hint": "The root liber means free.",
+      "why": "Liber (free) + -ate (to make): to make free."
+    },
+    {
+      "id": "fx-open-04",
+      "effect": "open",
+      "level": 0,
+      "prompt": "To take the chains off; to set free.",
+      "words": [
+        "unfetter"
+      ],
+      "tiles": [
+        "un",
+        "fetter",
+        "dis",
+        "ment",
+        "ex",
+        "ism",
+        "ure"
+      ],
+      "hint": "A fetter is a chain for the feet.",
+      "why": "Un- (undo) + fetter (a chain for the feet): to take off the chains."
+    },
+    {
+      "id": "fx-open-05",
+      "effect": "open",
+      "level": 1,
+      "prompt": "To free something that is caught or stuck fast.",
+      "words": [
+        "extricate"
+      ],
+      "tiles": [
+        "ex",
+        "tric",
+        "ate",
+        "ion",
+        "ous",
+        "al"
+      ],
+      "hint": "Ex- means out; tric comes from a word for tangles.",
+      "why": "Ex- (out) + tric (tangles) + -ate: to get out of a tangle."
+    },
+    {
+      "id": "fx-open-06",
+      "effect": "open",
+      "level": 1,
+      "prompt": "An opening or a gap, such as a hole that lets in light.",
+      "words": [
+        "aperture"
+      ],
+      "tiles": [
+        "aper",
+        "ture",
+        "ion",
+        "al",
+        "ive",
+        "ate"
+      ],
+      "hint": "The root aper means to open.",
+      "why": "Aper (to open) + -ture (the thing): an opening."
+    },
+    {
+      "id": "fx-open-07",
+      "effect": "open",
+      "level": 1,
+      "prompt": "To make wider or more open, as the pupil of an eye does in the dark.",
+      "words": [
+        "dilate"
+      ],
+      "tiles": [
+        "di",
+        "lat",
+        "e",
+        "er",
+        "ent",
+        "ure",
+        "ism"
+      ],
+      "hint": "The root lat means wide.",
+      "why": "Di- (apart) + lat (wide): to spread wide apart."
+    },
+    {
+      "id": "fx-open-08",
+      "effect": "open",
+      "level": 2,
+      "prompt": "To unhook one part of a machine from another.",
+      "words": [
+        "disengage"
+      ],
+      "tiles": [
+        "dis",
+        "en",
+        "gag",
+        "e",
+        "pre",
+        "ex",
+        "ous"
+      ],
+      "hint": "The first part means apart.",
+      "why": "Dis- (apart) + engage (to hook together): to unhook."
+    },
+    {
+      "id": "fx-open-09",
+      "effect": "open",
+      "level": 2,
+      "prompt": "A way out of a place.",
+      "words": [
+        "egress"
+      ],
+      "tiles": [
+        "e",
+        "gress",
+        "ex",
+        "pro",
+        "ion",
+        "ate",
+        "ure"
+      ],
+      "hint": "Its first part means out.",
+      "why": "E- (out) + gress (to step): a way to step out."
+    },
+    {
+      "id": "fx-open-10",
+      "effect": "open",
+      "level": 2,
+      "prompt": "A way into a place.",
+      "words": [
+        "ingress"
+      ],
+      "tiles": [
+        "in",
+        "gress",
+        "pro",
+        "con",
+        "ion",
+        "ism",
+        "ure"
+      ],
+      "hint": "Its first part means in.",
+      "why": "In- (in) + gress (to step): a way to step in."
+    },
+    {
+      "id": "fx-open-11",
+      "effect": "open",
+      "level": 3,
+      "prompt": "Easy to get into or reach.",
+      "words": [
+        "accessible"
+      ],
+      "tiles": [
+        "ac",
+        "cess",
+        "ible",
+        "ion",
+        "ory",
+        "ex"
+      ],
+      "hint": "-ible means able to be.",
+      "why": "Ac- (to) + cess (to go) + -ible (able to be): able to be gone into."
+    },
+    {
+      "id": "fx-open-12",
+      "effect": "open",
+      "level": 3,
+      "prompt": "A grand doorway or gate.",
+      "words": [
+        "portal"
+      ],
+      "tiles": [
+        "port",
+        "al",
+        "able",
+        "er",
+        "ion",
+        "ism"
+      ],
+      "hint": "The root port means door or gate.",
+      "why": "Port (door, gate) + -al: a grand door."
+    },
+    {
+      "id": "fx-open-13",
+      "effect": "open",
+      "level": 3,
+      "prompt": "To spread out a rolled-up flag or sail.",
+      "words": [
+        "unfurl"
+      ],
+      "tiles": [
+        "un",
+        "furl",
+        "dis",
+        "pre",
+        "ex",
+        "ism"
+      ],
+      "hint": "Un- means to undo.",
+      "why": "Un- (undo) + furl (to roll up): to undo what was rolled up."
+    },
+    {
+      "id": "fx-open-14",
+      "effect": "open",
+      "level": 4,
+      "prompt": "To open a new building or event with a formal ceremony.",
+      "words": [
+        "inaugurate"
+      ],
+      "tiles": [
+        "in",
+        "augur",
+        "ate",
+        "al",
+        "ion",
+        "ous"
+      ],
+      "hint": "An augur read signs at the start of things.",
+      "why": "In- + augur (to read the signs) + -ate: to begin a thing with ceremony."
+    },
+    {
+      "id": "fx-open-15",
+      "effect": "open",
+      "level": 4,
+      "prompt": "To free from a heavy load that holds you back.",
+      "words": [
+        "unencumber"
+      ],
+      "tiles": [
+        "un",
+        "en",
+        "cumber",
+        "some",
+        "ex",
+        "ive",
+        "ate"
+      ],
+      "hint": "Cumber means to weigh down.",
+      "why": "Un- (undo) + en- (in) + cumber (to weigh down): to take off a heavy load."
+    },
+    {
+      "id": "fx-open-16",
+      "effect": "open",
+      "level": 4,
+      "prompt": "A mouth or opening, such as the end of a pipe.",
+      "words": [
+        "orifice"
+      ],
+      "tiles": [
+        "ori",
+        "fice",
+        "ent",
+        "al",
+        "ous",
+        "ism",
+        "ure"
+      ],
+      "hint": "The root or means mouth.",
+      "why": "Or (mouth) + fice (to make): a made mouth, an opening."
+    },
+    {
+      "id": "fx-grow-01",
+      "effect": "grow",
+      "level": 0,
+      "prompt": "To begin to grow, as a seed puts out a shoot.",
+      "words": [
+        "germinate"
+      ],
+      "tiles": [
+        "germin",
+        "ate",
+        "al",
+        "ous",
+        "ive"
+      ],
+      "hint": "The root germin means a sprout or a seed.",
+      "why": "Germin (a sprout) + -ate (to make): to put out a sprout."
+    },
+    {
+      "id": "fx-grow-02",
+      "effect": "grow",
+      "level": 0,
+      "prompt": "To grow and spread quickly in great numbers.",
+      "words": [
+        "proliferate"
+      ],
+      "tiles": [
+        "proli",
+        "fer",
+        "ate",
+        "ion",
+        "ent",
+        "ive",
+        "ure"
+      ],
+      "hint": "The root proli means offspring.",
+      "why": "Proli (offspring) + fer (to bear) + -ate (to make): to bear more and more, and spread."
+    },
+    {
+      "id": "fx-grow-03",
+      "effect": "grow",
+      "level": 0,
+      "prompt": "To make something fresh and young again.",
+      "words": [
+        "rejuvenate"
+      ],
+      "tiles": [
+        "re",
+        "juven",
+        "ate",
+        "ile",
+        "ous",
+        "ion",
+        "ism"
+      ],
+      "hint": "The root juven means young.",
+      "why": "Re- (again) + juven (young) + -ate (to make): to make young again."
+    },
+    {
+      "id": "fx-grow-04",
+      "effect": "grow",
+      "level": 0,
+      "prompt": "A substance in food or soil that helps living things grow.",
+      "words": [
+        "nutrient"
+      ],
+      "tiles": [
+        "nutri",
+        "ent",
+        "ous",
+        "al",
+        "ate"
+      ],
+      "hint": "The root nutri means to feed.",
+      "why": "Nutri (to feed) + -ent (a thing that): a thing that feeds."
+    },
+    {
+      "id": "fx-grow-05",
+      "effect": "grow",
+      "level": 1,
+      "prompt": "To make something greater or larger.",
+      "words": [
+        "augment"
+      ],
+      "tiles": [
+        "aug",
+        "ment",
+        "ur",
+        "ust",
+        "ive",
+        "ate"
+      ],
+      "hint": "The root aug means to increase.",
+      "why": "Aug (to increase) + -ment: to make greater."
+    },
+    {
+      "id": "fx-grow-06",
+      "effect": "grow",
+      "level": 1,
+      "prompt": "Plants that grow in a place, taken all together.",
+      "words": [
+        "vegetation"
+      ],
+      "tiles": [
+        "veget",
+        "ation",
+        "able",
+        "ive",
+        "ous",
+        "ent",
+        "ure"
+      ],
+      "hint": "The root veget means to be lively.",
+      "why": "Veget (to be lively, to grow) + -ation: the growing plants of a place."
+    },
+    {
+      "id": "fx-grow-07",
+      "effect": "grow",
+      "level": 1,
+      "prompt": "To carry the dust from one flower to another so it can make seeds.",
+      "words": [
+        "pollinate"
+      ],
+      "tiles": [
+        "pollin",
+        "ate",
+        "ous",
+        "al",
+        "ent"
+      ],
+      "hint": "The root names the yellow dust bees carry.",
+      "why": "Pollin (pollen, flower dust) + -ate (to make): to give a flower pollen."
+    },
+    {
+      "id": "fx-grow-08",
+      "effect": "grow",
+      "level": 2,
+      "prompt": "How green plants use sunlight to make their food.",
+      "words": [
+        "photosynthesis"
+      ],
+      "tiles": [
+        "photo",
+        "synthe",
+        "sis",
+        "graph",
+        "ic",
+        "tic",
+        "ism"
+      ],
+      "hint": "The first part means light.",
+      "why": "Photo (light) + synthesis (putting together): building food with light."
+    },
+    {
+      "id": "fx-grow-09",
+      "effect": "grow",
+      "level": 2,
+      "prompt": "The art of growing fruit, flowers and vegetables in a garden.",
+      "words": [
+        "horticulture"
+      ],
+      "tiles": [
+        "horti",
+        "cult",
+        "ure",
+        "ist",
+        "al",
+        "ate",
+        "ive"
+      ],
+      "hint": "The first part means garden.",
+      "why": "Horti (garden) + cult (to tend) + -ure: the tending of gardens."
+    },
+    {
+      "id": "fx-grow-10",
+      "effect": "grow",
+      "level": 2,
+      "prompt": "The process of growing until fully developed.",
+      "words": [
+        "maturation"
+      ],
+      "tiles": [
+        "matur",
+        "ation",
+        "ous",
+        "al",
+        "ism"
+      ],
+      "hint": "The root matur means ripe.",
+      "why": "Matur (ripe) + -ation (the process of): the process of ripening."
+    },
+    {
+      "id": "fx-grow-11",
+      "effect": "grow",
+      "level": 3,
+      "prompt": "Growing thickly and richly, as a wild green meadow.",
+      "words": [
+        "luxuriant"
+      ],
+      "tiles": [
+        "luxuri",
+        "ant",
+        "ent",
+        "ive",
+        "al",
+        "ure"
+      ],
+      "hint": "-ant means doing or being.",
+      "why": "Luxuri (growing rankly) + -ant: growing thick and rich."
+    },
+    {
+      "id": "fx-grow-12",
+      "effect": "grow",
+      "level": 3,
+      "prompt": "One small step by which an amount grows.",
+      "words": [
+        "increment"
+      ],
+      "tiles": [
+        "in",
+        "cre",
+        "ment",
+        "ous",
+        "ive",
+        "ion",
+        "ure"
+      ],
+      "hint": "The root cre means to grow.",
+      "why": "In- (on) + cre (to grow) + -ment: a growth, one step larger."
+    },
+    {
+      "id": "fx-grow-13",
+      "effect": "grow",
+      "level": 3,
+      "prompt": "To grow longer; to stretch out.",
+      "words": [
+        "elongate"
+      ],
+      "tiles": [
+        "e",
+        "long",
+        "ate",
+        "ing",
+        "itude",
+        "ism"
+      ],
+      "hint": "E- means out.",
+      "why": "E- (out) + long + -ate (to make): to make longer."
+    },
+    {
+      "id": "fx-grow-14",
+      "effect": "grow",
+      "level": 4,
+      "prompt": "A bursting into flower; full bloom.",
+      "words": [
+        "efflorescence",
+        "florescence"
+      ],
+      "tiles": [
+        "ef",
+        "floresc",
+        "ence",
+        "ous",
+        "ive",
+        "al",
+        "ism"
+      ],
+      "hint": "The root flor means flower.",
+      "why": "Ef- (out) + floresc (to begin to flower) + -ence: a flowering out."
+    },
+    {
+      "id": "fx-grow-15",
+      "effect": "grow",
+      "level": 4,
+      "prompt": "To bring back to life, as rain does for a wilted plant.",
+      "words": [
+        "revive"
+      ],
+      "tiles": [
+        "re",
+        "viv",
+        "e",
+        "ous",
+        "ion",
+        "ent",
+        "ure"
+      ],
+      "hint": "The root viv means life.",
+      "why": "Re- (again) + viv (life): to give life again."
+    },
+    {
+      "id": "fx-grow-16",
+      "effect": "grow",
+      "level": 4,
+      "prompt": "To grow new plants from cuttings or seeds.",
+      "words": [
+        "propagate"
+      ],
+      "tiles": [
+        "pro",
+        "pag",
+        "ate",
+        "ion",
+        "e",
+        "ent"
+      ],
+      "hint": "Pro- means forward.",
+      "why": "Pro- (forward) + pag (to fasten) + -ate: to fasten forward, to breed more plants."
+    }
+  ]
+}

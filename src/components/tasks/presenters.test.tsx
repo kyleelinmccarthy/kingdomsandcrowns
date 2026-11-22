@@ -90,3 +90,12 @@ describe("TaskPresenter (lock)", () => {
     expect(screen.getByRole("button", { name: "Check the lock" })).toBeDisabled();
   });
 });
+
+describe("TaskPresenter (rune)", () => {
+  it("puts a rune task on the rune stone (`rune-presenter.test.tsx` has the rest)", () => {
+    const rune: ClientTask = { kind: "rune", id: "r1", skillId: "lang-gk", prompt: "Build the word you hear.", view: { effect: "mend", object: { id: "rune:west-wagon", label: "the broken wagon" }, tiles: ["d", "m", "a", "e", "n", "i"], listen: true } };
+    render(<TaskPresenter task={rune} flow={asking} variant="board" numerals calm={false} disabled={false} onRespond={vi.fn()} />);
+    expect(screen.getByRole("group", { name: "The rune stone" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Cast" })).toBeDisabled();
+  });
+});

@@ -64,7 +64,7 @@ const DDL = [
 const TABLES = ["deed_run", "skill_mastery", "kingdom_progress", "realm_settings", "realm_play_ledger", "child", "learning_focus"];
 
 const GROWN_UP = { access: { userId: "u-parent" }, familyId: "f1" } as unknown as Awaited<ReturnType<typeof requireChildAccess>>;
-const LOCKS_OFF = { ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true, lock: false, trail: true } };
+const LOCKS_OFF = { ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true, lock: false, trail: true, rune: true } };
 
 const count = async (sql: string): Promise<number> => Number((await client.query(sql)).rows[0].n);
 const runs = () => count("SELECT count(*) AS n FROM deed_run");

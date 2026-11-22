@@ -9,6 +9,8 @@ import {
   fleschKincaidGrade,
   countSyllables,
   soundAlike,
+  containsWord,
+  wordRegex,
   type Pool,
   type PoolItem,
   type Problem,
@@ -537,5 +539,57 @@ describe("every authored pool in the repo", () => {
   it("has exactly the problems still listed as known, and no others", () => {
     const found = pools.flatMap((pool) => validatePool(pool).map((p) => fingerprint(pool, p))).sort();
     expect(found).toEqual([...KNOWN_PROBLEMS].sort());
+  });
+});
+
+describe("containsWord: the one whole-word matcher (RI-a / S12, S15)", () => {
+  it("matches a whole word, any case, and its s/es plurals", () => {
+    expect(containsWord("Go to the well.", "well")).toBe(true);
+    expect(containsWord("Two WELLS stand here.", "well")).toBe(true);
+    expect(containsWord("The boxes are full.", "box")).toBe(true);
+    expect(containsWord("a farewell", "well")).toBe(false);
+    expect(containsWord("wellness", "well")).toBe(false);
+  });
+
+  it("without inflections, only the word and its plurals match", () => {
+    expect(containsWord("Mending the cart", "mend")).toBe(false);
+    expect(containsWord("It mended.", "mend")).toBe(false);
+    expect(containsWord("Two mends.", "mend")).toBe(true);
+  });
+
+  it("keeps the trail matcher's plural stems: a plural name meets its singular, while the stem keeps four letters", () => {
+    expect(containsWord("one hive", "hives")).toBe(true);
+    expect(containsWord("the news", "news")).toBe(true);
+    expect(containsWord("something new", "news")).toBe(false);
+  });
+
+  it("with inflections, a word of 4 letters or more meets its -s, -es, -d, -ed, -ing, -er and -ly forms", () => {
+    expect(containsWord("Mending the cart", "mend", { inflections: true })).toBe(true);
+    expect(containsWord("It means the thing is restored.", "restore", { inflections: true })).toBe(true);
+    expect(containsWord("He was watering it.", "water", { inflections: true })).toBe(true);
+    expect(containsWord("a restorer", "restore", { inflections: true })).toBe(true);
+    expect(containsWord("brightly", "bright", { inflections: true })).toBe(true);
+    expect(containsWord("They stopped.", "stop", { inflections: true })).toBe(true);
+    expect(containsWord("It was carried home.", "carry", { inflections: true })).toBe(true);
+  });
+
+  it("never matches inside a longer word", () => {
+    expect(containsWord("amend", "mend", { inflections: true })).toBe(false);
+    expect(containsWord("commending", "mend", { inflections: true })).toBe(false);
+    expect(containsWord("a waterfall", "water", { inflections: true })).toBe(false);
+  });
+
+  it("under 4 letters, plurals only, even with inflections", () => {
+    expect(containsWord("the tower", "tow", { inflections: true })).toBe(false);
+    expect(containsWord("lots of tows", "tow", { inflections: true })).toBe(true);
+    expect(containsWord("digging", "dig", { inflections: true })).toBe(false);
+  });
+
+  it("matches a name of several words across any spacing", () => {
+    expect(containsWord("by the water   trough", "water trough")).toBe(true);
+  });
+
+  it("wordRegex is global, so it can blank every occurrence", () => {
+    expect("the well and two wells".replace(wordRegex("well"), "_")).toBe("the _ and two _");
   });
 });

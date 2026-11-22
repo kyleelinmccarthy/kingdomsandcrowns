@@ -9,19 +9,28 @@
 import { useMemo, useState } from "react";
 import { GRADES, type Grade } from "@/lib/utils/grade-levels";
 import { AREA_LABELS, type SkillArea } from "@/lib/utils/skills";
-import { sampleGrade, DRAWS_PER_LEVEL, LEVELS, type SampledSkill, type SampledTrailClue } from "./sample";
+import { sampleGrade, DRAWS_PER_LEVEL, LEVELS, type SampledRune, type SampledSkill, type SampledTrailClue } from "./sample";
 
 const AREAS = Object.keys(AREA_LABELS) as SkillArea[];
 
 const selectClass =
   "rounded border border-zinc-600 bg-zinc-900 px-2 py-1 text-sm text-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-400";
 
-/** `trails`: one clue per level from each trail skill's pool, drawn by the server page (the pools never enter this bundle). */
-export function ContentReview({ trails = {} }: { trails?: Readonly<Record<string, SampledTrailClue[]>> }) {
+/**
+ * `trails`: one clue per level from each trail skill's pool; `runes`: one entry of each rune skill's
+ * pool. Both are drawn by the server page (the pools never enter this bundle).
+ */
+export function ContentReview({
+  trails = {},
+  runes = {},
+}: {
+  trails?: Readonly<Record<string, SampledTrailClue[]>>;
+  runes?: Readonly<Record<string, SampledRune>>;
+}) {
   const [grade, setGrade] = useState<Grade>("K");
   const [area, setArea] = useState<SkillArea>("math");
 
-  const sampled = useMemo(() => sampleGrade(area, grade, trails), [area, grade, trails]);
+  const sampled = useMemo(() => sampleGrade(area, grade, trails, runes), [area, grade, trails, runes]);
 
   const totals = sampled.reduce(
     (acc, s) =>
@@ -130,6 +139,8 @@ function SkillBlock({ sampled }: { sampled: SampledSkill }) {
           <code className="text-xs text-zinc-500">lock puzzle</code>
         ) : sampled.kind === "trail" ? (
           <code className="text-xs text-zinc-500">reading trail</code>
+        ) : sampled.kind === "rune" ? (
+          <code className="text-xs text-zinc-500">rune spellcraft</code>
         ) : (
           <code className="text-xs text-zinc-500">pool: {sampled.poolId}</code>
         )}
@@ -140,6 +151,14 @@ function SkillBlock({ sampled }: { sampled: SampledSkill }) {
           Logic skills are played on lock puzzles, never as multiple choice, so there are no questions to
           read here. Each lock generator is checked by a brute-force solver in its own tests.
         </p>
+      ) : sampled.kind === "rune" ? (
+        <>
+          <p data-testid="rune-note" className="mt-2 text-zinc-400">
+            Rune skills are played as words built from tiles, never as multiple choice.
+            {sampled.rune ? " One entry of its rune pool is shown, as the drawer would show it." : " No sample yet: no rune pool credits this skill."}
+          </p>
+          {sampled.rune && <RuneSample rune={sampled.rune} />}
+        </>
       ) : sampled.kind === "trail" ? (
         sampled.clues.length === 0 ? (
           <p data-testid="trail-note" className="mt-2 text-zinc-400">
@@ -161,6 +180,12 @@ function SkillBlock({ sampled }: { sampled: SampledSkill }) {
               note="Also walked as a reading trail where trails are on: each clue below leads to one place in the village. One clue is shown per level."
             />
           )}
+          {sampled.rune && (
+            <>
+              <p className="mt-2 text-zinc-400">Also cast as rune spellcraft where runes are on. One entry of its rune pool is shown.</p>
+              <RuneSample rune={sampled.rune} />
+            </>
+          )}
         </>
       ) : (
         <div className="mt-2 space-y-3">
@@ -177,6 +202,40 @@ function SkillBlock({ sampled }: { sampled: SampledSkill }) {
         </div>
       )}
     </section>
+  );
+}
+
+/** One rune entry: the line shown, the line heard, the tiles in the order shown, and the accepted words. */
+function RuneSample({ rune }: { rune: SampledRune }) {
+  return (
+    <div data-testid="rune-sample" className="mt-1 py-1">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <code className="text-xs text-zinc-500">
+          {rune.poolId} · {rune.effect}
+        </code>
+        <span data-testid="rune-prompt" className="min-w-0 flex-1 break-words">
+          {rune.prompt}
+        </span>
+        <span
+          data-testid="rune-words"
+          className="rounded border border-emerald-400 bg-emerald-900/50 px-1.5 py-0.5 font-semibold text-emerald-200"
+        >
+          {rune.words.join(", ")} <span aria-label="answer">✓</span>
+        </span>
+      </div>
+      {rune.readAloud && (
+        <p data-testid="rune-read-aloud" className="mt-0.5 text-xs italic text-zinc-500">
+          <span className="not-italic">read aloud:</span> {rune.readAloud}
+        </p>
+      )}
+      <p className="mt-1 flex flex-wrap gap-1">
+        {rune.tiles.map((tile, i) => (
+          <span key={`${tile}:${i}`} data-testid="rune-tile" className="rounded border border-zinc-700 px-1.5 py-0.5 font-mono text-zinc-300">
+            {tile}
+          </span>
+        ))}
+      </p>
+    </div>
   );
 }
 

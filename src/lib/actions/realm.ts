@@ -152,7 +152,8 @@ export type RealmBundle = {
   /**
    * The world's locks (`worldStateView`): which chests and vault doors stand open on the server's
    * day, the decorations found, the Tower's visible floors, and whether the grown-up's "Solving
-   * logic locks" switch offers any. `EMPTY_WORLD_STATE` when the read fails. Read for whoever is
+   * logic locks" switch offers any; and the rune objects fixed, with whether the "Rune spellcraft"
+   * switch draws them (R-I13), from the same rows. `EMPTY_WORLD_STATE` when the read fails. Read for whoever is
    * looking: a grown-up's visit sees it and opens nothing. Optional only so hand-built bundles in
    * tests need not carry it; `getRealmBundle` always sets it.
    */
@@ -301,7 +302,7 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
   const { grades } = kingdomResult;
   const raw = await worldRead;
   const worldState = raw
-    ? worldStateView(raw.rows, grades ? towerFloors(raw.starred, towerBands(grades)) : [], { today, zone }, settings.mechanics.lock)
+    ? worldStateView(raw.rows, grades ? towerFloors(raw.starred, towerBands(grades)) : [], { today, zone }, settings.mechanics.lock, settings.mechanics.rune)
     : EMPTY_WORLD_STATE;
 
   return {

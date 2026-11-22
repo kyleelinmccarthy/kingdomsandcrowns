@@ -13,6 +13,7 @@ import type { BenchSite } from "@/components/use-deed-flow";
 import { BenchPresenter } from "./bench-presenter";
 import { ChoicePresenter } from "./choice-presenter";
 import { LockPresenter } from "./lock-presenter";
+import { RunePresenter } from "./rune-presenter";
 import { TrailPresenter } from "./trail-presenter";
 
 export type PresenterProps<K extends TaskKind> = {
@@ -36,6 +37,10 @@ export type PresenterProps<K extends TaskKind> = {
   onRespond(encoded: string): void;
   /** The Realm's board, for a run the hero walks (R-H14): close the board and hand the run to the walk. A kind that is not walked ignores it. */
   onWalk?: () => void;
+  /** A walking run's object labels, in order, for its Set off line (a rune walk's stops). A kind that names none ignores it. */
+  stops?: readonly string[];
+  /** The host's speech: a kind's own read control (the rune stone's Hear) speaks through it, so closing the host stops it. Absent, it speaks directly. */
+  say?: (text: string) => void;
 };
 
 export const TASK_PRESENTERS: { [K in TaskKind]: ComponentType<PresenterProps<K>> } = {
@@ -43,6 +48,7 @@ export const TASK_PRESENTERS: { [K in TaskKind]: ComponentType<PresenterProps<K>
   measure: BenchPresenter,
   lock: LockPresenter,
   trail: TrailPresenter,
+  rune: RunePresenter,
 };
 
 export function TaskPresenter(props: PresenterProps<TaskKind>) {

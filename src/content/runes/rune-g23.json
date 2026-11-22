@@ -1,0 +1,1621 @@
+{
+  "poolId": "rune-g23",
+  "band": "g23",
+  "skillIds": [
+    "spell-g23",
+    "lang-g3"
+  ],
+  "entries": [
+    {
+      "id": "fx-mend-01",
+      "effect": "mend",
+      "level": 0,
+      "prompt": "This is broken. Build the word you hear.",
+      "readAloud": "Fix. We can fix it. Fix.",
+      "words": [
+        "fix"
+      ],
+      "tiles": [
+        "f",
+        "i",
+        "x",
+        "e",
+        "ks",
+        "a",
+        "o"
+      ],
+      "hint": "It rhymes with mix."
+    },
+    {
+      "id": "fx-mend-02",
+      "effect": "mend",
+      "level": 0,
+      "prompt": "Something here is broken. Build the word you hear.",
+      "readAloud": "Mend. Please mend it. Mend.",
+      "words": [
+        "mend"
+      ],
+      "tiles": [
+        "m",
+        "e",
+        "nd",
+        "a",
+        "i",
+        "ck"
+      ],
+      "hint": "It rhymes with send."
+    },
+    {
+      "id": "fx-mend-03",
+      "effect": "mend",
+      "level": 0,
+      "prompt": "Help make it whole. Build the word you hear.",
+      "readAloud": "Rope. Tie it with rope. Rope.",
+      "words": [
+        "rope"
+      ],
+      "tiles": [
+        "r",
+        "o",
+        "pe",
+        "oa",
+        "ow",
+        "ee",
+        "ai",
+        "u"
+      ],
+      "hint": "The o says its name, and a quiet e ends it."
+    },
+    {
+      "id": "fx-mend-04",
+      "effect": "mend",
+      "level": 0,
+      "prompt": "This is broken. Build the word you hear.",
+      "readAloud": "Plug. Plug the hole. Plug.",
+      "words": [
+        "plug"
+      ],
+      "tiles": [
+        "pl",
+        "u",
+        "g",
+        "a",
+        "o",
+        "gg"
+      ],
+      "hint": "It starts with pl, as in play."
+    },
+    {
+      "id": "fx-mend-05",
+      "effect": "mend",
+      "level": 1,
+      "prompt": "Something here is broken. Build the word you hear.",
+      "readAloud": "Glue. Glue the parts back on. Glue.",
+      "words": [
+        "glue"
+      ],
+      "tiles": [
+        "gl",
+        "ue",
+        "oo",
+        "ew",
+        "u",
+        "ou"
+      ],
+      "hint": "The end sounds like oo, but it is spelled another way."
+    },
+    {
+      "id": "fx-mend-06",
+      "effect": "mend",
+      "level": 1,
+      "prompt": "Help make it whole. Build the word you hear.",
+      "readAloud": "Nail. Hammer in the nail. Nail.",
+      "words": [
+        "nail"
+      ],
+      "tiles": [
+        "n",
+        "ai",
+        "l",
+        "ay",
+        "a",
+        "le",
+        "e",
+        "ae"
+      ],
+      "hint": "The long a is spelled ai, as in rain."
+    },
+    {
+      "id": "fx-mend-07",
+      "effect": "mend",
+      "level": 1,
+      "prompt": "This is broken. Build the word you hear.",
+      "readAloud": "Bolt. Slide the bolt into place. Bolt.",
+      "words": [
+        "bolt"
+      ],
+      "tiles": [
+        "b",
+        "o",
+        "lt",
+        "oa",
+        "ol",
+        "t",
+        "u"
+      ],
+      "hint": "It rhymes with colt."
+    },
+    {
+      "id": "fx-mend-08",
+      "effect": "mend",
+      "level": 2,
+      "prompt": "Something here is broken. Build the word you hear.",
+      "readAloud": "Stitch. Stitch up the torn sack. Stitch.",
+      "words": [
+        "stitch"
+      ],
+      "tiles": [
+        "st",
+        "i",
+        "tch",
+        "ch",
+        "e",
+        "ich"
+      ],
+      "hint": "It ends with tch, as in itch."
+    },
+    {
+      "id": "fx-mend-09",
+      "effect": "mend",
+      "level": 2,
+      "prompt": "Help make it whole. Build the word you hear.",
+      "readAloud": "Wedge. Hammer a wedge into the gap. Wedge.",
+      "words": [
+        "wedge"
+      ],
+      "tiles": [
+        "w",
+        "e",
+        "dge",
+        "ge",
+        "j",
+        "a",
+        "i",
+        "ch"
+      ],
+      "hint": "It ends with dge, as in hedge."
+    },
+    {
+      "id": "fx-mend-10",
+      "effect": "mend",
+      "level": 2,
+      "prompt": "This is broken. Build the word you hear.",
+      "readAloud": "Join. Join the two parts. Join.",
+      "words": [
+        "join"
+      ],
+      "tiles": [
+        "j",
+        "oi",
+        "n",
+        "oy",
+        "g",
+        "o"
+      ],
+      "hint": "The middle sound is oi, as in coin."
+    },
+    {
+      "id": "fx-mend-11",
+      "effect": "mend",
+      "level": 3,
+      "prompt": "Something here is broken. Build the word you hear.",
+      "readAloud": "Screw. Turn the screw until it is tight. Screw.",
+      "words": [
+        "screw"
+      ],
+      "tiles": [
+        "scr",
+        "ew",
+        "oo",
+        "ue",
+        "u",
+        "oa"
+      ],
+      "hint": "It starts with scr, as in scrub."
+    },
+    {
+      "id": "fx-mend-12",
+      "effect": "mend",
+      "level": 3,
+      "prompt": "Help make it whole. Build the word you hear.",
+      "readAloud": "Brace. Put a brace on the weak side. Brace.",
+      "words": [
+        "brace"
+      ],
+      "tiles": [
+        "br",
+        "a",
+        "ce",
+        "ai",
+        "se",
+        "ay",
+        "e",
+        "oa"
+      ],
+      "hint": "The end sounds like s, but it is spelled ce."
+    },
+    {
+      "id": "fx-mend-13",
+      "effect": "mend",
+      "level": 3,
+      "prompt": "This is broken. Build the word you hear.",
+      "readAloud": "Hammer. Swing the hammer. Hammer.",
+      "words": [
+        "hammer"
+      ],
+      "tiles": [
+        "h",
+        "a",
+        "mm",
+        "er",
+        "m",
+        "ar",
+        "or",
+        "u"
+      ],
+      "hint": "Two m's sit in the middle."
+    },
+    {
+      "id": "fx-mend-14",
+      "effect": "mend",
+      "level": 4,
+      "prompt": "Something here is broken. Build the word you hear.",
+      "readAloud": "Repair. We will repair it. Repair.",
+      "words": [
+        "repair"
+      ],
+      "tiles": [
+        "re",
+        "p",
+        "air",
+        "are",
+        "ai",
+        "ear"
+      ],
+      "hint": "It starts with re, which means again."
+    },
+    {
+      "id": "fx-mend-15",
+      "effect": "mend",
+      "level": 4,
+      "prompt": "Help make it whole. Build the word you hear.",
+      "readAloud": "Fasten. Fasten the strap tight. Fasten.",
+      "words": [
+        "fasten"
+      ],
+      "tiles": [
+        "f",
+        "a",
+        "st",
+        "en",
+        "ai",
+        "e",
+        "on",
+        "ee",
+        "ff"
+      ],
+      "hint": "There is a quiet t in the middle."
+    },
+    {
+      "id": "fx-mend-16",
+      "effect": "mend",
+      "level": 4,
+      "prompt": "This is broken. Build the word you hear.",
+      "readAloud": "Tighten. Tighten the loose bolt. Tighten.",
+      "words": [
+        "tighten"
+      ],
+      "tiles": [
+        "t",
+        "igh",
+        "t",
+        "en",
+        "ie",
+        "on",
+        "ite"
+      ],
+      "hint": "The long i is spelled igh, as in night."
+    },
+    {
+      "id": "fx-light-01",
+      "effect": "light",
+      "level": 0,
+      "prompt": "This is dark. Build the word you hear.",
+      "readAloud": "Lamp. Light the lamp. Lamp.",
+      "words": [
+        "lamp"
+      ],
+      "tiles": [
+        "l",
+        "a",
+        "mp",
+        "m",
+        "p",
+        "u",
+        "o"
+      ],
+      "hint": "It rhymes with camp."
+    },
+    {
+      "id": "fx-light-02",
+      "effect": "light",
+      "level": 0,
+      "prompt": "Something here is dark. Build the word you hear.",
+      "readAloud": "Glow. See it glow. Glow.",
+      "words": [
+        "glow"
+      ],
+      "tiles": [
+        "gl",
+        "ow",
+        "oa",
+        "o",
+        "oe",
+        "ou",
+        "e"
+      ],
+      "hint": "It rhymes with snow."
+    },
+    {
+      "id": "fx-light-03",
+      "effect": "light",
+      "level": 0,
+      "prompt": "Help it burn bright. Build the word you hear.",
+      "readAloud": "Torch. Hold up the torch. Torch.",
+      "words": [
+        "torch"
+      ],
+      "tiles": [
+        "t",
+        "or",
+        "ch",
+        "ar",
+        "tch",
+        "ur",
+        "sh"
+      ],
+      "hint": "It rhymes with porch."
+    },
+    {
+      "id": "fx-light-04",
+      "effect": "light",
+      "level": 0,
+      "prompt": "This is dark. Build the word you hear.",
+      "readAloud": "Wick. Light the wick. Wick.",
+      "words": [
+        "wick"
+      ],
+      "tiles": [
+        "w",
+        "i",
+        "ck",
+        "k",
+        "a",
+        "e"
+      ],
+      "hint": "It ends with ck, as in kick."
+    },
+    {
+      "id": "fx-light-05",
+      "effect": "light",
+      "level": 1,
+      "prompt": "Something here is dark. Build the word you hear.",
+      "readAloud": "Light. Give us some light. Light.",
+      "words": [
+        "light"
+      ],
+      "tiles": [
+        "l",
+        "igh",
+        "t",
+        "ite",
+        "i",
+        "ie",
+        "a",
+        "e"
+      ],
+      "hint": "The long i is spelled igh, as in night."
+    },
+    {
+      "id": "fx-light-06",
+      "effect": "light",
+      "level": 1,
+      "prompt": "Help it burn bright. Build the word you hear.",
+      "readAloud": "Shine. Let it shine. Shine.",
+      "words": [
+        "shine"
+      ],
+      "tiles": [
+        "sh",
+        "i",
+        "ne",
+        "ie",
+        "n",
+        "e"
+      ],
+      "hint": "It rhymes with fine."
+    },
+    {
+      "id": "fx-light-07",
+      "effect": "light",
+      "level": 1,
+      "prompt": "This is dark. Build the word you hear.",
+      "readAloud": "Flame. See the flame. Flame.",
+      "words": [
+        "flame"
+      ],
+      "tiles": [
+        "fl",
+        "a",
+        "me",
+        "ai",
+        "ay",
+        "m",
+        "e"
+      ],
+      "hint": "It rhymes with game."
+    },
+    {
+      "id": "fx-light-08",
+      "effect": "light",
+      "level": 2,
+      "prompt": "Something here is dark. Build the word you hear.",
+      "readAloud": "Bright. The sun is bright. Bright.",
+      "words": [
+        "bright"
+      ],
+      "tiles": [
+        "br",
+        "igh",
+        "t",
+        "ite",
+        "i",
+        "te",
+        "ie",
+        "a"
+      ],
+      "hint": "It rhymes with night."
+    },
+    {
+      "id": "fx-light-09",
+      "effect": "light",
+      "level": 2,
+      "prompt": "Help it burn bright. Build the word you hear.",
+      "readAloud": "Spark. A spark jumps up. Spark.",
+      "words": [
+        "spark"
+      ],
+      "tiles": [
+        "sp",
+        "ar",
+        "k",
+        "c",
+        "or",
+        "ck",
+        "a"
+      ],
+      "hint": "It rhymes with park."
+    },
+    {
+      "id": "fx-light-10",
+      "effect": "light",
+      "level": 2,
+      "prompt": "This is dark. Build the word you hear.",
+      "readAloud": "Flash. See the flash. Flash.",
+      "words": [
+        "flash"
+      ],
+      "tiles": [
+        "fl",
+        "a",
+        "sh",
+        "ch",
+        "e",
+        "i"
+      ],
+      "hint": "It rhymes with dash."
+    },
+    {
+      "id": "fx-light-11",
+      "effect": "light",
+      "level": 3,
+      "prompt": "Something here is dark. Build the word you hear.",
+      "readAloud": "Candle. Light the candle. Candle.",
+      "words": [
+        "candle"
+      ],
+      "tiles": [
+        "c",
+        "a",
+        "n",
+        "dle",
+        "k",
+        "del",
+        "el",
+        "e",
+        "u"
+      ],
+      "hint": "It ends like handle."
+    },
+    {
+      "id": "fx-light-12",
+      "effect": "light",
+      "level": 3,
+      "prompt": "Help it burn bright. Build the word you hear.",
+      "readAloud": "Gleam. See it gleam in the sun. Gleam.",
+      "words": [
+        "gleam"
+      ],
+      "tiles": [
+        "gl",
+        "ea",
+        "m",
+        "ee",
+        "e",
+        "ie"
+      ],
+      "hint": "The long e is spelled ea, as in team."
+    },
+    {
+      "id": "fx-light-13",
+      "effect": "light",
+      "level": 3,
+      "prompt": "This is dark. Build the word you hear.",
+      "readAloud": "Blaze. The fire is a blaze. Blaze.",
+      "words": [
+        "blaze"
+      ],
+      "tiles": [
+        "bl",
+        "a",
+        "ze",
+        "ai",
+        "se",
+        "z",
+        "ay"
+      ],
+      "hint": "It rhymes with maze."
+    },
+    {
+      "id": "fx-light-14",
+      "effect": "light",
+      "level": 4,
+      "prompt": "Something here is dark. Build the word you hear.",
+      "readAloud": "Flicker. See the flame flicker. Flicker.",
+      "words": [
+        "flicker"
+      ],
+      "tiles": [
+        "fl",
+        "i",
+        "ck",
+        "er",
+        "k",
+        "ar",
+        "e",
+        "ee",
+        "ur"
+      ],
+      "hint": "It ends like quicker."
+    },
+    {
+      "id": "fx-light-15",
+      "effect": "light",
+      "level": 4,
+      "prompt": "Help it burn bright. Build the word you hear.",
+      "readAloud": "Sparkle. Watch the stars sparkle. Sparkle.",
+      "words": [
+        "sparkle"
+      ],
+      "tiles": [
+        "sp",
+        "ar",
+        "k",
+        "le",
+        "c",
+        "el",
+        "or",
+        "ck"
+      ],
+      "hint": "It ends with le, as in little."
+    },
+    {
+      "id": "fx-light-16",
+      "effect": "light",
+      "level": 4,
+      "prompt": "This is dark. Build the word you hear.",
+      "readAloud": "Glimmer. A glimmer shows far off. Glimmer.",
+      "words": [
+        "glimmer"
+      ],
+      "tiles": [
+        "gl",
+        "i",
+        "mm",
+        "er",
+        "m",
+        "ar",
+        "ea"
+      ],
+      "hint": "Two m's sit in the middle."
+    },
+    {
+      "id": "fx-water-01",
+      "effect": "water",
+      "level": 0,
+      "prompt": "This is dry. Build the word you hear.",
+      "readAloud": "Wet. Get it wet. Wet.",
+      "words": [
+        "wet"
+      ],
+      "tiles": [
+        "w",
+        "e",
+        "t",
+        "a",
+        "i",
+        "tt",
+        "o",
+        "u"
+      ],
+      "hint": "It rhymes with pet."
+    },
+    {
+      "id": "fx-water-02",
+      "effect": "water",
+      "level": 0,
+      "prompt": "Something here is dry. Build the word you hear.",
+      "readAloud": "Drip. Hear it drip. Drip.",
+      "words": [
+        "drip"
+      ],
+      "tiles": [
+        "dr",
+        "i",
+        "p",
+        "e",
+        "pp",
+        "a"
+      ],
+      "hint": "It rhymes with ship."
+    },
+    {
+      "id": "fx-water-03",
+      "effect": "water",
+      "level": 0,
+      "prompt": "Help it get a drink. Build the word you hear.",
+      "readAloud": "Drop. One drop at a time. Drop.",
+      "words": [
+        "drop"
+      ],
+      "tiles": [
+        "dr",
+        "o",
+        "p",
+        "a",
+        "pp",
+        "u",
+        "oa"
+      ],
+      "hint": "It rhymes with top."
+    },
+    {
+      "id": "fx-water-04",
+      "effect": "water",
+      "level": 0,
+      "prompt": "This is dry. Build the word you hear.",
+      "readAloud": "Damp. The soil is damp. Damp.",
+      "words": [
+        "damp"
+      ],
+      "tiles": [
+        "d",
+        "a",
+        "mp",
+        "u",
+        "m",
+        "p",
+        "e",
+        "o"
+      ],
+      "hint": "It rhymes with camp."
+    },
+    {
+      "id": "fx-water-05",
+      "effect": "water",
+      "level": 1,
+      "prompt": "Something here is dry. Build the word you hear.",
+      "readAloud": "Splash. Splash it on. Splash.",
+      "words": [
+        "splash"
+      ],
+      "tiles": [
+        "spl",
+        "a",
+        "sh",
+        "ch",
+        "e",
+        "i",
+        "u"
+      ],
+      "hint": "It starts with spl, as in split."
+    },
+    {
+      "id": "fx-water-06",
+      "effect": "water",
+      "level": 1,
+      "prompt": "Help it get a drink. Build the word you hear.",
+      "readAloud": "Spill. Some water will spill over. Spill.",
+      "words": [
+        "spill"
+      ],
+      "tiles": [
+        "sp",
+        "i",
+        "ll",
+        "l",
+        "e",
+        "ee"
+      ],
+      "hint": "It ends with two l's, as in hill."
+    },
+    {
+      "id": "fx-water-07",
+      "effect": "water",
+      "level": 1,
+      "prompt": "This is dry. Build the word you hear.",
+      "readAloud": "Drink. Give it a drink. Drink.",
+      "words": [
+        "drink"
+      ],
+      "tiles": [
+        "dr",
+        "i",
+        "nk",
+        "e",
+        "ng",
+        "k",
+        "a",
+        "o"
+      ],
+      "hint": "It rhymes with pink."
+    },
+    {
+      "id": "fx-water-08",
+      "effect": "water",
+      "level": 2,
+      "prompt": "Something here is dry. Build the word you hear.",
+      "readAloud": "Spray. Spray the plants. Spray.",
+      "words": [
+        "spray"
+      ],
+      "tiles": [
+        "spr",
+        "ay",
+        "ai",
+        "a",
+        "ey"
+      ],
+      "hint": "The end is spelled ay, as in day."
+    },
+    {
+      "id": "fx-water-09",
+      "effect": "water",
+      "level": 2,
+      "prompt": "Help it get a drink. Build the word you hear.",
+      "readAloud": "Soak. Soak the soil. Soak.",
+      "words": [
+        "soak"
+      ],
+      "tiles": [
+        "s",
+        "oa",
+        "k",
+        "o",
+        "ke",
+        "ck",
+        "ow"
+      ],
+      "hint": "The long o is spelled oa, as in boat."
+    },
+    {
+      "id": "fx-water-10",
+      "effect": "water",
+      "level": 2,
+      "prompt": "This is dry. Build the word you hear.",
+      "readAloud": "Stream. Bring water from the stream. Stream.",
+      "words": [
+        "stream"
+      ],
+      "tiles": [
+        "str",
+        "ea",
+        "m",
+        "ee",
+        "e",
+        "ie",
+        "mm",
+        "a"
+      ],
+      "hint": "It rhymes with dream."
+    },
+    {
+      "id": "fx-water-11",
+      "effect": "water",
+      "level": 3,
+      "prompt": "Something here is dry. Build the word you hear.",
+      "readAloud": "Water. Give it some water. Water.",
+      "words": [
+        "water"
+      ],
+      "tiles": [
+        "w",
+        "a",
+        "t",
+        "er",
+        "o",
+        "ar",
+        "ur",
+        "tt"
+      ],
+      "hint": "It ends with er, as in her."
+    },
+    {
+      "id": "fx-water-12",
+      "effect": "water",
+      "level": 3,
+      "prompt": "Help it get a drink. Build the word you hear.",
+      "readAloud": "Shower. A shower of rain falls. Shower.",
+      "words": [
+        "shower"
+      ],
+      "tiles": [
+        "sh",
+        "ow",
+        "er",
+        "ou",
+        "ar",
+        "ur"
+      ],
+      "hint": "The middle is spelled ow, as in cow."
+    },
+    {
+      "id": "fx-water-13",
+      "effect": "water",
+      "level": 3,
+      "prompt": "This is dry. Build the word you hear.",
+      "readAloud": "Puddle. Do not step in the puddle. Puddle.",
+      "words": [
+        "puddle"
+      ],
+      "tiles": [
+        "p",
+        "u",
+        "dd",
+        "le",
+        "el",
+        "a",
+        "ul",
+        "o",
+        "t"
+      ],
+      "hint": "Two d's sit in the middle."
+    },
+    {
+      "id": "fx-water-14",
+      "effect": "water",
+      "level": 4,
+      "prompt": "Something here is dry. Build the word you hear.",
+      "readAloud": "Sprinkle. Sprinkle the seeds with water. Sprinkle.",
+      "words": [
+        "sprinkle"
+      ],
+      "tiles": [
+        "spr",
+        "i",
+        "nk",
+        "le",
+        "el",
+        "e",
+        "ng"
+      ],
+      "hint": "It ends like twinkle."
+    },
+    {
+      "id": "fx-water-15",
+      "effect": "water",
+      "level": 4,
+      "prompt": "Help it get a drink. Build the word you hear.",
+      "readAloud": "Trickle. Let the water trickle in. Trickle.",
+      "words": [
+        "trickle"
+      ],
+      "tiles": [
+        "tr",
+        "i",
+        "ck",
+        "le",
+        "k",
+        "el",
+        "a",
+        "ic"
+      ],
+      "hint": "It rhymes with pickle."
+    },
+    {
+      "id": "fx-water-16",
+      "effect": "water",
+      "level": 4,
+      "prompt": "This is dry. Build the word you hear.",
+      "readAloud": "Fountain. Fill the jug at the fountain. Fountain.",
+      "words": [
+        "fountain"
+      ],
+      "tiles": [
+        "f",
+        "ou",
+        "n",
+        "tain",
+        "ow",
+        "ten",
+        "tin",
+        "a",
+        "e"
+      ],
+      "hint": "The first part is spelled ou, as in mount."
+    },
+    {
+      "id": "fx-open-01",
+      "effect": "open",
+      "level": 0,
+      "prompt": "This is stuck. Build the word you hear.",
+      "readAloud": "Key. Turn the key. Key.",
+      "words": [
+        "key"
+      ],
+      "tiles": [
+        "k",
+        "ey",
+        "ee",
+        "ea",
+        "i",
+        "c"
+      ],
+      "hint": "The end is spelled ey, as in monkey."
+    },
+    {
+      "id": "fx-open-02",
+      "effect": "open",
+      "level": 0,
+      "prompt": "Something here is stuck shut. Build the word you hear.",
+      "readAloud": "Push. Push it hard. Push.",
+      "words": [
+        "push"
+      ],
+      "tiles": [
+        "p",
+        "u",
+        "sh",
+        "ch",
+        "o",
+        "a"
+      ],
+      "hint": "It rhymes with bush."
+    },
+    {
+      "id": "fx-open-03",
+      "effect": "open",
+      "level": 0,
+      "prompt": "Help it come loose. Build the word you hear.",
+      "readAloud": "Pull. Pull it hard. Pull.",
+      "words": [
+        "pull"
+      ],
+      "tiles": [
+        "p",
+        "u",
+        "ll",
+        "l",
+        "o",
+        "a",
+        "e",
+        "i"
+      ],
+      "hint": "It rhymes with full."
+    },
+    {
+      "id": "fx-open-04",
+      "effect": "open",
+      "level": 0,
+      "prompt": "This is stuck. Build the word you hear.",
+      "readAloud": "Lift. Lift it up. Lift.",
+      "words": [
+        "lift"
+      ],
+      "tiles": [
+        "l",
+        "i",
+        "ft",
+        "e",
+        "ff",
+        "t"
+      ],
+      "hint": "It rhymes with gift."
+    },
+    {
+      "id": "fx-open-05",
+      "effect": "open",
+      "level": 1,
+      "prompt": "Something here is stuck shut. Build the word you hear.",
+      "readAloud": "Open. Now it is open. Open.",
+      "words": [
+        "open"
+      ],
+      "tiles": [
+        "o",
+        "p",
+        "en",
+        "oa",
+        "pp",
+        "an",
+        "u"
+      ],
+      "hint": "It starts with a long o, as in go."
+    },
+    {
+      "id": "fx-open-06",
+      "effect": "open",
+      "level": 1,
+      "prompt": "Help it come loose. Build the word you hear.",
+      "readAloud": "Swing. Let it swing wide. Swing.",
+      "words": [
+        "swing"
+      ],
+      "tiles": [
+        "sw",
+        "i",
+        "ng",
+        "nk",
+        "ee",
+        "a",
+        "n",
+        "e"
+      ],
+      "hint": "It rhymes with king."
+    },
+    {
+      "id": "fx-open-07",
+      "effect": "open",
+      "level": 1,
+      "prompt": "This is stuck. Build the word you hear.",
+      "readAloud": "Free. Set it free. Free.",
+      "words": [
+        "free"
+      ],
+      "tiles": [
+        "fr",
+        "ee",
+        "ea",
+        "e",
+        "ie",
+        "i"
+      ],
+      "hint": "The long e is spelled ee, as in bee."
+    },
+    {
+      "id": "fx-open-08",
+      "effect": "open",
+      "level": 2,
+      "prompt": "Something here is stuck shut. Build the word you hear.",
+      "readAloud": "Knob. Turn the knob. Knob.",
+      "words": [
+        "knob"
+      ],
+      "tiles": [
+        "kn",
+        "o",
+        "b",
+        "n",
+        "a",
+        "bb"
+      ],
+      "hint": "It starts with a quiet k."
+    },
+    {
+      "id": "fx-open-09",
+      "effect": "open",
+      "level": 2,
+      "prompt": "Help it come loose. Build the word you hear.",
+      "readAloud": "Latch. Lift the latch. Latch.",
+      "words": [
+        "latch"
+      ],
+      "tiles": [
+        "l",
+        "a",
+        "tch",
+        "ch",
+        "ck",
+        "e",
+        "u",
+        "sh"
+      ],
+      "hint": "It ends with tch, as in catch."
+    },
+    {
+      "id": "fx-open-10",
+      "effect": "open",
+      "level": 2,
+      "prompt": "This is stuck. Build the word you hear.",
+      "readAloud": "Crank. Turn the crank. Crank.",
+      "words": [
+        "crank"
+      ],
+      "tiles": [
+        "cr",
+        "a",
+        "nk",
+        "ck",
+        "ng",
+        "e"
+      ],
+      "hint": "It rhymes with bank."
+    },
+    {
+      "id": "fx-open-11",
+      "effect": "open",
+      "level": 3,
+      "prompt": "Something here is stuck shut. Build the word you hear.",
+      "readAloud": "Hinge. Oil the hinge. Hinge.",
+      "words": [
+        "hinge"
+      ],
+      "tiles": [
+        "h",
+        "i",
+        "n",
+        "ge",
+        "j",
+        "ie",
+        "dge",
+        "e"
+      ],
+      "hint": "The end sounds like j, but it is spelled ge."
+    },
+    {
+      "id": "fx-open-12",
+      "effect": "open",
+      "level": 3,
+      "prompt": "Help it come loose. Build the word you hear.",
+      "readAloud": "Unlock. Unlock the door. Unlock.",
+      "words": [
+        "unlock"
+      ],
+      "tiles": [
+        "un",
+        "l",
+        "o",
+        "ck",
+        "k",
+        "ch",
+        "a",
+        "ou",
+        "ow"
+      ],
+      "hint": "It starts with un, which means undo."
+    },
+    {
+      "id": "fx-open-13",
+      "effect": "open",
+      "level": 3,
+      "prompt": "This is stuck. Build the word you hear.",
+      "readAloud": "Loosen. Loosen the knot. Loosen.",
+      "words": [
+        "loosen"
+      ],
+      "tiles": [
+        "l",
+        "oo",
+        "s",
+        "en",
+        "u",
+        "ss",
+        "on",
+        "z"
+      ],
+      "hint": "The middle is spelled oo, as in goose."
+    },
+    {
+      "id": "fx-open-14",
+      "effect": "open",
+      "level": 4,
+      "prompt": "Something here is stuck shut. Build the word you hear.",
+      "readAloud": "Unlatch. Unlatch it and swing it wide. Unlatch.",
+      "words": [
+        "unlatch"
+      ],
+      "tiles": [
+        "un",
+        "l",
+        "a",
+        "tch",
+        "ch",
+        "e",
+        "u"
+      ],
+      "hint": "It ends with tch, as in catch."
+    },
+    {
+      "id": "fx-open-15",
+      "effect": "open",
+      "level": 4,
+      "prompt": "Help it come loose. Build the word you hear.",
+      "readAloud": "Grease. Rub grease on it. Grease.",
+      "words": [
+        "grease"
+      ],
+      "tiles": [
+        "gr",
+        "ea",
+        "se",
+        "ee",
+        "ce",
+        "ss",
+        "z",
+        "ie"
+      ],
+      "hint": "The long e is spelled ea, as in please."
+    },
+    {
+      "id": "fx-open-16",
+      "effect": "open",
+      "level": 4,
+      "prompt": "This is stuck. Build the word you hear.",
+      "readAloud": "Unbolt. Unbolt the door. Unbolt.",
+      "words": [
+        "unbolt"
+      ],
+      "tiles": [
+        "un",
+        "b",
+        "o",
+        "lt",
+        "oa",
+        "ol",
+        "t"
+      ],
+      "hint": "Its end rhymes with colt."
+    },
+    {
+      "id": "fx-grow-01",
+      "effect": "grow",
+      "level": 0,
+      "prompt": "This is wilted. Build the word you hear.",
+      "readAloud": "Bud. See the bud. Bud.",
+      "words": [
+        "bud"
+      ],
+      "tiles": [
+        "b",
+        "u",
+        "d",
+        "a",
+        "o",
+        "e",
+        "oo"
+      ],
+      "hint": "It rhymes with mud."
+    },
+    {
+      "id": "fx-grow-02",
+      "effect": "grow",
+      "level": 0,
+      "prompt": "Something here is wilted. Build the word you hear.",
+      "readAloud": "Stem. See the green stem. Stem.",
+      "words": [
+        "stem"
+      ],
+      "tiles": [
+        "st",
+        "e",
+        "m",
+        "a",
+        "i",
+        "mm",
+        "u",
+        "o"
+      ],
+      "hint": "It starts with st, as in stop."
+    },
+    {
+      "id": "fx-grow-03",
+      "effect": "grow",
+      "level": 0,
+      "prompt": "Help it stand up tall. Build the word you hear.",
+      "readAloud": "Seed. Plant the seed. Seed.",
+      "words": [
+        "seed"
+      ],
+      "tiles": [
+        "s",
+        "ee",
+        "d",
+        "ea",
+        "e",
+        "t",
+        "c"
+      ],
+      "hint": "The long e is spelled ee, as in need."
+    },
+    {
+      "id": "fx-grow-04",
+      "effect": "grow",
+      "level": 0,
+      "prompt": "This is wilted. Build the word you hear.",
+      "readAloud": "Plant. Plant it in the soil. Plant.",
+      "words": [
+        "plant"
+      ],
+      "tiles": [
+        "pl",
+        "a",
+        "nt",
+        "e",
+        "nd",
+        "u"
+      ],
+      "hint": "It rhymes with ant."
+    },
+    {
+      "id": "fx-grow-05",
+      "effect": "grow",
+      "level": 1,
+      "prompt": "Something here is wilted. Build the word you hear.",
+      "readAloud": "Grow. Help it grow. Grow.",
+      "words": [
+        "grow"
+      ],
+      "tiles": [
+        "gr",
+        "ow",
+        "oa",
+        "o",
+        "oe",
+        "ou",
+        "e"
+      ],
+      "hint": "It rhymes with snow."
+    },
+    {
+      "id": "fx-grow-06",
+      "effect": "grow",
+      "level": 1,
+      "prompt": "Help it stand up tall. Build the word you hear.",
+      "readAloud": "Root. The root goes down. Root.",
+      "words": [
+        "root"
+      ],
+      "tiles": [
+        "r",
+        "oo",
+        "t",
+        "ou",
+        "u",
+        "ew"
+      ],
+      "hint": "It rhymes with boot."
+    },
+    {
+      "id": "fx-grow-07",
+      "effect": "grow",
+      "level": 1,
+      "prompt": "This is wilted. Build the word you hear.",
+      "readAloud": "Leaf. See the new leaf. Leaf.",
+      "words": [
+        "leaf"
+      ],
+      "tiles": [
+        "l",
+        "ea",
+        "f",
+        "ee",
+        "ff",
+        "ph",
+        "e"
+      ],
+      "hint": "The long e is spelled ea, as in eat."
+    },
+    {
+      "id": "fx-grow-08",
+      "effect": "grow",
+      "level": 2,
+      "prompt": "Something here is wilted. Build the word you hear.",
+      "readAloud": "Bloom. See it bloom. Bloom.",
+      "words": [
+        "bloom"
+      ],
+      "tiles": [
+        "bl",
+        "oo",
+        "m",
+        "u",
+        "ue",
+        "me",
+        "o",
+        "ew"
+      ],
+      "hint": "It rhymes with room."
+    },
+    {
+      "id": "fx-grow-09",
+      "effect": "grow",
+      "level": 2,
+      "prompt": "Help it stand up tall. Build the word you hear.",
+      "readAloud": "Green. Make it green again. Green.",
+      "words": [
+        "green"
+      ],
+      "tiles": [
+        "gr",
+        "ee",
+        "n",
+        "ea",
+        "e",
+        "an",
+        "i"
+      ],
+      "hint": "It rhymes with seen."
+    },
+    {
+      "id": "fx-grow-10",
+      "effect": "grow",
+      "level": 2,
+      "prompt": "This is wilted. Build the word you hear.",
+      "readAloud": "Shoot. A new shoot pokes up. Shoot.",
+      "words": [
+        "shoot"
+      ],
+      "tiles": [
+        "sh",
+        "oo",
+        "t",
+        "ou",
+        "u",
+        "ew"
+      ],
+      "hint": "It rhymes with boot."
+    },
+    {
+      "id": "fx-grow-11",
+      "effect": "grow",
+      "level": 3,
+      "prompt": "Something here is wilted. Build the word you hear.",
+      "readAloud": "Sprout. See it sprout. Sprout.",
+      "words": [
+        "sprout"
+      ],
+      "tiles": [
+        "spr",
+        "ou",
+        "t",
+        "ow",
+        "aw",
+        "oo",
+        "a",
+        "e"
+      ],
+      "hint": "It rhymes with shout."
+    },
+    {
+      "id": "fx-grow-12",
+      "effect": "grow",
+      "level": 3,
+      "prompt": "Help it stand up tall. Build the word you hear.",
+      "readAloud": "Branch. A branch grows out. Branch.",
+      "words": [
+        "branch"
+      ],
+      "tiles": [
+        "br",
+        "a",
+        "nch",
+        "nsh",
+        "e",
+        "ch"
+      ],
+      "hint": "It rhymes with ranch."
+    },
+    {
+      "id": "fx-grow-13",
+      "effect": "grow",
+      "level": 3,
+      "prompt": "This is wilted. Build the word you hear.",
+      "readAloud": "Soil. Dig the soil. Soil.",
+      "words": [
+        "soil"
+      ],
+      "tiles": [
+        "s",
+        "oi",
+        "l",
+        "oy",
+        "ll",
+        "o",
+        "i"
+      ],
+      "hint": "The middle is spelled oi, as in coin."
+    },
+    {
+      "id": "fx-grow-14",
+      "effect": "grow",
+      "level": 4,
+      "prompt": "Something here is wilted. Build the word you hear.",
+      "readAloud": "Blossom. See the blossom open. Blossom.",
+      "words": [
+        "blossom"
+      ],
+      "tiles": [
+        "bl",
+        "o",
+        "ss",
+        "om",
+        "um",
+        "u",
+        "ow",
+        "o",
+        "e"
+      ],
+      "hint": "Two s's sit in the middle."
+    },
+    {
+      "id": "fx-grow-15",
+      "effect": "grow",
+      "level": 4,
+      "prompt": "Help it stand up tall. Build the word you hear.",
+      "readAloud": "Ripen. The fruit will ripen. Ripen.",
+      "words": [
+        "ripen"
+      ],
+      "tiles": [
+        "r",
+        "i",
+        "p",
+        "en",
+        "pp",
+        "an",
+        "on",
+        "e"
+      ],
+      "hint": "It ends with en, which means to become."
+    },
+    {
+      "id": "fx-grow-16",
+      "effect": "grow",
+      "level": 4,
+      "prompt": "This is wilted. Build the word you hear.",
+      "readAloud": "Thrive. Help it thrive. Thrive.",
+      "words": [
+        "thrive"
+      ],
+      "tiles": [
+        "thr",
+        "i",
+        "ve",
+        "iv",
+        "f",
+        "ee"
+      ],
+      "hint": "It rhymes with five."
+    }
+  ]
+}

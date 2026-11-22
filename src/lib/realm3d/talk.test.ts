@@ -267,6 +267,46 @@ describe("a chest's or vault door's result", () => {
   });
 });
 
+describe("a rune object's run (R-I1)", () => {
+  const world = { correctCount: 1, total: 1, flawless: true, kind: "world" as const };
+  const rune = (o: { fixed: boolean; reason?: "missed" | "already-fixed" }) => ({ ...world, runes: [{ objectId: "rune:west-wagon", ...o }] });
+
+  it("says the rune works when it fixed the object, with nothing more", () => {
+    expect(resultHeadline(rune({ fixed: true }), "The rune stone")).toEqual({ title: "The rune works!", line: "" });
+  });
+
+  it("says the rune fades on a miss, and that a fresh word waits", () => {
+    const missed = { ...rune({ fixed: false, reason: "missed" }), correctCount: 0, flawless: false };
+    expect(resultHeadline(missed, "The rune stone")).toEqual({ title: "The rune fades.", line: "Try again with a fresh word." });
+  });
+
+  it("says the rune works, and already held, when another run fixed it first", () => {
+    expect(resultHeadline(rune({ fixed: false, reason: "already-fixed" }), "The rune stone")).toEqual({ title: "The rune works!", line: "The rune already held." });
+  });
+
+  it("is told from Puzzle practice and a chest by its outcome", () => {
+    expect(resultHeadline(world, "Puzzle practice").title).toBe("Puzzles solved!");
+    expect(resultHeadline({ ...world, world: { objectId: "chest:west-lane", opened: true, rewards: [] }, runes: [] }, "x").title).toBe("The chest opens!");
+  });
+
+  it("finishes with Done and leaves the rune; an id that only looks like one is Puzzle practice's", () => {
+    expect(finishLabel("world", "rune:west-wagon")).toBe("Done");
+    expect(finishLabel("world", "rune:appleway-cart")).toBe("Done");
+    expect(leaveWhat("world", "rune:west-wagon")).toBe("rune");
+    expect(finishLabel("world", "rune:nope")).toBe("Finish puzzles");
+    expect(leaveWhat("world", "rune:nope")).toBe("puzzles");
+    // The chest's words are its own still.
+    expect(leaveWhat("world", "chest:west-lane")).toBe("lock");
+  });
+
+  it("never names a grade, a band, stars or minutes", () => {
+    for (const o of [{ fixed: true }, { fixed: false, reason: "missed" as const }, { fixed: false, reason: "already-fixed" as const }]) {
+      const head = resultHeadline(rune(o), "The rune stone");
+      expect(`${head.title} ${head.line}`).not.toMatch(/grade|band|star|minute|behind|ahead/i);
+    }
+  });
+});
+
 describe("a Tower floor's result", () => {
   const tower = { correctCount: 1, total: 1, flawless: true, kind: "tower" as const };
   const solved = { ...tower, tower: { band: "g23" as const, solved: 2, solvedNow: true } };
@@ -595,5 +635,28 @@ describe("what a villager says after a search on a trail (R-H1)", () => {
   it("says where it was as a sentence, then why, after a miss", () => {
     const miss = { correct: false, secondChance: false, answer: "It was the mill.", explain: "Flour is ground at the mill.", reveal: "landmark:mill" };
     expect(attemptFeedback(miss, false, undefined, clue).text).toBe("It was the mill. Flour is ground at the mill.");
+  });
+});
+
+describe("what a villager says after a cast at the rune stone (R-I5)", () => {
+  const rune: ClientTask = {
+    kind: "rune", id: "lang-gk:rune:4e1f0a9c", skillId: "lang-gk", prompt: "The wagon is broken. Build the word you hear.",
+    view: { effect: "mend", object: { id: "rune:west-wagon", label: "the broken wagon" }, tiles: ["d", "m", "a", "e", "n", "i"], listen: true },
+  };
+
+  it("says it is not that word, then the entry's hint, on a second chance", () => {
+    expect(attemptFeedback({ correct: false, secondChance: true, feedback: "wrong_word", hint: "It rhymes with send." }, false))
+      .toEqual({ heading: "Try again", text: "Not that word. It rhymes with send." });
+  });
+
+  it("a second chance picked back up still says Not that word., though the stored cast carries no feedback code", () => {
+    const flow = initialFlow({ questions: [rune], responses: ["r:0,3,4,1"], pending: { index: 0, ruledOut: "r:0,3,4,1", hint: "It rhymes with send." } });
+    expect(flow.result?.feedback).toBeUndefined();
+    expect(attemptFeedback(flow.result!, true, "Old Bram", rune)).toEqual({ heading: "Try again", text: "Not that word. It rhymes with send." });
+  });
+
+  it("says the word as a sentence, then why, after a miss", () => {
+    const miss = { correct: false, secondChance: false, answer: "The word was mend.", explain: "Mend means to make whole.", reveal: "r:1,3,4,0" };
+    expect(attemptFeedback(miss, false, undefined, rune).text).toBe("The word was mend. Mend means to make whole.");
   });
 });

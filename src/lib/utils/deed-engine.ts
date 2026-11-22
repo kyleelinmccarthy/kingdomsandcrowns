@@ -60,6 +60,12 @@ export type BuildRunInput = {
    * draw of the run gets it: fresh, due and refill (F-21).
    */
   recentTrails?: readonly string[];
+  /**
+   * The rune entries (`<poolId>/<entryId>`) the hero met in their last rune runs (R-I19), and any
+   * `effect:<e>` an effect with no broken object to bind to is passed over by (R-I22). Joined with
+   * `recentTrails` into the one `avoid` every run drawer is handed; only the rune drawer reads these keys.
+   */
+  recentRunes?: readonly string[];
 };
 
 export type BuiltRun = { skillIds: string[]; questions: Task[] };
@@ -123,7 +129,7 @@ export function chooseSkills(deed: Pick<Deed, "area">, grade: Grade, playable: (
  * base walk and the focus extras are held to it.
  *
  * **A walking run is all the mechanic's (R-H9).** When the deed's mechanic is a walking kind (a
- * trail) and it is on, the base is only the skills it presents. A grade whose own skills it does not
+ * trail or a rune) and it is on, the base is only the skills it presents. A grade whose own skills it does not
  * present (sight words at K and 2) walks the hero's band instead (`bandSkill`, R-H21): K walks
  * `read-g1`'s trails and grade 2 `read-g3`'s. A band with none keeps the choice base, so the run is
  * never empty. Focus extras are held only to `playable`, presented or not: whether a drawn one takes
@@ -234,12 +240,13 @@ function weightedPick(pool: Skill[], weights: number[], rng: Rng): Skill | undef
  * fresh mastery everywhere still meets all of their grade's skills, and a hero with one hard
  * skill is not handed it every day.
  *
- * A content skill is one whose tasks come from authored content: a `pool` (multiple choice) or a
- * `trail` (clue trails, R-H8). They are drawn in ONE weighted pick, so a trail-only skill competes
- * with a pool skill on equal terms: a grade-5 reader's `read-g6` focus beside `read-g4`, or a grade-7
- * reader's `read-g4` focus beside `read-g6`, is drawn as often as its weight says. (Drawn apart, the
- * trail skill was never picked whenever a pool skill was on offer.) `runCandidates` offers a trail
- * skill only when trails can play, so a choice run never meets one here.
+ * A content skill is one whose tasks come from authored content: a `pool` (multiple choice), a
+ * `trail` (clue trails, R-H8) or a `rune` (rune spellcraft, R-I7). They are drawn in ONE weighted pick,
+ * so a trail-only or rune-only skill competes with a pool skill on equal terms: a grade-5 reader's
+ * `read-g6` focus beside `read-g4`, or a grade-7 reader's `read-g4` focus beside `read-g6`, is drawn as
+ * often as its weight says. (Drawn apart, the trail skill was never picked whenever a pool skill was
+ * on offer.) `runCandidates` offers a trail or rune skill only when its kind can play, so a choice run
+ * never meets one here.
  *
  * A `lock` skill is practised on lock puzzles only and is never drawn as choice, so it is never
  * picked here: a run whose candidates are all locks has nothing to draw and is empty.
@@ -254,7 +261,7 @@ export function selectSkills(
   const draw = (pool: Skill[]): Skill | undefined =>
     weightedPick(pool, weightsFor(pool, masteryBySkill, lastPracticedBySkill, focusIds), rng);
   const generator = draw(candidates.filter((s) => s.source.kind === "generator"));
-  const content = draw(candidates.filter((s) => s.source.kind === "pool" || s.source.kind === "trail"));
+  const content = draw(candidates.filter((s) => s.source.kind === "pool" || s.source.kind === "trail" || s.source.kind === "rune"));
   return [generator, content].filter((s): s is Skill => !!s);
 }
 
@@ -453,9 +460,9 @@ export function applyProfile<T extends Task>(questions: T[], profile: Pick<Profi
  * use) is exactly as it was.
  */
 function drawByKind(kind: TaskKind, skill: Skill, level: number, count: number, rng: Rng, exclude: Set<string>, avoid: ReadonlySet<string> = new Set()): Task[] {
-  // A kind that draws a run together (a trail's clues, whole and in order) draws it all here, by its own
-  // rule for which tasks and in what order; `avoid` (the trails met lately) is its alone. The loop below
-  // is the per-task path, so the measure and sort draws are untouched.
+  // A kind that draws a run together (a trail's clues, whole and in order; a rune run's words, spread over
+  // the effects) draws it all here, by its own rule; `avoid` (the trails and rune entries met lately) is the
+  // run drawers' alone. The loop below is the per-task path, so the measure and sort draws are untouched.
   const runDrawer = runDrawerFor(kind);
   if (runDrawer) return runDrawer(skill, level, count, rng, exclude, avoid);
   const drawer = drawerFor(kind);
@@ -524,7 +531,7 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
   const levelOf = (skillId: string) => Math.min((masteryBySkill[skillId] ?? 0) + (input.levelBoost ?? 0), MASTERY_MAX);
   const enabled = input.enabledKinds ?? new Set(Object.keys(TASK_KINDS) as TaskKind[]);
   const focus = new Set(input.focusSkillIds);
-  const avoid: ReadonlySet<string> = new Set(input.recentTrails ?? []);
+  const avoid: ReadonlySet<string> = new Set([...(input.recentTrails ?? []), ...(input.recentRunes ?? [])]);
   const rng = seededRng(seed);
   const candidates = runCandidates(deed, grade, input.focusSkillIds, enabled);
   const skills = selectSkills(candidates, masteryBySkill, rng, lastPracticedBySkill ?? {}, focus);
@@ -532,8 +539,8 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
   if (skills.length === 0) return { skillIds: [], questions: [] };
 
   // A grown-up's focus that the deed's walking kind cannot play wins (R-H22): when the fresh draw
-  // picked one (a sight-word focus in a reading side quest), the whole side quest is multiple choice.
-  // Other reading side quests, which did not draw it, stay trails.
+  // picked one (a sight-word focus in a reading side quest, a `lang-g1` focus in a language one, R-I8), the
+  // whole side quest is multiple choice. Other side quests, which did not draw it, stay trails or runes.
   const focusOffWalk = isWalkingKind(deed.mechanic) && skills.some((s) => focus.has(s.id) && !TASK_KINDS[deed.mechanic].presents(s.id));
   // How each skill is played, worked out once and used for every draw of it (due, fresh and refill).
   const kinds = new Map<string, TaskKind>();
@@ -544,6 +551,8 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
       // A grown-up's focus skill that a lock presents is sorted on the lock's face where the deed
       // would ask it as choice (R-F11): a vocabulary focus in a language side quest. Locks off, or
       // the gate, still give choice; a skill no lock presents is left as the deed plays it.
+      // It reads only a choice: in a rune side quest a vocabulary focus a rune presents is a rune, never
+      // a sort (R-I8); with runes off it is choice again, and this sorts it as before slice 6.
       if (k === "choice" && focus.has(skillId)) k = kindForSkill("lock", skillId, enabled);
       kinds.set(skillId, k);
     }

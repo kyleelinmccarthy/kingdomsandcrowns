@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DeedPlayer } from "./deed-player";
 import type { RunStart, RunSummary } from "@/lib/utils/deed-run-types";
@@ -479,6 +479,75 @@ describe("DeedPlayer (a reading trail on the page, H8)", () => {
     await user.click(screen.getByRole("button", { name: "become" }));
     expect(await screen.findByText("Not quite. Sound it out.")).toBeInTheDocument();
     expect(speak).toHaveBeenLastCalledWith("Sound it out.");
+  });
+});
+
+describe("DeedPlayer (the picture run: a rune on the page, R-I11)", () => {
+  /** A grade 2–3 dictation whose word is its effect id (R-I18, owner; RI-d). */
+  const g23 = {
+    kind: "rune" as const, id: "spell-g23:rune:1a2b3c4d", skillId: "spell-g23", prompt: "The lantern is dark. Build the word you hear.", readAloud: "Light. Light the lantern. Light.",
+    view: { effect: "light" as const, object: { id: "rune:lane-lantern", label: "the dark lantern" }, tiles: ["t", "ee", "l", "s", "igh", "f"], listen: true },
+  };
+  const runeRun: RunStart = { ...run, deed: { id: "mill-ledger", title: "The Mill Ledger", story: "The miller needs words.", area: "language" }, questions: [g23], responses: [null] };
+  const OPEN = { correct: false, secondChance: true, hint: "It rhymes with night.", feedback: "wrong_word", firstPick: "r:2,1,0" };
+
+  /** jsdom cannot speak; give it a speech engine, so the page's own read control would show if it were drawn. */
+  function withSpeech() {
+    Object.defineProperty(window, "speechSynthesis", { value: { cancel: () => {}, speak: () => {} }, configurable: true, writable: true });
+  }
+  afterEach(() => {
+    delete (window as unknown as { speechSynthesis?: unknown }).speechSynthesis;
+  });
+
+  async function cast(user: ReturnType<typeof userEvent.setup>, ...tiles: string[]) {
+    const tray = screen.getByRole("group", { name: "Runes to tap" });
+    for (const t of tiles) await user.click(within(tray).getByRole("button", { name: t }));
+    await user.click(screen.getByRole("button", { name: "Cast" }));
+  }
+
+  it("plays on the stone, beside the object's picture, and answers with the tiles cast", async () => {
+    const user = userEvent.setup();
+    answerDeedQuestion.mockResolvedValue({ correct: true, secondChance: false, answer: "The word was light." });
+    const { container } = render(<DeedPlayer run={runeRun} profile={profile} calm={false} onFinished={() => {}} />);
+    expect(screen.getByText("The lantern is dark. Build the word you hear.")).toBeInTheDocument();
+    expect(container.querySelector("svg.rune-pic")).not.toBeNull();
+    expect(screen.getByText("the dark lantern")).toBeInTheDocument();
+    await cast(user, "l", "igh", "t");
+    expect(answerDeedQuestion).toHaveBeenCalledWith("r1", 0, "r:2,4,0");
+  });
+
+  it("speaks a grade-2 hero's word with read-aloud off, and the second-chance line (R-I18, owner)", async () => {
+    const user = userEvent.setup();
+    answerDeedQuestion.mockResolvedValue(OPEN);
+    render(<DeedPlayer run={runeRun} profile={profile} calm={false} onFinished={() => {}} />);
+    expect(speak).toHaveBeenLastCalledWith("Light. Light the lantern. Light.");
+    await cast(user, "l", "ee", "t");
+    expect(await screen.findByText("Not that word. It rhymes with night.")).toBeInTheDocument();
+    expect(speak).toHaveBeenLastCalledWith("Not that word. It rhymes with night.");
+  });
+
+  it("one read control: the stone's Hear the word, never the page's Read aloud (RI-a / S4)", () => {
+    withSpeech();
+    render(<DeedPlayer run={runeRun} profile={profile} calm={false} onFinished={() => {}} />);
+    expect(screen.queryByRole("button", { name: "Read aloud" })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /^Hear the (word|meaning)$/ })).toHaveLength(1);
+    // The word is heard, never shown, and the effect is a picture (RI-d).
+    expect(document.body.textContent).not.toMatch(/\blight\b/i);
+    cleanup();
+    render(<DeedPlayer run={run} profile={profile} calm={false} onFinished={() => {}} />);
+    expect(screen.getByRole("button", { name: "Read aloud" })).toBeInTheDocument();
+  });
+
+  it("a run picked back up at its finish step speaks nothing unprompted (I8 parked)", () => {
+    render(<DeedPlayer run={{ ...runeRun, responses: ["r:2,4,0"] }} profile={profile} calm={false} onFinished={() => {}} />);
+    expect(screen.getByText("Every answer is in.")).toBeInTheDocument();
+    expect(speak).not.toHaveBeenCalled();
+  });
+
+  it("without speech, the dictation's word is printed under its picture (RI-a / S6)", () => {
+    render(<DeedPlayer run={runeRun} profile={profile} calm={false} onFinished={() => {}} />);
+    expect(screen.getByText("Sound is off. Read the word:", { exact: false })).toHaveTextContent("Sound is off. Read the word: Light. Light the lantern. Light.");
+    expect(screen.queryByRole("button", { name: "Hear the word" })).not.toBeInTheDocument();
   });
 });
 

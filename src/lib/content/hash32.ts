@@ -10,3 +10,6 @@ export function hash32(input: string): number {
   }
   return h >>> 0;
 }
+
+/** A 32-bit number as 8 lower-case hex characters, zero-padded: how an opaque id or a sheet code is written. */
+export const hex8 = (n: number): string => n.toString(16).padStart(8, "0");

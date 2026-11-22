@@ -20,6 +20,12 @@ export type RunStart = {
    */
   pending: { index: number; ruledOut: string; hint: string; feedback?: FeedbackCode } | null;
   /**
+   * A rune run picked back up: the objects its tasks already cast right (first try or second), in
+   * order, so a walk picked back up checks them on its card and draws them mended (smoke bug 3).
+   * Absent when none is.
+   */
+  mended?: string[];
+  /**
    * A side quest's building as the run begins, for the bench's drawing: its site stage
    * (`siteStage`), whether it is finished, and `placed`, how many of the run's bench tasks were
    * already put right (first try or second), so a run picked back up draws what it had laid. Only a
@@ -46,6 +52,15 @@ export type RunStart = {
    */
   narrateClues?: true;
 };
+/**
+ * A world object's start (a chest or vault door, a rune object) when the object already holds on the
+ * server's day: an expected answer, handed back as a value rather than thrown, so the server logs no
+ * error for it (smoke I12). Anything else a start refuses is still thrown (`deed-refusals.ts`).
+ */
+export type ObjectHeld = { held: true };
+export type ObjectRunStart = RunStart | ObjectHeld;
+export const isHeld = (start: ObjectRunStart): start is ObjectHeld => "held" in start && start.held === true;
+
 /**
  * `answer` and `explain` are present only once the question is resolved, so the answer never
  * reaches the browser while a try is still open. `hint` comes with an open second chance, and
@@ -90,6 +105,13 @@ export type WorldOutcome = { objectId: string; opened: boolean; reason?: "missed
  */
 export type TowerOutcome = { band: ContentBand; solved: number; solvedNow: boolean };
 
+/**
+ * What finishing a rune run did to one object (R-I21, R-I22): `fixed` when this finish fixed it (a
+ * right cast, or a renewal of one already fixed). Not fixed, `reason` says why: "missed" (the word
+ * did not hold; the object stays broken) or "already-fixed" (another run fixed it first).
+ */
+export type RuneOutcome = { objectId: string; fixed: boolean; reason?: "missed" | "already-fixed" };
+
 export type RunSummary = {
   correctCount: number; total: number; flawless: boolean; masteryChanges: string[];
   stars: Stars; previousBest: Stars;
@@ -128,4 +150,6 @@ export type RunSummary = {
   world?: WorldOutcome;
   /** Only on a Tower floor's run: what finishing it did. */
   tower?: TowerOutcome;
+  /** Only on a rune run (a rune object's world run, or a side quest or challenge that drew runes): what finishing it did to each object it named. */
+  runes?: RuneOutcome[];
 };

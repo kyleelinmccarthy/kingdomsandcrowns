@@ -62,6 +62,10 @@ const MECHANIC_LABELS: Record<HandsOnKind, { label: string; hint: string }> = {
     label: "Reading trails",
     hint: "Reading side quests become clue trails: in the Realm your hero walks to the place each clue names; on the Side Quests page they tap it on a village map. Off: reading plays as multiple choice.",
   },
+  rune: {
+    label: "Rune spellcraft",
+    hint: "Language side quests become rune spellcraft: your hero builds a word from rune tiles to set something right in the village; on the Side Quests page they build it beside a picture. Off: language plays as multiple choice, and the rune objects rest. Anything already fixed stays.",
+  },
 };
 
 /** One saved number: edits stay local until Save, which sends only this field (the Earning time group). */

@@ -1,0 +1,1670 @@
+{
+  "poolId": "rune-g45",
+  "band": "g45",
+  "skillIds": [
+    "spell-g45",
+    "vocab-g45"
+  ],
+  "entries": [
+    {
+      "id": "fx-mend-01",
+      "effect": "mend",
+      "level": 0,
+      "prompt": "To fasten something firmly so it cannot slip or fall.",
+      "words": [
+        "secure"
+      ],
+      "tiles": [
+        "se",
+        "c",
+        "ure",
+        "sh",
+        "ur",
+        "er",
+        "a"
+      ],
+      "hint": "It ends like cure.",
+      "why": "To secure a thing is to fix it firmly in place, so it holds."
+    },
+    {
+      "id": "fx-mend-02",
+      "effect": "mend",
+      "level": 0,
+      "prompt": "A sticky substance, such as glue or paste, that holds things together.",
+      "words": [
+        "adhesive"
+      ],
+      "tiles": [
+        "ad",
+        "he",
+        "s",
+        "ive",
+        "iv",
+        "z",
+        "e"
+      ],
+      "hint": "It ends like massive.",
+      "why": "An adhesive is anything sticky, like glue or paste, that holds things together."
+    },
+    {
+      "id": "fx-mend-03",
+      "effect": "mend",
+      "level": 0,
+      "prompt": "To tie things tightly together with cord.",
+      "words": [
+        "bind"
+      ],
+      "tiles": [
+        "b",
+        "i",
+        "nd",
+        "ie",
+        "y",
+        "e",
+        "a",
+        "nn"
+      ],
+      "hint": "It rhymes with kind.",
+      "why": "To bind is to tie things tightly together, as you bind a split handle with cord."
+    },
+    {
+      "id": "fx-mend-04",
+      "effect": "mend",
+      "level": 0,
+      "prompt": "A straight strip of wood tied on to hold a cracked pole still.",
+      "words": [
+        "splint"
+      ],
+      "tiles": [
+        "spl",
+        "i",
+        "nt",
+        "e",
+        "nd",
+        "a",
+        "int",
+        "o"
+      ],
+      "hint": "It rhymes with print.",
+      "why": "A splint is a straight strip of wood, tied on to hold a broken part still while it mends."
+    },
+    {
+      "id": "fx-mend-05",
+      "effect": "mend",
+      "level": 1,
+      "prompt": "To join cloth with a needle and thread.",
+      "words": [
+        "sew"
+      ],
+      "tiles": [
+        "s",
+        "ew",
+        "ue",
+        "ai",
+        "t"
+      ],
+      "hint": "It sounds just like so, but it is spelled another way.",
+      "why": "To sew is to join cloth with a needle and thread."
+    },
+    {
+      "id": "fx-mend-06",
+      "effect": "mend",
+      "level": 1,
+      "prompt": "Strong and solid, and not easily broken.",
+      "words": [
+        "sturdy"
+      ],
+      "tiles": [
+        "st",
+        "ur",
+        "dy",
+        "er",
+        "ir",
+        "di",
+        "ee"
+      ],
+      "hint": "Its middle sounds like the ur in fur.",
+      "why": "Something sturdy is strong and solid, so it does not break easily."
+    },
+    {
+      "id": "fx-mend-07",
+      "effect": "mend",
+      "level": 1,
+      "prompt": "A paste that sets as hard as stone and joins bricks together.",
+      "words": [
+        "cement"
+      ],
+      "tiles": [
+        "c",
+        "e",
+        "m",
+        "ent",
+        "s",
+        "ant",
+        "i",
+        "o"
+      ],
+      "hint": "It starts with a c that sounds like s.",
+      "why": "Cement is a paste that dries as hard as stone, joining bricks and stones together."
+    },
+    {
+      "id": "fx-mend-08",
+      "effect": "mend",
+      "level": 2,
+      "prompt": "To make something broken or worn whole again.",
+      "words": [
+        "repair"
+      ],
+      "tiles": [
+        "re",
+        "p",
+        "air",
+        "are",
+        "ai",
+        "pp"
+      ],
+      "hint": "It begins with re-, which means again.",
+      "why": "To repair a thing is to make it whole and working again."
+    },
+    {
+      "id": "fx-mend-09",
+      "effect": "mend",
+      "level": 2,
+      "prompt": "To close a rip in cloth, loop by loop, with needle and thread.",
+      "words": [
+        "stitch"
+      ],
+      "tiles": [
+        "st",
+        "i",
+        "tch",
+        "ch",
+        "e",
+        "ich",
+        "t",
+        "ee"
+      ],
+      "hint": "It ends with the same three letters as catch.",
+      "why": "A stitch is one loop of thread. To stitch a rip is to close it loop by loop."
+    },
+    {
+      "id": "fx-mend-10",
+      "effect": "mend",
+      "level": 2,
+      "prompt": "To put up again something that fell down.",
+      "words": [
+        "rebuild"
+      ],
+      "tiles": [
+        "re",
+        "b",
+        "ui",
+        "ld",
+        "i",
+        "il",
+        "e",
+        "u",
+        "bi"
+      ],
+      "hint": "The first part means again.",
+      "why": "Re- means again. To rebuild is to build a thing again after it falls."
+    },
+    {
+      "id": "fx-mend-11",
+      "effect": "mend",
+      "level": 3,
+      "prompt": "To put a new part where a worn-out one was.",
+      "words": [
+        "replace"
+      ],
+      "tiles": [
+        "re",
+        "pl",
+        "a",
+        "ce",
+        "ai",
+        "se",
+        "ay"
+      ],
+      "hint": "It ends like face.",
+      "why": "To replace a part is to take the old one out and put a new one in its place."
+    },
+    {
+      "id": "fx-mend-12",
+      "effect": "mend",
+      "level": 3,
+      "prompt": "To join two things firmly so they hold together.",
+      "words": [
+        "fasten"
+      ],
+      "tiles": [
+        "f",
+        "a",
+        "st",
+        "en",
+        "ai",
+        "e",
+        "on",
+        "ee"
+      ],
+      "hint": "There is a quiet t you do not hear.",
+      "why": "To fasten is to join things firmly, as a buckle fastens a strap."
+    },
+    {
+      "id": "fx-mend-13",
+      "effect": "mend",
+      "level": 3,
+      "prompt": "To turn a loose bolt until it holds firm.",
+      "words": [
+        "tighten"
+      ],
+      "tiles": [
+        "t",
+        "igh",
+        "t",
+        "en",
+        "ie",
+        "on",
+        "ite",
+        "y"
+      ],
+      "hint": "It has the same igh as night.",
+      "why": "To tighten is to make a thing tight, so it no longer wobbles."
+    },
+    {
+      "id": "fx-mend-14",
+      "effect": "mend",
+      "level": 4,
+      "prompt": "To join metal pieces by melting them together with heat.",
+      "words": [
+        "weld"
+      ],
+      "tiles": [
+        "w",
+        "e",
+        "ld",
+        "el",
+        "il",
+        "a"
+      ],
+      "hint": "It rhymes with held.",
+      "why": "To weld is to heat two pieces of metal until they melt and join as one."
+    },
+    {
+      "id": "fx-mend-15",
+      "effect": "mend",
+      "level": 4,
+      "prompt": "A short metal pin hammered flat to hold two plates together.",
+      "words": [
+        "rivet"
+      ],
+      "tiles": [
+        "r",
+        "i",
+        "v",
+        "et",
+        "it",
+        "e",
+        "ot",
+        "i",
+        "ut"
+      ],
+      "hint": "It begins like river.",
+      "why": "A rivet is a metal pin. Its ends are hammered flat so the plates cannot come apart."
+    },
+    {
+      "id": "fx-mend-16",
+      "effect": "mend",
+      "level": 4,
+      "prompt": "To make something stronger by adding extra support.",
+      "words": [
+        "reinforce"
+      ],
+      "tiles": [
+        "re",
+        "in",
+        "for",
+        "ce",
+        "se",
+        "fo",
+        "ore",
+        "fur",
+        "o"
+      ],
+      "hint": "In the middle you can hear force.",
+      "why": "Re- means again: to reinforce is to give a thing more strength with extra support."
+    },
+    {
+      "id": "fx-light-01",
+      "effect": "light",
+      "level": 0,
+      "prompt": "To shine with a wet, sparkling light, as dew does.",
+      "words": [
+        "glisten"
+      ],
+      "tiles": [
+        "gl",
+        "is",
+        "t",
+        "en",
+        "iss",
+        "on",
+        "e"
+      ],
+      "hint": "There is a quiet t in it.",
+      "why": "To glisten is to shine with a wet, sparkling light."
+    },
+    {
+      "id": "fx-light-02",
+      "effect": "light",
+      "level": 0,
+      "prompt": "A stick of wax with a wick that burns.",
+      "words": [
+        "candle"
+      ],
+      "tiles": [
+        "c",
+        "a",
+        "n",
+        "dle",
+        "k",
+        "del",
+        "el",
+        "e"
+      ],
+      "hint": "It ends like handle.",
+      "why": "A candle is a stick of wax round a wick. The wick burns and the wax melts."
+    },
+    {
+      "id": "fx-light-03",
+      "effect": "light",
+      "level": 0,
+      "prompt": "To shine with a soft light that seems to move.",
+      "words": [
+        "shimmer"
+      ],
+      "tiles": [
+        "sh",
+        "i",
+        "mm",
+        "er",
+        "m",
+        "ur",
+        "ea",
+        "e"
+      ],
+      "hint": "Two m's sit in the middle.",
+      "why": "To shimmer is to shine with a soft, wavering light, like moonlight on water."
+    },
+    {
+      "id": "fx-light-04",
+      "effect": "light",
+      "level": 0,
+      "prompt": "To shine so brightly that it is hard to see.",
+      "words": [
+        "dazzle"
+      ],
+      "tiles": [
+        "d",
+        "a",
+        "zz",
+        "le",
+        "z",
+        "el",
+        "u"
+      ],
+      "hint": "Two z's sit in the middle.",
+      "why": "To dazzle is to shine so brightly that it almost blinds you."
+    },
+    {
+      "id": "fx-light-05",
+      "effect": "light",
+      "level": 1,
+      "prompt": "To blaze up suddenly with a bright flame.",
+      "words": [
+        "flare"
+      ],
+      "tiles": [
+        "fl",
+        "are",
+        "ear",
+        "ar",
+        "e",
+        "a",
+        "ai"
+      ],
+      "hint": "It rhymes with stare.",
+      "why": "To flare is to blaze up in a sudden, bright flame."
+    },
+    {
+      "id": "fx-light-06",
+      "effect": "light",
+      "level": 1,
+      "prompt": "Very bright and shining.",
+      "words": [
+        "brilliant"
+      ],
+      "tiles": [
+        "br",
+        "i",
+        "ll",
+        "i",
+        "ant",
+        "l",
+        "ent",
+        "ia",
+        "a",
+        "e"
+      ],
+      "hint": "There are two l's in the middle.",
+      "why": "Something brilliant shines very brightly."
+    },
+    {
+      "id": "fx-light-07",
+      "effect": "light",
+      "level": 1,
+      "prompt": "A tiny bit of fire that jumps from struck flint.",
+      "words": [
+        "spark"
+      ],
+      "tiles": [
+        "sp",
+        "ar",
+        "k",
+        "c",
+        "or",
+        "ck"
+      ],
+      "hint": "It rhymes with park.",
+      "why": "A spark is a tiny bit of fire. Strike flint and steel, and sparks fly."
+    },
+    {
+      "id": "fx-light-08",
+      "effect": "light",
+      "level": 2,
+      "prompt": "Full of light; not dim at all.",
+      "words": [
+        "bright"
+      ],
+      "tiles": [
+        "br",
+        "igh",
+        "t",
+        "ite",
+        "i",
+        "te",
+        "ie"
+      ],
+      "hint": "The long i sound is spelled igh, as in night.",
+      "why": "Something bright is full of light."
+    },
+    {
+      "id": "fx-light-09",
+      "effect": "light",
+      "level": 2,
+      "prompt": "A small glowing piece of coal left in a fire.",
+      "words": [
+        "ember"
+      ],
+      "tiles": [
+        "em",
+        "b",
+        "er",
+        "ur",
+        "ir",
+        "im",
+        "a"
+      ],
+      "hint": "Its first part sounds like the letter m.",
+      "why": "An ember is a glowing bit of coal or wood that stays hot after the flames die down."
+    },
+    {
+      "id": "fx-light-10",
+      "effect": "light",
+      "level": 2,
+      "prompt": "To burn unsteadily, flashing on and off.",
+      "words": [
+        "flicker"
+      ],
+      "tiles": [
+        "fl",
+        "i",
+        "ck",
+        "er",
+        "k",
+        "ur",
+        "ee"
+      ],
+      "hint": "It ends like quicker.",
+      "why": "A flame that flickers jumps and dims, then flares again."
+    },
+    {
+      "id": "fx-light-11",
+      "effect": "light",
+      "level": 3,
+      "prompt": "A big, fierce fire that burns brightly.",
+      "words": [
+        "blaze"
+      ],
+      "tiles": [
+        "bl",
+        "a",
+        "ze",
+        "ai",
+        "se",
+        "z",
+        "ay",
+        "e"
+      ],
+      "hint": "It rhymes with maze.",
+      "why": "A blaze is a big, bright fire."
+    },
+    {
+      "id": "fx-light-12",
+      "effect": "light",
+      "level": 3,
+      "prompt": "A small, clear flash of light off something shiny.",
+      "words": [
+        "gleam"
+      ],
+      "tiles": [
+        "gl",
+        "ea",
+        "m",
+        "ee",
+        "e",
+        "ie",
+        "mm",
+        "a"
+      ],
+      "hint": "It rhymes with dream.",
+      "why": "A gleam is a small flash of light, like sun on a polished cup."
+    },
+    {
+      "id": "fx-light-13",
+      "effect": "light",
+      "level": 3,
+      "prompt": "To start a small fire with dry twigs and sticks.",
+      "words": [
+        "kindle"
+      ],
+      "tiles": [
+        "k",
+        "in",
+        "d",
+        "le",
+        "el",
+        "c",
+        "al"
+      ],
+      "hint": "It starts like kind.",
+      "why": "To kindle a fire is to start it with small, dry twigs."
+    },
+    {
+      "id": "fx-light-14",
+      "effect": "light",
+      "level": 4,
+      "prompt": "To set something on fire.",
+      "words": [
+        "ignite"
+      ],
+      "tiles": [
+        "ig",
+        "n",
+        "ite",
+        "igh",
+        "nn",
+        "eit",
+        "e"
+      ],
+      "hint": "Its last part sounds like night.",
+      "why": "To ignite is to set a thing on fire. The root ign means fire."
+    },
+    {
+      "id": "fx-light-15",
+      "effect": "light",
+      "level": 4,
+      "prompt": "A faint, wavering light, seen far off.",
+      "words": [
+        "glimmer"
+      ],
+      "tiles": [
+        "gl",
+        "i",
+        "mm",
+        "er",
+        "m",
+        "ur",
+        "e",
+        "o"
+      ],
+      "hint": "It starts like glimpse.",
+      "why": "A glimmer is a faint light that wavers, like a far-off candle."
+    },
+    {
+      "id": "fx-light-16",
+      "effect": "light",
+      "level": 4,
+      "prompt": "Shining with light or warmth; glowing.",
+      "words": [
+        "radiant"
+      ],
+      "tiles": [
+        "ra",
+        "di",
+        "ant",
+        "ent",
+        "ay",
+        "dy"
+      ],
+      "hint": "It ends like giant.",
+      "why": "Something radiant sends out light or warmth all around it, like the sun."
+    },
+    {
+      "id": "fx-water-01",
+      "effect": "water",
+      "level": 0,
+      "prompt": "To give thirsty plants a long, deep drink.",
+      "words": [
+        "soak"
+      ],
+      "tiles": [
+        "s",
+        "oa",
+        "k",
+        "ee",
+        "ai",
+        "t",
+        "o",
+        "u"
+      ],
+      "hint": "It rhymes with cloak.",
+      "why": "To soak plants is to give them so much water it sinks deep into the soil."
+    },
+    {
+      "id": "fx-water-02",
+      "effect": "water",
+      "level": 0,
+      "prompt": "To wet a cloth or the soil lightly.",
+      "words": [
+        "dampen",
+        "damp"
+      ],
+      "tiles": [
+        "d",
+        "a",
+        "mp",
+        "en",
+        "on",
+        "in",
+        "u",
+        "e",
+        "ai"
+      ],
+      "hint": "It ends with -en, which means to make.",
+      "why": "To dampen is to make a thing a little wet."
+    },
+    {
+      "id": "fx-water-03",
+      "effect": "water",
+      "level": 0,
+      "prompt": "A long, open box that holds water for animals to drink.",
+      "words": [
+        "trough"
+      ],
+      "tiles": [
+        "tr",
+        "ou",
+        "gh",
+        "ow",
+        "f",
+        "ff"
+      ],
+      "hint": "It rhymes with cough.",
+      "why": "A trough is a long, open box of water, where farm animals drink."
+    },
+    {
+      "id": "fx-water-04",
+      "effect": "water",
+      "level": 0,
+      "prompt": "How much water comes down from the clouds on a place.",
+      "words": [
+        "rainfall"
+      ],
+      "tiles": [
+        "r",
+        "ai",
+        "n",
+        "f",
+        "a",
+        "ll",
+        "ay",
+        "l",
+        "e",
+        "o"
+      ],
+      "hint": "It is two words joined into one.",
+      "why": "Rainfall is how much rain falls on a place."
+    },
+    {
+      "id": "fx-water-05",
+      "effect": "water",
+      "level": 1,
+      "prompt": "To scatter small drops of water over something.",
+      "words": [
+        "sprinkle"
+      ],
+      "tiles": [
+        "spr",
+        "in",
+        "k",
+        "le",
+        "c",
+        "el",
+        "en",
+        "ck"
+      ],
+      "hint": "It ends like twinkle.",
+      "why": "To sprinkle is to scatter small drops, as rain does."
+    },
+    {
+      "id": "fx-water-06",
+      "effect": "water",
+      "level": 1,
+      "prompt": "A very heavy fall of rain.",
+      "words": [
+        "downpour"
+      ],
+      "tiles": [
+        "d",
+        "ow",
+        "n",
+        "p",
+        "our",
+        "ou",
+        "aw",
+        "er"
+      ],
+      "hint": "Its second part means to tip out.",
+      "why": "A downpour is a heavy fall of rain that pours down."
+    },
+    {
+      "id": "fx-water-07",
+      "effect": "water",
+      "level": 1,
+      "prompt": "To make something wet all the way through.",
+      "words": [
+        "drench"
+      ],
+      "tiles": [
+        "dr",
+        "en",
+        "ch",
+        "in",
+        "sh",
+        "tch",
+        "a",
+        "o"
+      ],
+      "hint": "It rhymes with bench.",
+      "why": "To drench is to make a thing wet all the way through."
+    },
+    {
+      "id": "fx-water-08",
+      "effect": "water",
+      "level": 2,
+      "prompt": "To soak something so fully it can hold no more water.",
+      "words": [
+        "saturate"
+      ],
+      "tiles": [
+        "s",
+        "a",
+        "t",
+        "ur",
+        "ate",
+        "er",
+        "ch",
+        "i",
+        "e",
+        "o"
+      ],
+      "hint": "It ends like the ate in skate.",
+      "why": "To saturate a thing is to soak it so fully that it can take in no more water."
+    },
+    {
+      "id": "fx-water-09",
+      "effect": "water",
+      "level": 2,
+      "prompt": "Light rain that falls in very fine drops.",
+      "words": [
+        "drizzle"
+      ],
+      "tiles": [
+        "dr",
+        "i",
+        "zz",
+        "le",
+        "z",
+        "el",
+        "ss"
+      ],
+      "hint": "It has two z's, as in fizzle.",
+      "why": "Drizzle is light rain in very fine drops."
+    },
+    {
+      "id": "fx-water-10",
+      "effect": "water",
+      "level": 2,
+      "prompt": "A thin, slow stream of water.",
+      "words": [
+        "trickle"
+      ],
+      "tiles": [
+        "tr",
+        "i",
+        "ck",
+        "le",
+        "k",
+        "el",
+        "ic",
+        "a"
+      ],
+      "hint": "It rhymes with pickle.",
+      "why": "A trickle is a thin, slow flow of water."
+    },
+    {
+      "id": "fx-water-11",
+      "effect": "water",
+      "level": 3,
+      "prompt": "To take away thirst with a drink.",
+      "words": [
+        "quench"
+      ],
+      "tiles": [
+        "qu",
+        "en",
+        "ch",
+        "kw",
+        "in",
+        "sh",
+        "tch"
+      ],
+      "hint": "It starts with qu, as in queen.",
+      "why": "To quench thirst is to drink until you are thirsty no more."
+    },
+    {
+      "id": "fx-water-12",
+      "effect": "water",
+      "level": 3,
+      "prompt": "A short fall of rain.",
+      "words": [
+        "shower"
+      ],
+      "tiles": [
+        "sh",
+        "ow",
+        "er",
+        "ou",
+        "ar",
+        "ur"
+      ],
+      "hint": "It rhymes with tower.",
+      "why": "A shower is a short fall of rain."
+    },
+    {
+      "id": "fx-water-13",
+      "effect": "water",
+      "level": 3,
+      "prompt": "To cover dry land with water.",
+      "words": [
+        "flood"
+      ],
+      "tiles": [
+        "fl",
+        "oo",
+        "d",
+        "u",
+        "ud",
+        "ou",
+        "e",
+        "a"
+      ],
+      "hint": "It rhymes with mud, but its middle is spelled with two letters.",
+      "why": "To flood is to cover land with water."
+    },
+    {
+      "id": "fx-water-14",
+      "effect": "water",
+      "level": 4,
+      "prompt": "A narrow ditch that carries water to the fields.",
+      "words": [
+        "channel"
+      ],
+      "tiles": [
+        "ch",
+        "a",
+        "nn",
+        "el",
+        "n",
+        "le",
+        "e",
+        "u",
+        "ul"
+      ],
+      "hint": "Two n's sit in the middle.",
+      "why": "A channel is a narrow ditch that carries water from one place to another."
+    },
+    {
+      "id": "fx-water-15",
+      "effect": "water",
+      "level": 4,
+      "prompt": "To take in water, as a sponge or dry soil does.",
+      "words": [
+        "absorb"
+      ],
+      "tiles": [
+        "ab",
+        "s",
+        "or",
+        "b",
+        "z",
+        "ur",
+        "p"
+      ],
+      "hint": "It ends like orb.",
+      "why": "To absorb is to take in, as dry soil absorbs the rain."
+    },
+    {
+      "id": "fx-water-16",
+      "effect": "water",
+      "level": 4,
+      "prompt": "Tiny drops of water in the air or the soil.",
+      "words": [
+        "moisture"
+      ],
+      "tiles": [
+        "m",
+        "oi",
+        "st",
+        "ure",
+        "oy",
+        "er",
+        "che",
+        "a"
+      ],
+      "hint": "It ends like picture.",
+      "why": "Moisture is a little water spread through the air or the soil."
+    },
+    {
+      "id": "fx-open-01",
+      "effect": "open",
+      "level": 0,
+      "prompt": "To turn a key so a door can swing wide.",
+      "words": [
+        "unlock"
+      ],
+      "tiles": [
+        "un",
+        "l",
+        "o",
+        "ck",
+        "k",
+        "ch",
+        "a",
+        "ou"
+      ],
+      "hint": "It starts with un-, which means undo.",
+      "why": "To unlock is to undo a lock with a key."
+    },
+    {
+      "id": "fx-open-02",
+      "effect": "open",
+      "level": 0,
+      "prompt": "To undo the metal fastener on a belt.",
+      "words": [
+        "unbuckle"
+      ],
+      "tiles": [
+        "un",
+        "b",
+        "u",
+        "ck",
+        "le",
+        "k",
+        "el",
+        "o"
+      ],
+      "hint": "Its first part means undo.",
+      "why": "To unbuckle is to undo a buckle."
+    },
+    {
+      "id": "fx-open-03",
+      "effect": "open",
+      "level": 0,
+      "prompt": "To spread out a map or a cloth that was creased flat.",
+      "words": [
+        "unfold"
+      ],
+      "tiles": [
+        "un",
+        "f",
+        "o",
+        "ld",
+        "ol",
+        "l",
+        "oa",
+        "e",
+        "a"
+      ],
+      "hint": "Its end rhymes with gold.",
+      "why": "To unfold is to open out what was folded."
+    },
+    {
+      "id": "fx-open-04",
+      "effect": "open",
+      "level": 0,
+      "prompt": "To pull something out, as a cork from a jar.",
+      "words": [
+        "extract"
+      ],
+      "tiles": [
+        "ex",
+        "tr",
+        "a",
+        "ct",
+        "x",
+        "ck",
+        "e",
+        "u",
+        "i"
+      ],
+      "hint": "It starts with ex-, which means out.",
+      "why": "To extract is to pull a thing out."
+    },
+    {
+      "id": "fx-open-05",
+      "effect": "open",
+      "level": 1,
+      "prompt": "To raise the catch that keeps a gate shut.",
+      "words": [
+        "unlatch"
+      ],
+      "tiles": [
+        "un",
+        "l",
+        "a",
+        "tch",
+        "ch",
+        "e",
+        "u"
+      ],
+      "hint": "Its end rhymes with patch.",
+      "why": "To unlatch is to lift the catch, the latch, so a gate can swing."
+    },
+    {
+      "id": "fx-open-06",
+      "effect": "open",
+      "level": 1,
+      "prompt": "To make a gap or a doorway broader.",
+      "words": [
+        "widen"
+      ],
+      "tiles": [
+        "w",
+        "i",
+        "d",
+        "en",
+        "ide",
+        "y",
+        "on",
+        "a"
+      ],
+      "hint": "It ends with -en, which means to make.",
+      "why": "To widen is to make a thing wider."
+    },
+    {
+      "id": "fx-open-07",
+      "effect": "open",
+      "level": 1,
+      "prompt": "To make a knot or a lid less tight.",
+      "words": [
+        "loosen"
+      ],
+      "tiles": [
+        "l",
+        "oo",
+        "s",
+        "en",
+        "u",
+        "ss",
+        "on",
+        "z"
+      ],
+      "hint": "It begins like loop.",
+      "why": "To loosen is to make a thing less tight."
+    },
+    {
+      "id": "fx-open-08",
+      "effect": "open",
+      "level": 2,
+      "prompt": "To take the paper or cloth off a parcel.",
+      "words": [
+        "unwrap"
+      ],
+      "tiles": [
+        "un",
+        "wr",
+        "a",
+        "p",
+        "pp",
+        "e",
+        "i"
+      ],
+      "hint": "There is a silent w after un-.",
+      "why": "To unwrap is to take off the wrapping."
+    },
+    {
+      "id": "fx-open-09",
+      "effect": "open",
+      "level": 2,
+      "prompt": "To draw back the metal rod that holds a door shut.",
+      "words": [
+        "unbolt"
+      ],
+      "tiles": [
+        "un",
+        "b",
+        "o",
+        "lt",
+        "oa",
+        "ol",
+        "t",
+        "e",
+        "ow"
+      ],
+      "hint": "Its last part rhymes with colt.",
+      "why": "To unbolt is to slide back a bolt, the rod that holds a door shut."
+    },
+    {
+      "id": "fx-open-10",
+      "effect": "open",
+      "level": 2,
+      "prompt": "Left a little bit open, as a door not quite shut.",
+      "words": [
+        "ajar"
+      ],
+      "tiles": [
+        "a",
+        "j",
+        "ar",
+        "ah",
+        "g",
+        "er",
+        "or",
+        "e"
+      ],
+      "hint": "It rhymes with far.",
+      "why": "A door that is ajar is open just a little."
+    },
+    {
+      "id": "fx-open-11",
+      "effect": "open",
+      "level": 3,
+      "prompt": "To undo a buckle, clasp or strap.",
+      "words": [
+        "unfasten"
+      ],
+      "tiles": [
+        "un",
+        "f",
+        "a",
+        "st",
+        "en",
+        "on",
+        "e",
+        "ai"
+      ],
+      "hint": "There is a quiet t after the s.",
+      "why": "To unfasten is to undo whatever holds a thing shut."
+    },
+    {
+      "id": "fx-open-12",
+      "effect": "open",
+      "level": 3,
+      "prompt": "To let something go so it is free.",
+      "words": [
+        "release"
+      ],
+      "tiles": [
+        "re",
+        "l",
+        "ea",
+        "se",
+        "ee",
+        "ce",
+        "ss",
+        "z"
+      ],
+      "hint": "It ends like please.",
+      "why": "To release is to let go, so a thing is free."
+    },
+    {
+      "id": "fx-open-13",
+      "effect": "open",
+      "level": 3,
+      "prompt": "To force something apart with a bar or a tool.",
+      "words": [
+        "pry"
+      ],
+      "tiles": [
+        "p",
+        "r",
+        "y",
+        "igh",
+        "ie",
+        "ph",
+        "i"
+      ],
+      "hint": "It rhymes with dry.",
+      "why": "To pry is to force a thing apart with a bar, as you pry up a stuck lid."
+    },
+    {
+      "id": "fx-open-14",
+      "effect": "open",
+      "level": 4,
+      "prompt": "To break the wax that keeps a letter shut.",
+      "words": [
+        "unseal"
+      ],
+      "tiles": [
+        "un",
+        "s",
+        "ea",
+        "l",
+        "ee",
+        "ie",
+        "c"
+      ],
+      "hint": "Its first part means undo.",
+      "why": "To unseal is to break the seal, the wax that keeps a letter closed."
+    },
+    {
+      "id": "fx-open-15",
+      "effect": "open",
+      "level": 4,
+      "prompt": "To undo the metal catch on a book or a purse.",
+      "words": [
+        "unclasp"
+      ],
+      "tiles": [
+        "un",
+        "cl",
+        "a",
+        "sp",
+        "ps",
+        "e",
+        "o",
+        "c",
+        "i"
+      ],
+      "hint": "Its end rhymes with grasp.",
+      "why": "A clasp is a metal catch. To unclasp is to undo it."
+    },
+    {
+      "id": "fx-open-16",
+      "effect": "open",
+      "level": 4,
+      "prompt": "To knock something loose from where it was stuck.",
+      "words": [
+        "dislodge"
+      ],
+      "tiles": [
+        "dis",
+        "l",
+        "o",
+        "dge",
+        "ge",
+        "j",
+        "oa",
+        "ch",
+        "a"
+      ],
+      "hint": "It starts with dis-, meaning away.",
+      "why": "To dislodge is to knock a thing loose from where it was stuck fast."
+    },
+    {
+      "id": "fx-grow-01",
+      "effect": "grow",
+      "level": 0,
+      "prompt": "To start to grow, as a seed pushes up its first green tip.",
+      "words": [
+        "sprout"
+      ],
+      "tiles": [
+        "spr",
+        "ou",
+        "t",
+        "ow",
+        "aw",
+        "oo"
+      ],
+      "hint": "It rhymes with shout.",
+      "why": "To sprout is to begin to grow, as a seed puts up its first shoot."
+    },
+    {
+      "id": "fx-grow-02",
+      "effect": "grow",
+      "level": 0,
+      "prompt": "To care for something young as it grows.",
+      "words": [
+        "nurture"
+      ],
+      "tiles": [
+        "n",
+        "ur",
+        "t",
+        "ure",
+        "er",
+        "ch",
+        "ir",
+        "e"
+      ],
+      "hint": "It ends like capture.",
+      "why": "To nurture is to feed and care for a young thing as it grows."
+    },
+    {
+      "id": "fx-grow-03",
+      "effect": "grow",
+      "level": 0,
+      "prompt": "To gather in the crops when they are ripe.",
+      "words": [
+        "harvest"
+      ],
+      "tiles": [
+        "h",
+        "ar",
+        "v",
+        "e",
+        "st",
+        "or",
+        "i",
+        "u",
+        "a"
+      ],
+      "hint": "It starts like hard.",
+      "why": "To harvest is to gather the crops once they have grown and ripened."
+    },
+    {
+      "id": "fx-grow-04",
+      "effect": "grow",
+      "level": 0,
+      "prompt": "A field of fruit trees.",
+      "words": [
+        "orchard"
+      ],
+      "tiles": [
+        "or",
+        "ch",
+        "ar",
+        "d",
+        "er",
+        "a",
+        "tch"
+      ],
+      "hint": "It starts like order.",
+      "why": "An orchard is a field where fruit trees grow."
+    },
+    {
+      "id": "fx-grow-05",
+      "effect": "grow",
+      "level": 1,
+      "prompt": "A flower on a fruit tree in spring.",
+      "words": [
+        "blossom"
+      ],
+      "tiles": [
+        "bl",
+        "oss",
+        "om",
+        "um",
+        "u",
+        "ow",
+        "e",
+        "oa"
+      ],
+      "hint": "Two s's sit in the middle.",
+      "why": "A blossom is a flower, most often on a fruit tree."
+    },
+    {
+      "id": "fx-grow-06",
+      "effect": "grow",
+      "level": 1,
+      "prompt": "To grow ready to eat, as fruit does in the sun.",
+      "words": [
+        "ripen"
+      ],
+      "tiles": [
+        "r",
+        "i",
+        "p",
+        "en",
+        "pp",
+        "y",
+        "an",
+        "on",
+        "a"
+      ],
+      "hint": "It ends with -en, which means to become.",
+      "why": "To ripen is to become ripe, ready to eat."
+    },
+    {
+      "id": "fx-grow-07",
+      "effect": "grow",
+      "level": 1,
+      "prompt": "A young tree with a thin trunk.",
+      "words": [
+        "sapling"
+      ],
+      "tiles": [
+        "s",
+        "a",
+        "p",
+        "l",
+        "ing",
+        "pp",
+        "en",
+        "ang"
+      ],
+      "hint": "It starts like sap, the juice inside a tree.",
+      "why": "A sapling is a young tree."
+    },
+    {
+      "id": "fx-grow-08",
+      "effect": "grow",
+      "level": 2,
+      "prompt": "A tiny young plant, just up from the soil.",
+      "words": [
+        "seedling"
+      ],
+      "tiles": [
+        "s",
+        "ee",
+        "d",
+        "l",
+        "ing",
+        "ea",
+        "eng",
+        "t",
+        "a"
+      ],
+      "hint": "It ends like duckling.",
+      "why": "A seedling is a young plant that has just grown from a seed."
+    },
+    {
+      "id": "fx-grow-09",
+      "effect": "grow",
+      "level": 2,
+      "prompt": "An arm of a tree that grows out from the trunk.",
+      "words": [
+        "branch"
+      ],
+      "tiles": [
+        "br",
+        "a",
+        "nch",
+        "nsh",
+        "e",
+        "ch",
+        "u"
+      ],
+      "hint": "It rhymes with ranch.",
+      "why": "A branch is an arm of a tree, growing out from the trunk."
+    },
+    {
+      "id": "fx-grow-10",
+      "effect": "grow",
+      "level": 2,
+      "prompt": "Rotted leaves and scraps that feed the soil.",
+      "words": [
+        "compost"
+      ],
+      "tiles": [
+        "c",
+        "om",
+        "p",
+        "o",
+        "st",
+        "k",
+        "oa",
+        "a"
+      ],
+      "hint": "It starts with the same three letters as comb.",
+      "why": "Compost is rotted leaves and scraps. Dug into the soil, it feeds the plants."
+    },
+    {
+      "id": "fx-grow-11",
+      "effect": "grow",
+      "level": 3,
+      "prompt": "Rich enough for plants to grow well.",
+      "words": [
+        "fertile"
+      ],
+      "tiles": [
+        "f",
+        "er",
+        "t",
+        "ile",
+        "ur",
+        "il",
+        "le",
+        "al",
+        "i"
+      ],
+      "hint": "It starts like fern.",
+      "why": "Fertile soil is rich, so plants grow well in it."
+    },
+    {
+      "id": "fx-grow-12",
+      "effect": "grow",
+      "level": 3,
+      "prompt": "To feed something so it grows strong and well.",
+      "words": [
+        "nourish"
+      ],
+      "tiles": [
+        "n",
+        "our",
+        "ish",
+        "ur",
+        "sh",
+        "i",
+        "a",
+        "ar"
+      ],
+      "hint": "It begins like the start of nurse.",
+      "why": "To nourish is to feed a thing so it can grow strong."
+    },
+    {
+      "id": "fx-grow-13",
+      "effect": "grow",
+      "level": 3,
+      "prompt": "To do well and grow strong.",
+      "words": [
+        "thrive"
+      ],
+      "tiles": [
+        "thr",
+        "i",
+        "ve",
+        "iv",
+        "f",
+        "ee"
+      ],
+      "hint": "It rhymes with five.",
+      "why": "To thrive is to grow strong and do well."
+    },
+    {
+      "id": "fx-grow-14",
+      "effect": "grow",
+      "level": 4,
+      "prompt": "To grow strongly and well, full of health.",
+      "words": [
+        "flourish"
+      ],
+      "tiles": [
+        "fl",
+        "our",
+        "ish",
+        "or",
+        "ur",
+        "sh",
+        "i"
+      ],
+      "hint": "It starts with the letters of flour.",
+      "why": "To flourish is to grow strongly and well."
+    },
+    {
+      "id": "fx-grow-15",
+      "effect": "grow",
+      "level": 4,
+      "prompt": "Fully grown, as an adult plant or animal.",
+      "words": [
+        "mature"
+      ],
+      "tiles": [
+        "m",
+        "a",
+        "t",
+        "ure",
+        "ch",
+        "er",
+        "ur",
+        "oo"
+      ],
+      "hint": "It ends like nature.",
+      "why": "Something mature is fully grown."
+    },
+    {
+      "id": "fx-grow-16",
+      "effect": "grow",
+      "level": 4,
+      "prompt": "To dig and tend the land so crops grow.",
+      "words": [
+        "cultivate"
+      ],
+      "tiles": [
+        "c",
+        "ul",
+        "t",
+        "iv",
+        "ate",
+        "k",
+        "ol",
+        "eit"
+      ],
+      "hint": "It starts like culture.",
+      "why": "To cultivate land is to dig it, sow it and tend the crops as they grow."
+    }
+  ]
+}

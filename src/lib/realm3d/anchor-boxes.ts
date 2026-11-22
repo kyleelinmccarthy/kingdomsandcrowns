@@ -10,7 +10,7 @@
 
 import { ANCHOR_SPOT, type ObjectAnchorId } from "@/lib/realm/anchors";
 import { IMPROVEMENT_COLORS } from "@/lib/realm/improvements";
-import type { YardBox } from "./keep-yard-boxes";
+import { box, type YardBox } from "./keep-yard-boxes";
 
 const { stone: STONE, timber: TIMBER, plaster: PLASTER, roof: ROOF } = IMPROVEMENT_COLORS;
 const DARK_TIMBER = "#6f4f2c";
@@ -27,9 +27,6 @@ const RIBBON = "#dcebf2";
 const PARCHMENT = "#f3e6c4";
 /** What a stake's flag and cap turn to once the clue is resolved and this was the answer: "It was here." */
 const GOLD = "#e8b84a";
-
-/** A box by its centre on the ground, footprint, the height of its bottom, and its height. */
-const box = (color: string, x: number, z: number, sx: number, sz: number, y0: number, sy: number): YardBox => ({ x, y: y0 + sy / 2, z, sx, sy, sz, color });
 
 /**
  * The search stake: a stone footing, a post with a pale ribbon tied round it, a parchment sign (an

@@ -1,0 +1,169 @@
+/* The rune stone (rune-stone.tsx, rune-picture.tsx): the object's picture, the built row, the tray
+   of tiles, and Hear, Clear and Cast. Two coats, as the trail and the lock have: `rune--board` is the
+   Realm board's timber and gold, `rune--page` the Side Quests page's tokens.
+   Fits a 390 px phone and larger text: the row and the tray wrap, every tile and button is a 40 px
+   target at least and grows with the text (rem), and the picture gives way on a short screen so the
+   tray and Cast stay in reach (on a board, Hear, Clear and Cast are pinned to its foot). Nothing is
+   dragged; nothing moves in calm play or when the system asks for reduced motion. */
+
+.rune {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-width: 0;
+  margin-top: 0.8rem;
+  --rune-ink: #fff6de;
+  --rune-soft: #ffd9a8;
+  --rune-gold: #f5c04a;
+  --rune-slab: linear-gradient(180deg, #6f6a62, #4a4640);
+  --rune-edge: #2a1709;
+  --rune-tile: #efe6d2;
+  --rune-tile-ink: #2a1709;
+  --rune-right: #7bd389;
+  --rune-mark: #ff9f43;
+  color: var(--rune-ink);
+}
+.rune--page {
+  --rune-ink: var(--foreground);
+  --rune-soft: var(--muted-foreground);
+  --rune-gold: var(--gold-bright);
+  --rune-slab: var(--muted);
+  --rune-edge: var(--gold-border);
+  --rune-tile: var(--card);
+  --rune-tile-ink: var(--foreground);
+  --rune-right: var(--primary);
+  --rune-mark: var(--destructive);
+}
+
+.rune button { font: inherit; cursor: var(--cursor-hand, pointer); }
+.rune button:disabled { cursor: default; }
+
+/* ---- the picture, its label, and the word printed when there is no sound --------------- */
+
+.rune-scene { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; min-width: 0; }
+.rune-pic {
+  display: block;
+  width: 100%;
+  max-width: 11rem;
+  max-height: 22vh;
+  border-radius: 12px;
+  border: 2px solid var(--rune-edge);
+  background: #cfe6f2;
+}
+.rune-object { margin: 0; font-weight: 800; color: var(--rune-soft); text-align: center; }
+.rune-unheard { margin: 0; max-width: 100%; text-align: center; font-weight: 700; overflow-wrap: anywhere; }
+.rune-unheard strong { color: var(--rune-gold); }
+
+/* ---- the built row: grows as tiles are placed, wraps on a narrow screen ------------------ */
+
+.rune-row {
+  min-height: max(48px, 3rem);
+  padding: 0.35rem 0.5rem;
+  border-radius: 12px;
+  border: 2px dashed var(--rune-edge);
+  background: var(--rune-slab);
+  display: flex;
+  align-items: center;
+}
+.rune-row--right { border-style: solid; border-color: var(--rune-right); }
+.rune-row--answer { border-style: solid; border-color: var(--rune-gold); }
+.rune-empty { margin: 0; color: var(--rune-soft); font-style: italic; }
+.rune-word {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+
+/* ---- the tiles: a 40 px target at least, and larger with the text ------------------------ */
+
+.rune-tray {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  min-width: 0;
+}
+.rune-tile {
+  min-width: max(40px, 2.75rem);
+  min-height: max(40px, 2.75rem);
+  padding: 0.2rem 0.55rem;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 10px;
+  border: 2px solid var(--rune-edge);
+  background: var(--rune-tile);
+  color: var(--rune-tile-ink);
+  font-size: 1.25rem;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.35);
+}
+.rune-tile:focus-visible { outline: 3px solid var(--rune-gold); outline-offset: 2px; }
+/* Placed: it waits in the row, so the tray shows a hollow slot (shape, not colour alone). */
+.rune-tray .rune-tile[aria-pressed="true"] { opacity: 0.35; border-style: dashed; box-shadow: none; }
+.rune-tray .rune-tile:disabled:not([aria-pressed="true"]) { opacity: 0.7; }
+.rune-tile--set { border-color: var(--rune-gold); }
+.rune-row--right .rune-tile--set { border-color: var(--rune-right); }
+.rune--move .rune-row--right .rune-tile--set { animation: rune-glow 0.9s ease-out both; }
+
+.rune-help { margin: 0; font-size: 0.95rem; font-weight: 700; color: var(--rune-soft); }
+.rune-same { margin: 0; font-weight: 800; color: var(--rune-mark); }
+
+/* ---- Hear, Clear and Cast ---------------------------------------------------------------- */
+
+.rune-acts { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.rune-act {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: max(40px, 2.75rem);
+  padding: 0.3rem 0.9rem;
+  border-radius: 12px;
+  border: 2px solid var(--rune-edge);
+  background: var(--rune-slab);
+  color: var(--rune-ink);
+  font-weight: 800;
+}
+.rune-act--cast { margin-left: auto; font-size: 1.1rem; }
+.rune--board .rune-act--cast { border-color: #6b4410; background: linear-gradient(180deg, #ffd875, #e09b24); color: #3a2008; box-shadow: 0 4px 0 #7a4f14; }
+.rune--page .rune-act--cast { border-width: 1px; background: var(--primary); color: var(--primary-foreground); }
+.rune-act:disabled { opacity: 0.5; box-shadow: none; }
+.rune-act:focus-visible { outline: 3px solid var(--rune-ink); outline-offset: 2px; }
+.rune-act-icon { width: 1.1rem; height: 1.1rem; }
+/* On a board (a scrolling panel), Hear, Clear and Cast stay pinned to its foot while the stone
+   scrolls, on the board's deepest timber, so they are in reach on a short phone (smoke I12). */
+.rune--board .rune-acts {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  padding: 0.4rem 0;
+  background: #2e1c0d;
+}
+
+/* ---- a short screen: a 390×667 phone, or 800 to 900 tall with larger text ------------------
+   The picture stands beside its label at 12vh and the gaps close up, so the word, the tray, Cast and
+   a miss line with Show me fit with little or no scrolling (smoke I12, review I-2). */
+@media (max-height: 900px) {
+  .rune { gap: 0.4rem; margin-top: 0.4rem; }
+  .rune-scene { flex-flow: row wrap; justify-content: center; gap: 0.3rem 0.6rem; }
+  .rune-scene .rune-pic { flex: none; width: 7rem; max-height: 12vh; }
+  .rune-unheard { flex-basis: 100%; }
+  .rune-help { font-size: 0.85rem; }
+}
+
+/* ---- a rune object's result card (deed-board.tsx `RunResultCard`): the object, in place of the seal */
+
+.r3-result-rune { display: block; width: 9rem; max-width: 60%; }
+.r3-result-rune .rune-pic { --rune-edge: #6b4410; max-height: 20vh; }
+
+@keyframes rune-glow {
+  from { box-shadow: 0 0 0 0 var(--rune-right); }
+  50% { box-shadow: 0 0 12px 3px var(--rune-right); }
+  to { box-shadow: 0 3px 0 rgba(0, 0, 0, 0.35); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rune--move .rune-row--right .rune-tile--set { animation: none; }
+}

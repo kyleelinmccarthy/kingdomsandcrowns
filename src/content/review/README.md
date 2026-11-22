@@ -161,3 +161,56 @@ read its header for the full list. The ones an author meets most: from g23 up a 
 no redirect ever does, at any band; a clue that uses a word two confusable places share (the well and the water
 trough) carries `parts` that rule the partner out; every clue has a `redirect` (never empty); no field says a
 grade, "behind" or "ahead".
+
+## Rune pools
+
+A language side quest can be played as rune spellcraft: the hero builds a word from rune tiles to set something
+right in the village. The entries live in `src/content/runes/<poolId>.json`, one pool per band (`rune-k1`,
+`rune-g23`, `rune-g45`, `rune-g68`, `rune-g912`), each crediting its band's language skills; the band, pool and
+skill table is `docs/content/rune-skill-map.md`. A rune pool id starts with `rune-`, so its sheet and resolutions
+sit beside the other files without colliding (`NON_DRILL_SHEET_PREFIXES` in `blind-pass.ts` keeps them out of the
+drill gate).
+
+```bash
+# 1. Cut the sheet. It has no key: every entry in a shuffled order, each as its picture (by effect), the
+#    line shown, the line heard, and the tiles sorted A-Z. No entry id, hint, why or word, except a
+#    dictation's heard line, which the child hears too.
+npx tsx src/lib/content/rune-blind-pass-cli.ts extract <poolId>      # or --all
+
+# 2. Someone who has NOT read src/content/runes/<poolId>.json writes, after `Answer:` on every line of
+#    src/content/review/<poolId>.blind.md, the word they would build from the tiles (each tile at most once).
+#    `both` and every word that fits and can be built means more than one word fits (an ambiguity); `?` means
+#    no word fits. A person, or a subagent handed the sheet and nothing else. If you wrote the pool, you are
+#    not eligible to answer the sheet.
+
+# 3. Compare. Exits non-zero while anything is outstanding.
+npx tsx src/lib/content/rune-blind-pass-cli.ts compare <poolId>      # or --all
+
+# 4. Settle every flag, then re-run step 3 until it prints PASS.
+npx vitest run src/lib/content/rune-blind-pass.test.ts
+```
+
+**A dictation pool's pass (`rune-k1`, `rune-g23`) is a buildability check, not an ambiguity check.** At K–3 the
+word is always spoken (the `Heard:` line), so the reader is told it. Their pass checks only two things: that the
+heard word can be built from the tiles, and that the shown line fits the picture. It cannot test whether another
+word would also fit, because the reader is told the word; the dictation is what makes the word unambiguous for
+the child too. The reader writes the heard word when both hold, and `?` when either fails.
+
+From `rune-g45` up the child is given a meaning, so the pass is a real blind read: the reader builds the word the
+line asks for, and writes `both` with every other word that fits and can be built from the tiles. Such a word is
+either added to the entry's `words` or designed out of the tiles.
+
+The gate test runs step 3 over every `rune-*.blind.md` here, so an unsettled flag fails `npm test`. Flags are
+`disagree` (a buildable word that is not accepted), `not-buildable` (a word the tiles cannot build), `ambiguous`
+(`both`, naming a word the entry does not accept) and `unanswerable` (`?`). A flag is settled in
+`<poolId>.resolved.json`, as for a drill pool (the same four verdicts), with these differences: `itemId` is the
+entry id, `keyAt` is the entry's accepted words joined with commas (`mend,fix`), and `code` is the 8-character
+`#code` on the entry's line. The code fingerprints what is shown (the effect, the prompt, the heard line and the
+tiles as a set), so reordering an entry's tiles keeps it, while editing any of those changes it (the old answer
+is then reported as stale, and the entry goes back to be read). Correcting the words never changes the code. The
+other way to settle a flag is to edit the entry and run `extract --force`: every answer to an unchanged entry is
+carried over, and only the edited entry comes back blank.
+
+`extract` refuses a pool that fails `validateRunePool`, and refuses to overwrite a sheet that has answers on it
+unless you pass `--force`. The validator (`src/lib/content/rune-pools.ts`) checks the shape and the rules; its
+`RUNE_POOL_RULES` list names every one.

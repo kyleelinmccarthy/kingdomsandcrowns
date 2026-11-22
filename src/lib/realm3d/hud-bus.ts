@@ -60,8 +60,9 @@ export type InteractTarget = {
    * `lock` is a chest or vault door (`lib/realm/world-objects.ts`); its id is the object's (`chest:west-lane`).
    * `tower` is the Puzzle Tower (`lib/realm/puzzle-tower.ts`), where E opens its floors; its id is "puzzle-tower".
    * `anchor` is a reading trail's search stake (`lib/realm/anchors.ts`), there only while a walk is on; its id is the anchor's (`landmark:mill`).
+   * `rune` is a rune object (`lib/realm/rune-objects.ts`), broken or fixed; its id is the object's (`rune:west-wagon`). E casts a rune at it, any time.
    */
-  kind: "villager" | "site" | "castle" | "landmark" | "door" | "fixture" | "post" | "arch" | "riddle" | "plans" | "plaque" | "chronicle" | "lock" | "tower" | "anchor";
+  kind: "villager" | "site" | "castle" | "landmark" | "door" | "fixture" | "post" | "arch" | "riddle" | "plans" | "plaque" | "chronicle" | "lock" | "tower" | "anchor" | "rune";
   id: string;
   /** What the prompt calls it: "Old Bram", "the Chapel", "Cloudfoot". */
   label: string;

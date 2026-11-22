@@ -163,6 +163,16 @@ describe("FocusSkillsPanel", () => {
     expect(box("Reading between the lines")).not.toHaveAccessibleDescription(/reading trails/i);
   });
 
+  it("says a rune-only skill is played only as rune spellcraft, beside it and no other", () => {
+    // A grade-1 hero's language window holds spell-g1 (rune-only) beside lang-g1 (multiple choice).
+    const window = focusOptions(focusWindow({ language: "1" }));
+    render(<FocusSkillsPanel childId="c1" options={window} selected={[]} />);
+    expect(box("Spelling (Grade 1)")).toHaveAccessibleDescription("Played only as rune spellcraft");
+    expect(screen.getAllByText("Played only as rune spellcraft")).toHaveLength(1);
+    expect(box("Sentences and word kinds")).not.toHaveAccessibleDescription(/rune/i);
+    expect(screen.queryByText(/reading trails/i)).not.toBeInTheDocument();
+  });
+
   it("calls kindergarten by its name", () => {
     const window = focusOptions(focusWindow({ reading: "1" }));
     render(<FocusSkillsPanel childId="c1" options={window} selected={[]} />);

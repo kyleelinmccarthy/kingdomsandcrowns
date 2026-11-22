@@ -4,12 +4,15 @@ import { KEEP_YARD } from "@/lib/realm/keep-yard";
 import { IMPROVEMENT_IDS, IMPROVEMENTS } from "@/lib/realm/improvements";
 import { HERO_RADIUS } from "./collision";
 import { improvementPlacements } from "./improvement-spots";
-import { anchorTarget, buildSpots, edgeDistance, lockSpot, makeNearMemo, nearChanged, pickSpot, CHRONICLE_TARGET, PLANS_TARGET, RIDDLE_LABEL, RIDDLE_VERB, siteLabel, TOWER_TARGET, type InteractSpot } from "./interact";
+import { anchorTarget, buildSpots, edgeDistance, lockSpot, makeNearMemo, nearChanged, pickSpot, runeSpot, runeTarget, CHRONICLE_TARGET, PLANS_TARGET, RIDDLE_LABEL, RIDDLE_VERB, siteLabel, TOWER_TARGET, type InteractSpot } from "./interact";
 import { interactVerb } from "./frame";
 import { PUZZLE_TOWER } from "@/lib/realm/puzzle-tower";
 import { RIDDLE_STONE_SPOTS } from "@/lib/realm/riddle-stones";
 import { LOCK_SPOT } from "@/lib/realm/world-objects";
-import { worldCanvas, type LockSpotView } from "@/lib/realm/world-state";
+import { worldCanvas, type LockSpotView, type RuneSpotView } from "@/lib/realm/world-state";
+import { RUNE_OBJECTS, RUNE_SPOT } from "@/lib/realm/rune-objects";
+import { RUNE_LOOK_VERB, RUNE_VERB } from "@/lib/tasks/rune-copy";
+import { runeSpotAt } from "@/test/rune-spots";
 import { ANCHOR_SPOT, ANCHOR_SPOTS, ANCHORS } from "@/lib/realm/anchors";
 import { BUILDINGS } from "@/lib/utils/kingdom";
 import { castlePlan } from "./castle-plan";
@@ -212,7 +215,7 @@ describe("the world's locks", () => {
     castleType: "castle",
     buildings: ["well", "mill", "bridge", "chapel", "market", "library", "watchtower", "garden"].map((id) => ({ id, done: 5, total: 5, complete: true })),
   });
-  const locks = worldCanvas({ locksOn: true, open: ["chest:east-lane", "door:longwater"], decor: [], tower: [] }).locks;
+  const locks = worldCanvas({ locksOn: true, runesOn: false, open: ["chest:east-lane", "door:longwater"], fixed: [], decor: [], tower: [] }).locks;
   const withLocks = buildSpots({ props: all.props, sitePlan: 1.5, landmarks: [], castle: null, locks });
   const at = (l: LockSpotView) => withLocks.findIndex((s) => s.target.kind === "lock" && s.target.id === l.id);
 
@@ -296,7 +299,7 @@ describe("the Puzzle Tower", () => {
   it("no spot's reach holds another spot's centre: with every lock, riddle stone, the board, the lectern and every plaque at level 3 (F19)", () => {
     const placements = improvementPlacements(Object.fromEntries(IMPROVEMENT_IDS.map((id) => [id, 3])), () => 0);
     const plaques = placements.map((p) => ({ id: p.id, label: IMPROVEMENTS[p.id].label, ...p.plaque }));
-    const locks = worldCanvas({ locksOn: true, open: [], decor: [], tower: [] }).locks;
+    const locks = worldCanvas({ locksOn: true, runesOn: false, open: [], fixed: [], decor: [], tower: [] }).locks;
     const set = buildSpots({ props: [], sitePlan: 1.5, landmarks: [], castle: null, locks, stones: RIDDLE_STONE_SPOTS, plans: KEEP_YARD.plansBoard, chronicle: KEEP_YARD.lectern, plaques, tower: door });
     expect(set).toHaveLength(locks.length + RIDDLE_STONE_SPOTS.length + 2 + plaques.length + 1);
     const held: string[] = [];
@@ -310,7 +313,7 @@ describe("the Puzzle Tower", () => {
 });
 
 describe("a visiting grown-up's words at the locks and the Tower (smoke bug 3)", () => {
-  const locks = worldCanvas({ locksOn: true, open: ["chest:east-lane", "door:longwater"], decor: [], tower: [] }).locks;
+  const locks = worldCanvas({ locksOn: true, runesOn: false, open: ["chest:east-lane", "door:longwater"], fixed: [], decor: [], tower: [] }).locks;
   const prompts = (viewer?: "child" | "parent") =>
     buildSpots({ props: [], sitePlan: 1.5, landmarks: [], castle: null, locks, tower: PUZZLE_TOWER.door, viewer })
       .filter((s) => s.target.kind === "lock" || s.target.kind === "tower")
@@ -365,7 +368,7 @@ describe("announcing what E will act on", () => {
  * can be on), every lock, riddle stone, the plans board, the lectern, every plaque at level 3 and
  * the Tower's door.
  */
-function villageWithStakes(castleType: (typeof CASTLE_TIER_IDS)[number], built: boolean, anchors: typeof ANCHOR_SPOTS | null = ANCHOR_SPOTS): InteractSpot[] {
+function villageWithStakes(castleType: (typeof CASTLE_TIER_IDS)[number], built: boolean, anchors: typeof ANCHOR_SPOTS | null = ANCHOR_SPOTS, runes?: readonly RuneSpotView[]): InteractSpot[] {
   const village = buildWorldLayout({
     castleType,
     buildings: BUILDINGS.map((b) => ({ id: b.id, done: built ? b.deedsToBuild : 0, total: b.deedsToBuild, complete: built })),
@@ -383,9 +386,10 @@ function villageWithStakes(castleType: (typeof CASTLE_TIER_IDS)[number], built: 
     plans: KEEP_YARD.plansBoard,
     chronicle: KEEP_YARD.lectern,
     plaques: placements.map((p) => ({ id: p.id, label: IMPROVEMENTS[p.id].label, ...p.plaque })),
-    locks: worldCanvas({ locksOn: true, open: [], decor: [], tower: [] }).locks,
+    locks: worldCanvas({ locksOn: true, runesOn: false, open: [], fixed: [], decor: [], tower: [] }).locks,
     tower: PUZZLE_TOWER.door,
     anchors: anchors ?? undefined,
+    runes,
   });
 }
 
@@ -488,5 +492,85 @@ describe("the trail's stakes", () => {
       }
       expect(seen).toEqual(["none", "anchor", "castle"]);
     });
+  });
+});
+
+describe("the rune objects", () => {
+  const runes = worldCanvas({ locksOn: true, runesOn: true, open: [], fixed: ["rune:west-wagon"], decor: [], tower: [] }).runes;
+  const withRunes = villageWithStakes("castle", true, null, runes);
+  const at = (id: string) => withRunes.findIndex((s) => s.target.kind === "rune" && s.target.id === id);
+
+  it("adds fifteen round spots with runes on, and none when runes is absent", () => {
+    expect(runes).toHaveLength(15);
+    const spotsOf = withRunes.filter((s) => s.target.kind === "rune");
+    expect(spotsOf).toHaveLength(15);
+    for (const r of runes) {
+      expect(withRunes[at(r.id)], r.id).toMatchObject({ x: r.x, z: r.z, round: true, hw: RUNE_SPOT.radius, hd: RUNE_SPOT.radius, reach: RUNE_SPOT.reach, bias: 0.4, ring: RUNE_SPOT.radius + 0.6 });
+      expect(withRunes[at(r.id)]).toEqual(runeSpot(r));
+    }
+    expect(villageWithStakes("castle", true, null).some((s) => s.target.kind === "rune")).toBe(false);
+    expect(villageWithStakes("castle", true, null, []).some((s) => s.target.kind === "rune")).toBe(false);
+    expect(spots.some((s) => s.target.kind === "rune")).toBe(false);
+  });
+
+  it("says Cast a rune at a broken object, Look at a fixed one by its fixed name, and Look at to a grown-up", () => {
+    const target = (id: string, viewer?: "child" | "parent") => runeTarget(runes.find((r) => r.id === id)!, viewer);
+    expect(target("rune:east-barrow")).toEqual({ kind: "rune", id: "rune:east-barrow", label: "the broken barrow", verb: "Cast a rune at" });
+    expect(target("rune:west-wagon")).toEqual({ kind: "rune", id: "rune:west-wagon", label: "the wagon", verb: "Look at" });
+    expect(target("rune:east-barrow", "parent").verb).toBe("Look at");
+    expect(target("rune:west-wagon", "parent").verb).toBe("Look at");
+    expect([RUNE_VERB, RUNE_LOOK_VERB]).toEqual(["Cast a rune at", "Look at"]);
+    expect(interactVerb(target("rune:east-barrow"))).toBe("Cast a rune at the broken barrow");
+    expect(withRunes[at("rune:east-barrow")].target).toEqual(target("rune:east-barrow"));
+  });
+
+  it("gives a visiting grown-up Look at everywhere through buildSpots", () => {
+    const visited = buildSpots({ props: [], sitePlan: 1.5, landmarks: [], castle: null, runes, viewer: "parent" });
+    expect(visited.filter((s) => s.target.kind === "rune").every((s) => s.target.verb === "Look at")).toBe(true);
+  });
+
+  it("every target is of the rune kind, one per catalog object", () => {
+    expect(withRunes.filter((s) => s.target.kind === "rune").map((s) => s.target.id).sort()).toEqual(RUNE_OBJECTS.map((o) => o.id).sort());
+  });
+
+  it("is what E acts on when the hero walks up to it, from every side, in a village built or not", () => {
+    const d = RUNE_SPOT.radius + 0.6;
+    const bare = villageWithStakes("campsite", false, null, runes);
+    for (const r of runes) {
+      for (const [dx, dz] of [[0, d], [d, 0], [0, -d], [-d, 0]]) {
+        expect(withRunes[pickSpot(withRunes, r.x + dx, r.z + dz, -1)]?.target.id, `${r.id} from ${dx},${dz}`).toBe(r.id);
+        expect(bare[pickSpot(bare, r.x + dx, r.z + dz, -1)]?.target.id, `${r.id} from ${dx},${dz}, bare`).toBe(r.id);
+      }
+    }
+  });
+
+  it("lets go once the hero walks on", () => {
+    for (const r of runes) expect(pickSpot(withRunes, r.x + 6, r.z + 6, at(r.id)), r.id).not.toBe(at(r.id));
+  });
+
+  it("the test helper's spot is the real one, so the reach rules cannot drift", () => {
+    for (const r of runes) expect(runeSpotAt(r), r.id).toEqual(runeSpot(r));
+  });
+
+  it("no rune spot holds another spot, and no spot holds a rune spot: the whole village, with the stakes up and down, built and bare, at every castle tier", () => {
+    const held: string[] = [];
+    const kinds = new Set<string>();
+    const name = (s: InteractSpot) => `${s.target.kind} ${s.target.id}`;
+    for (const castleType of CASTLE_TIER_IDS) {
+      for (const built of [true, false]) {
+        for (const anchors of [ANCHOR_SPOTS, null]) {
+          const set = villageWithStakes(castleType, built, anchors, runes);
+          for (const a of set) {
+            kinds.add(a.target.kind);
+            for (const b of set) {
+              if (a === b || (a.target.kind !== "rune" && b.target.kind !== "rune")) continue;
+              if (edgeDistance(a, b.x, b.z) <= a.reach) held.push(`${name(a)} holds ${name(b)} (${castleType}, ${built ? "built" : "bare"})`);
+            }
+          }
+        }
+      }
+    }
+    expect([...new Set(held)]).toEqual([]);
+    expect([...kinds].sort()).toEqual(["anchor", "arch", "castle", "chronicle", "lock", "plans", "plaque", "post", "riddle", "rune", "site", "tower", "villager"]);
   });
 });

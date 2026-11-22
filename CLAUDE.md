@@ -13,7 +13,7 @@ Keep this layout. Put new files in the folder that already holds their kind, and
 | `src/app/` | Routes only (App Router). `(app)` is the signed-in shell, `(auth)` and `(legal)` are route groups, `api/` the route handlers. Logic belongs in `src/lib/`, not in `page.tsx`. |
 | `src/components/` | React components. Feature areas get a subfolder (`marketing/`, `realm/`, `realm3d/`); `ui/` is shadcn primitives. Tests sit next to the file they test (`foo.tsx`, `foo.test.tsx`). |
 | `src/lib/` | Non-UI code: `actions/` (server actions), `services/`, `db/` (schema, migrations, seed and backfill scripts), `auth/`, `billing/`, `realm/` and `realm3d/` (game logic), `utils/`. |
-| `src/content/` | Authored learning content (`drills/`, `sorts/` for the sorting locks, `trails/` for the reading trails, `review/`). |
+| `src/content/` | Authored learning content (`drills/`, `sorts/` for the sorting locks, `trails/` for the reading trails, `runes/` for rune spellcraft's pools, `review/`). |
 | `src/hooks/`, `src/test/` | Shared hooks; shared test setup and helpers. |
 | `public/` | Only files the site serves at a URL. Images for the marketing site go in `public/marketing/` (screenshots in `public/marketing/screens/`), with credits in `public/marketing/CREDITS.md`. Other served art: `public/cursors/`, `public/crown.svg`. |
 | `assets/` | Source art that is not served (for example `assets/logos/`). Do not put it in `public/`. |

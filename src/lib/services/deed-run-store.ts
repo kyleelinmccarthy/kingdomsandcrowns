@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, inArray, isNotNull, isNull, like, ne, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNotNull, isNull, like, ne, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { RUN_EFFECTS, kindsThatFeedReview, type RunKind } from "@/lib/utils/deed-scoring";
@@ -6,8 +6,10 @@ import { records, resumeIndex, statusOf } from "@/lib/utils/deed-attempts";
 import { isRegisteredKind, isTaskCorrect, kindOf, secondChanceHint, storedFeedback, toClientTask, type Task } from "@/lib/tasks/registry";
 import { demoKeyOf, demoKind, isLockDemo, LOCK_DEMO_PUZZLES, type DemoKey } from "@/lib/tasks/demos";
 import type { HandsOnKind } from "@/lib/tasks/kinds";
+import type { RuneTask } from "@/lib/tasks/types";
 import type { RunStart } from "@/lib/utils/deed-run-types";
 import type { ImprovementId } from "@/lib/realm/improvements";
+import { RUNE_DEED_IDS } from "@/lib/utils/deeds";
 
 /**
  * What every run start shares, whether the run belongs to a side quest (`actions/deeds.ts`) or to
@@ -92,8 +94,17 @@ export async function loadRecentTrailIds(childId: string, deedIds: readonly stri
     .where(and(eq(schema.deedRun.childId, childId), inArray(schema.deedRun.deedId, [...deedIds])))
     .orderBy(desc(schema.deedRun.startedAt))
     .limit(TRAIL_MEMORY_RUNS);
+  return collectTaskKeys(runs, "trail", "trail");
+}
+
+/**
+ * The keys stored runs' tasks of one `kind` hold in `field` (a trail's `trail`, a rune's `entry`),
+ * in the rows' order, each key once. Only a task of that kind whose field is a string is read; a
+ * row that will not parse, or parses to another shape, is skipped, never fatal.
+ */
+export function collectTaskKeys(rows: readonly { questions: string }[], kind: "trail" | "rune", field: "trail" | "entry"): string[] {
   const keys = new Set<string>();
-  for (const run of runs) {
+  for (const run of rows) {
     let qs: unknown;
     try {
       qs = JSON.parse(run.questions);
@@ -103,11 +114,39 @@ export async function loadRecentTrailIds(childId: string, deedIds: readonly stri
     if (!Array.isArray(qs)) continue;
     for (const q of qs as unknown[]) {
       if (typeof q !== "object" || q === null) continue;
-      const { kind, trail } = q as { kind?: unknown; trail?: unknown };
-      if (kind === "trail" && typeof trail === "string") keys.add(trail);
+      const task = q as Record<string, unknown>;
+      const key = task[field];
+      if (task.kind === kind && typeof key === "string") keys.add(key);
     }
   }
   return [...keys];
+}
+
+/**
+ * How many of a hero's latest rune runs the rune drawer remembers (R-I19): a week of three a day.
+ * A run uses at most three words, so 21 runs use at most 63, and every pool holds 16 entries of
+ * each effect (80 a band): a week of runes never meets an entry twice.
+ */
+export const RUNE_MEMORY_RUNS = 21;
+
+/**
+ * The rune entries (`<poolId>/<entryId>`) the hero met in their last `RUNE_MEMORY_RUNS` rune runs,
+ * newest run first, each key once: their rune side quests (`RUNE_DEED_IDS`, any kind) and the rune
+ * objects they set out to fix (`world` runs owned by a `rune:` object) together. One query. Open
+ * and finished runs alike, since a word was met whether or not the run was finished. Nothing else
+ * (a chest, Puzzle practice, a Tower floor) is read, so other runs never crowd the memory.
+ */
+export async function loadRecentRuneKeys(childId: string): Promise<string[]> {
+  const R = schema.deedRun;
+  const objects = and(eq(R.kind, "world"), like(R.sourceRef, "rune:%"));
+  const runes = RUNE_DEED_IDS.length > 0 ? or(inArray(R.deedId, [...RUNE_DEED_IDS]), objects) : objects;
+  const rows = await db
+    .select({ questions: R.questions })
+    .from(R)
+    .where(and(eq(R.childId, childId), runes))
+    .orderBy(desc(R.startedAt))
+    .limit(RUNE_MEMORY_RUNS);
+  return collectTaskKeys(rows, "rune", "entry");
 }
 
 /** Said when a stored run holds a task kind this build does not know. */
@@ -174,9 +213,12 @@ export function resumedStart(
   const pending = statuses[at] === "open"
     ? { index: at, ruledOut: attempts[at].first ?? "", hint: secondChanceHint(questions[at], attempts[at].first), ...(feedback ? { feedback } : {}) }
     : null;
-  const start: RunStart = { runId: run.id, deed: header, questions: questions.map(toClientTask), responses, kind: run.kind, pending };
+  const right = (i: number) => statuses[i] === "right-first" || statuses[i] === "right-second";
+  // The rune objects already cast right, so a walk picked back up checks them on its card (smoke bug 3).
+  const mended = questions.flatMap((q, i) => (kindOf(q) === "rune" && right(i) && (q as RuneTask).object ? [(q as RuneTask).object!.id] : []));
+  const start: RunStart = { runId: run.id, deed: header, questions: questions.map(toClientTask), responses, kind: run.kind, pending, ...(mended.length > 0 ? { mended } : {}) };
   if (!site && !plan) return start;
-  const placed = questions.filter((q, i) => kindOf(q) === "measure" && (statuses[i] === "right-first" || statuses[i] === "right-second")).length;
+  const placed = questions.filter((q, i) => kindOf(q) === "measure" && right(i)).length;
   return { ...start, ...(site ? { site: { ...site, placed } } : {}), ...(plan ? { plan: { ...plan, placed } } : {}) };
 }
 
@@ -188,7 +230,8 @@ const DEMO_RUN_KINDS: readonly RunKind[] = ["deed", "build", "world"];
 /**
  * Which demos one answered task counts as seen: Aldo's two are one, so any bench task (as since
  * R-C9); each of Pip's is its own puzzles (`LOCK_DEMO_PUZZLES`, RF-g), so a word sort answered
- * never hides the shape grid's demo; and Pip's clue is any trail task (R-H16).
+ * never hides the shape grid's demo; Pip's clue is any trail task (R-H16); and Pip's rune any rune
+ * task (`demoGroup("rune") === "rune"`).
  */
 const demoGroup = (key: DemoKey): string => (demoKind(key) === "measure" ? "bench" : key);
 

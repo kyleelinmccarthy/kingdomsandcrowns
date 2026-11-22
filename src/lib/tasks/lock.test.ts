@@ -23,7 +23,7 @@ const withCell = (t: LockTask, i: number, v: number) => t.solution.cells.map((x,
 describe("lock: registered, and presenting only where a generator exists", () => {
   it("is a registered, hands-on kind with a codec and a drawer", () => {
     expect(TASK_KINDS.lock).toBe(lockKind);
-    expect(HANDS_ON_KINDS).toEqual(["measure", "lock", "trail"]);
+    expect(HANDS_ON_KINDS).toEqual(["measure", "lock", "trail", "rune"]);
     expect(typeof TASK_DRAWERS.lock).toBe("function");
   });
 

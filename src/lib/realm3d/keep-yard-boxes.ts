@@ -13,7 +13,7 @@ import { heapSize, MATERIALS, MATERIAL_IDS, type MaterialId } from "@/lib/realm/
 export type YardBox = { x: number; y: number; z: number; sx: number; sy: number; sz: number; color: string };
 
 /** A box by its centre on the ground, footprint, the height of its bottom, and its height. */
-const box = (color: string, x: number, z: number, sx: number, sz: number, y0: number, sy: number): YardBox => ({ x, y: y0 + sy / 2, z, sx, sy, sz, color });
+export const box = (color: string, x: number, z: number, sx: number, sz: number, y0: number, sy: number): YardBox => ({ x, y: y0 + sy / 2, z, sx, sy, sz, color });
 
 const LAYER_H = 0.3;
 

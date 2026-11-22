@@ -5,6 +5,9 @@
  * Pip shows a lock and Aldo the bench. One fixed example, its three steps in order, the words, and a
  * "Got it" button that takes the focus, so Enter or Space carries on. Nothing moves in calm play.
  * `useTaskDemo` (task-demo.tsx) decides when it shows.
+ *
+ * `PipSteps` is the card itself, shared with Pip's rune (`rune-demo.tsx`): only the steps, their
+ * icons and the words differ.
  */
 import { useEffect, useId, useRef } from "react";
 import { GameIcon, type GameIconName } from "@/components/game-icon";
@@ -13,7 +16,10 @@ import "./trail.css";
 
 const STEP_ICONS: readonly GameIconName[] = ["scroll", "journey", "check"];
 
-export function TrailDemo({ onDone, calm, variant = "board" }: { onDone(): void; calm: boolean; variant?: "board" | "page" }) {
+type DemoProps = { onDone(): void; calm: boolean; variant?: "board" | "page" };
+
+/** Pip's worked example as three steps and its words, with "Got it" taking the focus. */
+export function PipSteps({ steps, icons, copy, onDone, calm, variant = "board" }: DemoProps & { steps: readonly string[]; icons: readonly GameIconName[]; copy: string }) {
   const titleId = useId();
   const go = useRef<HTMLButtonElement>(null);
   useEffect(() => go.current?.focus(), []);
@@ -23,17 +29,21 @@ export function TrailDemo({ onDone, calm, variant = "board" }: { onDone(): void;
         Watch Pip
       </h3>
       <ol className="trail-demo-steps" aria-label={TRAIL_DEMO_STEPS_LABEL}>
-        {TRAIL_DEMO_STEPS.map((step, i) => (
+        {steps.map((step, i) => (
           <li key={step} className="trail-demo-step">
-            <GameIcon name={STEP_ICONS[i]} className="trail-demo-step-icon" />
+            <GameIcon name={icons[i]} className="trail-demo-step-icon" />
             <span>{step}</span>
           </li>
         ))}
       </ol>
-      <p className="trail-demo-text">{TRAIL_DEMO_COPY}</p>
+      <p className="trail-demo-text">{copy}</p>
       <button ref={go} type="button" className="trail-go" onClick={onDone}>
         Got it
       </button>
     </section>
   );
+}
+
+export function TrailDemo(props: DemoProps) {
+  return <PipSteps steps={TRAIL_DEMO_STEPS} icons={STEP_ICONS} copy={TRAIL_DEMO_COPY} {...props} />;
 }

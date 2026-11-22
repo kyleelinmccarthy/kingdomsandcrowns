@@ -9,32 +9,63 @@ import { RUN_EFFECTS } from "@/lib/utils/deed-scoring";
 import { CLOSED, NONE_READY } from "@/lib/utils/deed-refusals";
 import { enabledHandsOnKinds } from "@/lib/utils/realm-settings";
 import { findSkill, type Skill } from "@/lib/utils/skills";
-import type { RunStart } from "@/lib/utils/deed-run-types";
+import type { BuiltRun, ProfileLike } from "@/lib/utils/deed-engine";
+import type { TaskKind } from "@/lib/tasks/types";
+import type { ObjectRunStart, RunStart } from "@/lib/utils/deed-run-types";
 import { demoAt, findOpenRun, insertRun, loadMasteryRows, resumedStart, type DeedRunRow } from "@/lib/services/deed-run-store";
 import { loadHeroLevels, type HeroLevels } from "@/lib/services/deeds";
 import { loadFocusSkillIds } from "@/lib/services/learning-focus";
 import { loadLearningProfileRow } from "@/lib/services/learning-profile";
 import { loadRealmSettings } from "@/lib/services/realm-play";
 
+/** What a run's `draw` is handed: the skill picked, the rung, the server's seed, the kinds left on, the profile. */
+export type LockRunDrawInput = { skill: Skill; level: number; seed: number; enabledKinds: ReadonlySet<TaskKind>; profile: ProfileLike };
+
 /**
- * What one kind of lock run says about itself to `startLockRun`: Puzzle practice, a chest or vault
- * door (`actions/world-locks.ts`), a Tower floor.
+ * What one kind of object run says about itself to `startLockRun`: Puzzle practice, a chest or vault
+ * door (`actions/world-locks.ts`), a Tower floor, and a rune object (`actions/rune-objects.ts`).
  */
 export type LockRunSpec = {
   kind: "world" | "tower";
   /** What owns the run, and what a later start resumes it by: "practice", an object id, a tower ref. */
   sourceRef: string;
-  /** Thrown to a grown-up, and while the grown-up has locks switched off. */
+  /** The grown-up's switch that offers this run: the locks' (the default) or the runes' (R-I13). */
+  mechanic?: "lock" | "rune";
+  /** Thrown to a grown-up, and while the grown-up has the run's `mechanic` switched off. */
   refusals: { heroOnly: string; off: string };
   /** A refusal of this run's own, after the shared ones and before anything is read for the run. */
   check?: (hero: HeroLevels) => Promise<void>;
   /** The skill drawn, the grade that names the run's band, and how many rungs above the hero's mastery. */
   pick: (hero: HeroLevels, focusSkillIds: readonly string[]) => { skill: Skill; grade: Grade; boost: number } | null;
   count: number;
+  /** The run's tasks; by default `count` locks of the skill (`lockRun`). Empty is `NONE_READY`. */
+  draw?: (input: LockRunDrawInput) => BuiltRun;
   header: (skill: Skill) => RunStart["deed"];
   /** Whether a young hero meets Pip before their first lock of a kind (R-F10). */
   demo: boolean;
 };
+
+/** What a spec's `check` throws for an object that already holds; `startObjectRun` answers it as a value. */
+class Held extends Error {}
+
+/** For a world object's `check`: the chest stands open, or the rune still holds (on the server's day). */
+export function refuseHeld(): never {
+  throw new Held();
+}
+
+/**
+ * A world object's start (a chest or vault door, a rune object): `startLockRun`, with "it already
+ * holds" (`refuseHeld`) answered as `{ held: true }` rather than thrown, so an expected answer is
+ * never logged as a server error (smoke I12). Every other refusal still throws, as before.
+ */
+export async function startObjectRun(childId: string, spec: LockRunSpec): Promise<ObjectRunStart> {
+  try {
+    return await startLockRun(childId, spec);
+  } catch (err) {
+    if (err instanceof Held) return { held: true };
+    throw err;
+  }
+}
 
 /** The skill an open run was drawn from (one per lock run), or null if this build no longer has it. */
 function storedSkill(run: DeedRunRow): Skill | null {
@@ -47,25 +78,25 @@ function storedSkill(run: DeedRunRow): Skill | null {
 }
 
 /**
- * Starts, or picks back up, a lock run (RG-j): the one skeleton Puzzle practice, the world's locks
- * and the Tower share, in `startPracticeRun`'s order:
+ * Starts, or picks back up, a lock run (RG-j): the one skeleton Puzzle practice, the world's locks,
+ * the Tower and the rune objects (R-I4) share, in `startPracticeRun`'s order:
  *   1. the caller may write for this hero (family scoped), and is the hero, else `heroOnly`;
- *   2. the Realm is open (`CLOSED`), and the grown-up's locks are on, else `off`, even for an open run;
+ *   2. the Realm is open (`CLOSED`), and the grown-up's `mechanic` switch is on, else `off`, even for an open run;
  *   3. the run's own `check`;
  *   4. an open run of this kind and `sourceRef` is resumed, never stacked;
  *   5. else `pick` chooses the skill, with the grown-up's focus picks to hand;
  *   6. at the hero's mastery of it, capped, plus the pick's boost, capped again;
- *   7. `count` locks, seeded by the server's clock (PC-G3); none is `NONE_READY`;
+ *   7. the run's `draw` (by default `count` locks), seeded by the server's clock (PC-G3); none is `NONE_READY`;
  *   8. written by `insertRun`, its second chances frozen from the settings, with Pip's demo when asked.
  * Every task reaches the browser through `insertRun` or `resumedStart` (`toClientTask` views), so
- * no lock's solution does.
+ * no lock's solution, and no rune's word, does.
  */
 export async function startLockRun(childId: string, spec: LockRunSpec): Promise<RunStart> {
   const { access } = await requireChildAccess(childId, { write: true });
   if (!isChildActor(access)) throw new Error(spec.refusals.heroOnly);
   const [hero, settings] = await Promise.all([loadHeroLevels(childId), loadRealmSettings(childId)]);
   if (!hero.enabled) throw new Error(CLOSED);
-  if (!settings.mechanics.lock) throw new Error(spec.refusals.off);
+  if (!settings.mechanics[spec.mechanic ?? "lock"]) throw new Error(spec.refusals.off);
   await spec.check?.(hero);
 
   // A young hero meets Pip before their first lock (R-F10), resumed or fresh: at their grade in the lock's own strand.
@@ -90,9 +121,10 @@ export async function startLockRun(childId: string, spec: LockRunSpec): Promise<
   const pick = spec.pick(hero, focusSkillIds);
   if (!pick) throw new Error(NONE_READY);
   const mastery = masteryRows.find((m) => m.skillId === pick.skill.id)?.level ?? 0;
-  const built = lockRun({
-    skill: pick.skill, level: lockLevel(mastery, pick.boost), count: spec.count, seed: Date.now() >>> 0, enabledKinds: enabledHandsOnKinds(settings), profile: profileFromRow(profileRow),
-  });
+  const input: LockRunDrawInput = {
+    skill: pick.skill, level: lockLevel(mastery, pick.boost), seed: Date.now() >>> 0, enabledKinds: enabledHandsOnKinds(settings), profile: profileFromRow(profileRow),
+  };
+  const built = spec.draw ? spec.draw(input) : lockRun({ ...input, count: spec.count });
   if (built.questions.length === 0) throw new Error(NONE_READY);
 
   return withDemo(await insertRun({

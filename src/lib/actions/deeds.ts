@@ -18,27 +18,32 @@ import {
   type PoolItem,
 } from "@/lib/utils/deed-engine";
 import { masteryChangeCopy, masteryLabel, parseRecentResults, progressToNextRung, recordResult } from "@/lib/utils/mastery";
-import type { Question } from "@/lib/utils/drill-generators";
-import { isTaskCorrect, secondChanceHint, taskDefOf, type ResponseByKind, type Task, type TaskKind } from "@/lib/tasks/registry";
+import { seededRng, type Question } from "@/lib/utils/drill-generators";
+import { isTaskCorrect, kindOf, secondChanceHint, taskDefOf, type ResponseByKind, type Task, type TaskKind } from "@/lib/tasks/registry";
 import { CHALLENGE, MAX_STARS, RUN_EFFECTS, countsTowardBuilding, runPoints, starsFor, type QuestionOutcome, type RunKind, type Stars } from "@/lib/utils/deed-scoring";
 import { outcomeOf, refuseGiveUp, refuseRetry, statusOf, type QuestionStatus } from "@/lib/utils/deed-attempts";
 import {
   ALREADY_ANSWERED, ANSWER_EVERY, ANSWER_FIRST, BUILD_HERO_ONLY, CHALLENGE_LOCKED, CHALLENGE_NOT_READY, CLOSED, FINISHED, HERO_ONLY, NONE_READY,
-  NOT_IN_CHRONICLE, NOT_IN_RUN, NOT_THROUGH, PICK_SHOWN, WORLD_HERO_ONLY,
+  NOT_IN_CHRONICLE, NOT_IN_RUN, NOT_THROUGH, PICK_SHOWN, RUNE_HERO_ONLY, WORLD_HERO_ONLY,
 } from "@/lib/utils/deed-refusals";
 import { overdueSkills } from "@/lib/utils/review-schedule";
-import type { AttemptResult, RunStart, RunSummary, TowerOutcome, WorldOutcome } from "@/lib/utils/deed-run-types";
+import type { AttemptResult, RunStart, RunSummary, RuneOutcome, TowerOutcome, WorldOutcome } from "@/lib/utils/deed-run-types";
 import { taskHint } from "@/lib/utils/skill-hints";
-import { demoAt, findOpenRun, insertRun, loadMasteryRows, loadRecentMisses, loadRecentTrailIds, parseRun, resumedStart, type DeedRunRow } from "@/lib/services/deed-run-store";
+import {
+  demoAt, findOpenRun, insertRun, loadMasteryRows, loadRecentMisses, loadRecentRuneKeys, loadRecentTrailIds, parseRun, resumedStart, type DeedRunRow,
+} from "@/lib/services/deed-run-store";
 import {
   buildingStars, gradeForDeed, loadDeedBest, loadHeroLevels, loadKingdomOverview, loadSiteState, siteTally, type BuildingOverview, type DeedBest,
 } from "@/lib/services/deeds";
 import { loadFocusSkillIds } from "@/lib/services/learning-focus";
 import { loadLearningProfileRow } from "@/lib/services/learning-profile";
 import { loadRealmSettings, paySideQuest, withChildLock, type Exec } from "@/lib/services/realm-play";
-import { openWorldObject, recordTowerSolve, worldClock } from "@/lib/services/realm-world-state";
+import { fixRuneObjects, loadWorldRows, openWorldObject, recordTowerSolve, worldClock } from "@/lib/services/realm-world-state";
+import { brokenNow } from "@/lib/realm/world-state";
 import { bandOfTowerRef } from "@/lib/realm/puzzle-tower";
 import { isWorldObjectId, worldObjectById } from "@/lib/realm/world-objects";
+import { VILLAGE_RUNE_OBJECTS, isRuneObjectId } from "@/lib/realm/rune-objects";
+import { bindRuneObjects, runeFixesOf, runePassOver } from "@/lib/utils/rune-run";
 import { finishBuild } from "@/lib/services/improvements";
 import { loadMaterialLedger } from "@/lib/services/realm-materials";
 import { IMPROVEMENTS, parsePlanRef, type ImprovementId } from "@/lib/realm/improvements";
@@ -134,7 +139,10 @@ export async function startDeedRun(
   const poolSkillIds = skills.filter((s) => s.source.kind === "pool").map((s) => s.id);
   // The trails met lately, so a reading side quest passes over them (R-H11): asked only when this run can draw trails.
   const readsTrails = deed.mechanic === "trail" && enabledKinds.has("trail");
-  const [profileRow, masteryRows, poolRows, recentMisses, recentTrails] = await Promise.all([
+  // The runes met lately and the village's objects on the server's day, so a language side quest passes over
+  // those words and binds its own to what is broken (R-I19, R-I22): asked only when this run can draw runes (R-I20).
+  const readsRunes = deed.mechanic === "rune" && enabledKinds.has("rune");
+  const [profileRow, masteryRows, poolRows, recentMisses, recentTrails, runeWorld] = await Promise.all([
     // Memoized per request, so this is the same round trip loadHeroLevels just made.
     loadLearningProfileRow(childId),
     loadMasteryRows(childId),
@@ -145,7 +153,15 @@ export async function startDeedRun(
     // count toward the cap, so another strand's misses (Puzzle practice's logic) never crowd them out.
     challenge ? Promise.resolve([] as Question[]) : loadRecentMisses(childId, (t) => skills.some((s) => s.id === t.skillId)),
     readsTrails ? loadRecentTrailIds(childId, TRAIL_DEED_IDS) : Promise.resolve(null),
+    readsRunes
+      ? Promise.all([loadRecentRuneKeys(childId), loadWorldRows(childId), worldClock(childId)]).then(([keys, rows, clock]) => ({ keys, rows, clock }))
+      : Promise.resolve(null),
   ]);
+  // The village objects broken today: a side quest's words go to these first (R-I22).
+  const broken: ReadonlySet<string> = new Set(runeWorld
+    ? VILLAGE_RUNE_OBJECTS.filter((o) => brokenNow(o, runeWorld.rows.find((r) => r.objectId === o.id) ?? null, runeWorld.clock.today, runeWorld.clock.zone)).map((o) => o.id)
+    : []);
+  const recentRunes = runeWorld ? [...runeWorld.keys, ...runePassOver(VILLAGE_RUNE_OBJECTS, broken)] : null;
   const profile = profileFromRow(profileRow);
   const masteryBySkill: Record<string, number> = {};
   // When each skill was last practised rides along on the rows already fetched above, so the
@@ -166,15 +182,23 @@ export async function startDeedRun(
     masteryRows.map((m) => ({ skillId: m.skillId, level: m.level, lastPracticedAt: lastPracticedBySkill[m.skillId] })),
     skills.map((s) => s.id), Date.now(),
   );
-  const built = buildDeedRun({
-    deed, grade, masteryBySkill, lastPracticedBySkill, profile, seed: Date.now() >>> 0, poolItems, focusSkillIds, enabledKinds,
+  const seed = Date.now() >>> 0;
+  const drawn = buildDeedRun({
+    deed, grade, masteryBySkill, lastPracticedBySkill, profile, seed, poolItems, focusSkillIds, enabledKinds,
     ...(recentTrails ? { recentTrails } : {}),
+    ...(recentRunes ? { recentRunes } : {}),
     ...(challenge
       ? { recentMisses: [], dueSkillIds: [], questionCount: CHALLENGE.questions, levelBoost: CHALLENGE.levelBoost }
       // The grown-up's length, which the engine scales for this side quest: a science side quest's sorts
-      // and a reading side quest's clues are half (RF-j, R-H10).
+      // and a reading side quest's clues are half, a language side quest's runes two or three (RF-j, R-H10, R-I9).
       : { recentMisses, dueSkillIds, sideQuestLength: settings.sideQuestLength }),
   });
+  // Each rune is bound to a village object of its effect, broken ones first, from a seed of its own
+  // drawn from the run's (R-I22); one an effect has no object left for is dropped. Bound BEFORE the
+  // size checks (RI-a / S9), so a run that binds short is judged by what it will ask.
+  const built = drawn.questions.some((q) => kindOf(q) === "rune")
+    ? { ...drawn, questions: bindRuneObjects(drawn.questions, VILLAGE_RUNE_OBJECTS, broken, seededRng(seed ^ 0x9e3779b9)) }
+    : drawn;
   if (built.questions.length === 0) throw new Error(NONE_READY);
   // A crown is three right answers, never fewer: a thin pool at the higher rung waits.
   if (challenge && built.questions.length < CHALLENGE.questions) throw new Error(CHALLENGE_NOT_READY);
@@ -431,8 +455,8 @@ export async function completeDeedRun(runId: string): Promise<RunSummary> {
   if (outcomes.length !== questions.length) throw new Error(ANSWER_EVERY);
   // Building spends the hero's materials, so only the hero finishes a build run; refused before anything is written.
   if (run.kind === "build" && !isChildActor(access)) throw new Error(BUILD_HERO_ONLY);
-  // A chest, a vault door or a Tower floor is opened by the hero alone (PC-G7); refused before anything is written.
-  if (worldOwned(run) && !isChildActor(access)) throw new Error(WORLD_HERO_ONLY);
+  // A chest, a vault door or a Tower floor is opened, and a rune object fixed, by the hero alone (PC-G7); refused before anything is written.
+  if (worldOwned(run) && !isChildActor(access)) throw new Error(isRuneObjectId(run.sourceRef) ? RUNE_HERO_ONLY : WORLD_HERO_ONLY);
   const effects = RUN_EFFECTS[run.kind];
   const correctCount = statuses.filter((s) => s === "right-first").length;
   const flawless = correctCount === questions.length;
@@ -453,19 +477,22 @@ export async function completeDeedRun(runId: string): Promise<RunSummary> {
     .returning({ id: schema.deedRun.id });
   // A chest or vault door: the close, its "open" and its rewards are one locked transaction (PC-G2,
   // RG-c), so of two finishes only one opens it, and a throw while opening leaves the run open to
-  // finish again (RG-n). A Tower floor's run takes the same path, counting its solve there. Puzzle
-  // practice, a world run of no object, closes as every run does (PC-G17).
+  // finish again (RG-n). A Tower floor's run takes the same path, counting its solve there, and so
+  // does a run that fixes rune objects, writing its fixes there (R-I1, R-I22). Puzzle practice, a world
+  // run of no object, closes as every run does (PC-G17), as does a rune run whose objects have all left
+  // the catalog, and a side quest a grown-up finishes.
   const object = run.kind === "world" ? worldObjectById(run.sourceRef) : null;
   const floor = run.kind === "tower" ? bandOfTowerRef(run.sourceRef) : null;
-  let opened: { world?: WorldOutcome; tower?: TowerOutcome } = {};
-  if (object || floor) {
-    const clock = object ? await worldClock(run.childId, now) : null;
+  const runeFixes = runeFixesOf(run, questions, outcomes, isChildActor(access));
+  let opened: { world?: WorldOutcome; tower?: TowerOutcome; runes?: RuneOutcome[] } = {};
+  if (object || runeFixes || floor) {
+    const clock = object || runeFixes ? await worldClock(run.childId, now) : null;
     opened = await withChildLock(run.childId, async (tx) => {
       // Two finishes racing: the second waits for the lock, then finds the run closed.
       if ((await closeRun(tx)).length === 0) throw new Error(FINISHED);
-      return object && clock
-        ? { world: await openWorldObject(tx, run.childId, object, outcomes[0], now, clock) }
-        : { tower: await recordTowerSolve(tx, run.childId, floor!, outcomes[0], now) };
+      if (object && clock) return { world: await openWorldObject(tx, run.childId, object, outcomes[0], now, clock) };
+      if (runeFixes && clock) return { runes: await fixRuneObjects(tx, run.childId, runeFixes.fixes, now, clock, runeFixes.renew) };
+      return { tower: await recordTowerSolve(tx, run.childId, floor!, outcomes[0], now) };
     });
   } else if ((await closeRun(db)).length === 0) {
     // Two finishes racing: only the one that closed the run may raise the building, or be paid.
@@ -514,12 +541,16 @@ export async function completeDeedRun(runId: string): Promise<RunSummary> {
     ...(improvement ? { improvement } : {}),
     ...(opened.world ? { world: opened.world } : {}),
     ...(opened.tower ? { tower: opened.tower } : {}),
+    ...(opened.runes ? { runes: opened.runes } : {}),
   };
 }
 
-/** A run that opens something in the world: a chest's or vault door's, or a Tower floor's. Puzzle practice is not one. */
+/**
+ * A run that opens or fixes something in the world: a chest's or vault door's, a Tower floor's, or
+ * a rune object's (R-I1). Puzzle practice is not one.
+ */
 function worldOwned(run: Pick<DeedRunRow, "kind" | "sourceRef">): boolean {
-  return run.kind === "tower" || (run.kind === "world" && isWorldObjectId(run.sourceRef));
+  return run.kind === "tower" || (run.kind === "world" && (isWorldObjectId(run.sourceRef) || isRuneObjectId(run.sourceRef)));
 }
 
 /**

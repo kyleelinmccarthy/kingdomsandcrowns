@@ -23,14 +23,19 @@
  *
  * A reading trail in the Realm is walked, not answered here (R-H14): when every task of the run is
  * a clue, the board shows the clue and "Set off" (`onWalk`), which closes it so the hero can walk.
- * The walk's result comes back as `walked`, and the board opens on its result card.
+ * The walk's result comes back as `walked`, and the board opens on its result card. A rune side
+ * quest is walked the same way (R-I2): Set off names the objects that need a rune, and nothing is
+ * spoken there (RI-a / S5). A rune run that may not be walked (runes off since it began, `canWalk`)
+ * plays here on the rune stone, and its finish hands up what it fixed (`onRuneOutcomes`, RI-a / S7).
+ * A rune task has one read-aloud control, the stone's own, so the board draws none (RI-a / S4).
  */
 
 import { useEffect, useRef, useState } from "react";
 import { VillagerFigure } from "@/components/avatar";
 import { GameIcon, type GameIconName } from "@/components/game-icon";
+import { useBringIntoView } from "@/hooks/use-bring-into-view";
 import { completeDeedRun, startDeedRun } from "@/lib/actions/deeds";
-import type { RunStart, RunSummary } from "@/lib/utils/deed-run-types";
+import type { RuneOutcome, RunStart, RunSummary } from "@/lib/utils/deed-run-types";
 import { realmCue } from "@/lib/realm3d/sound/store";
 import type { BuildingOverview } from "@/lib/services/deeds";
 import type { Villager } from "@/lib/realm/villagers";
@@ -40,10 +45,13 @@ import { deedErrorLine } from "@/lib/utils/deed-refusals";
 import { DeedMeter } from "@/components/deed-meter";
 import { TaskPresenter } from "@/components/tasks/presenters";
 import { TaskDemo, taskDemoCopy, useTaskDemo } from "@/components/tasks/task-demo";
+import { RunePicture } from "@/components/tasks/rune-picture";
 import { StarRow } from "@/components/star-row";
 import { useDeedFlow } from "@/components/use-deed-flow";
-import { ALL_ANSWERED } from "@/lib/utils/deed-run-flow";
+import { ALL_ANSWERED, atFinishStep } from "@/lib/utils/deed-run-flow";
+import { runeObjectById } from "@/lib/realm/rune-objects";
 import { isWalkingRun } from "@/lib/tasks/kinds";
+import { isRuneWalk, runeStops } from "@/lib/tasks/rune-stops";
 import { attemptSpeech, autoSpeaks } from "@/lib/tasks/narration";
 import { AREA_LABELS, type SkillArea } from "@/lib/utils/skills";
 import { canSpeak, speak, stopSpeaking, type SpeechToken } from "@/lib/utils/speech";
@@ -120,6 +128,8 @@ export function DeedBoard({
   mention,
   onWalk,
   walked,
+  canWalk,
+  onRuneOutcomes,
 }: {
   childId: string | null;
   villager: Villager;
@@ -146,6 +156,10 @@ export function DeedBoard({
   onWalk?: (run: RunStart) => void;
   /** A walked run, finished: the board opens on its result card in place of the talk. */
   walked?: { run: RunStart; summary: RunSummary } | null;
+  /** Whether a run may be walked now (RI-a / S7): a rune run not while runes are off. Absent, every walking run may. */
+  canWalk?: (run: RunStart) => boolean;
+  /** A run finished on this board fixed (or failed to fix) rune objects: the frame mirrors them (RI-a / S7). */
+  onRuneOutcomes?: (outcomes: readonly RuneOutcome[]) => void;
 }) {
   const [run, setRun] = useState<RunStart | null>(null);
   const [busy, setBusy] = useState(false);
@@ -184,12 +198,14 @@ export function DeedBoard({
     const title = runTitle(run);
     // A build run has no building to raise, so nothing of it ever reaches the raise path.
     const handUp = (done: RunSummary) => {
+      if (done.runes?.length) onRuneOutcomes?.(done.runes);
       const result = deedResultOf(done, run.deed.id);
       if (result) onResult(site.id, result);
     };
+    const walk = runContext === "realm" && (canWalk?.(run) ?? true) ? onWalk : undefined;
     return (
       <Panel title={title} label={title} wide className="r3-board--deed" icon={<GameIcon name={site.icon as GameIconName} className="r3-board-icon" />} onClose={onClose}>
-        <DeedRun run={run} villagerName={villager.name} profile={profile} calm={calm} numerals={numerals} onResult={handUp} onClose={onClose} doneLabel={doneLabel} onWalk={runContext === "realm" ? onWalk : undefined} />
+        <DeedRun run={run} villagerName={villager.name} profile={profile} calm={calm} numerals={numerals} onResult={handUp} onClose={onClose} doneLabel={doneLabel} onWalk={walk} />
       </Panel>
     );
   }
@@ -280,11 +296,20 @@ export function RunResultCard({ run, summary, villagerName, doneLabel = BACK_TO_
   const head = resultHeadline(summary, run.deed.title);
   const stars = resultStarsLine(summary, villagerName);
   const minutesLine = resultMinutesLine(summary);
+  // A rune object's own run shows the object, mended or still broken (R-I21), in place of the seal.
+  const rune = summary.kind === "world" ? summary.runes?.[0] : undefined;
+  const runeObject = rune ? runeObjectById(rune.objectId) : null;
   return (
     <div className="r3-result">
-      <span className={`r3-result-seal${summary.flawless ? " r3-result-seal--flawless" : ""}`}>
-        <GameIcon name={summary.flawless ? (summary.kind === "challenge" ? "crown" : "star") : "check"} className="r3-result-icon" />
-      </span>
+      {runeObject && rune ? (
+        <span className="r3-result-rune">
+          <RunePicture effect={runeObject.effect} fixed={rune.fixed || rune.reason === "already-fixed"} />
+        </span>
+      ) : (
+        <span className={`r3-result-seal${summary.flawless ? " r3-result-seal--flawless" : ""}`}>
+          <GameIcon name={summary.flawless ? (summary.kind === "challenge" ? "crown" : "star") : "check"} className="r3-result-icon" />
+        </span>
+      )}
       <h3 className="r3-result-title">{head.title}</h3>
       {(summary.kind === "deed" || summary.kind === "build") && <BoardStars stars={summary.stars} />}
       {stars && <p className="r3-result-stars-line">{stars}</p>}
@@ -347,7 +372,7 @@ export function DeedRun({
   onResult: (done: RunSummary) => void;
   onClose: () => void;
   doneLabel?: string;
-  /** The Realm's walk (R-H14): reaches the clue's surface as "Set off", only for a run whose every task is a clue. */
+  /** The Realm's walk (R-H14, R-I2): reaches the surface as "Set off", only for a run whose every task is a clue, or a rune with its object. */
   onWalk?: (run: RunStart) => void;
 }) {
   // A wrong answer is a soft low "hmm", a right one rises and resolves (`realm-sound.tsx`).
@@ -363,16 +388,30 @@ export function DeedRun({
   const finish = finishLabel(run.kind, run.deed.id);
   const nextRef = useRef<HTMLButtonElement>(null);
   const feedback = flow.result ? attemptFeedback(flow.result, flow.ruledOut.length > 0, villagerName, question) : null;
+  // A miss line and Show me (or Next) are brought into the board's view on a short phone (smoke I12).
+  const feedbackRef = useRef<HTMLDivElement>(null);
+  useBringIntoView(feedbackRef, feedback?.text);
+  // A world run of one task (a chest's lock, a rune object's word) has nothing to count: no progress
+  // dots, no minutes and no skill meter (I12 smoke, final review).
+  const single = run.kind === "world" && run.questions.length === 1;
+
+  // The walk is offered only to a run every task of which walks, and for runes only when every one
+  // has its object (RI-a / N5): anything else is answered here, on the map or the stone.
+  const walk = onWalk && isWalkingRun(run) && (isRuneWalk(run) || run.questions.every((q) => q.kind === "trail")) ? () => onWalk(run) : undefined;
+  // A rune walk's Set off card says nothing (RI-a / S5): each word is heard when its stone opens.
+  const settingOff = walk !== undefined && question?.kind === "rune" && !demo.demo && phase !== "resolved";
 
   // Read-aloud, as `DeedPlayer` does it: the profile asks (or, for a Kindergarten hero's clue, the
-  // run: `autoSpeaks`, R-H17), the effect obeys, and leaving stops it — but only this run's own line.
-  // The click that closes the board also says the building is rising, and that must be heard. A
-  // worked example (Aldo's or Pip's) is read first, when there is one.
+  // run, and for a rune dictation the task: `autoSpeaks`, R-H17, R-I18), the effect obeys, and
+  // leaving stops it — but only this run's own line. The click that closes the board also says the
+  // building is rising, and that must be heard. A worked example (Aldo's or Pip's) is read first,
+  // when there is one. A run picked back up at its finish step asks nothing, so it says nothing. A
+  // task's own read control (the rune stone's Hear) speaks through `say`, so leaving stops it too.
   const spoken = useRef<SpeechToken | null>(null);
   const say = (text: string) => {
     spoken.current = speak(text);
   };
-  const speaks = question ? autoSpeaks(question, profile.readAloud, run.narrateClues === true) : false;
+  const speaks = question && !settingOff && !atFinishStep(flow) ? autoSpeaks(question, profile.readAloud, run.narrateClues === true) : false;
   useEffect(() => {
     if (speaks && question) spoken.current = speak(demo.demo ? taskDemoCopy(demo.demo) : (question.readAloud ?? question.prompt));
     return () => stopSpeaking(spoken.current);
@@ -419,17 +458,19 @@ export function DeedRun({
         <Subject area={run.deed.area} /> {run.deed.story}
       </p>
       <div className="r3-run-meta">
-        <span className="r3-run-dots" role="img" aria-label={`Question ${index + 1} of ${run.questions.length}`}>
-          {run.questions.map((q, i) => (
-            <span key={q.id} className={`r3-run-dot${i < index ? " r3-run-dot--done" : i === index ? " r3-run-dot--now" : ""}`} />
-          ))}
-        </span>
-        {!profile.untimed && <span className="r3-run-time">{minutes} min</span>}
+        {!single && (
+          <span className="r3-run-dots" role="img" aria-label={`Question ${index + 1} of ${run.questions.length}`}>
+            {run.questions.map((q, i) => (
+              <span key={q.id} className={`r3-run-dot${i < index ? " r3-run-dot--done" : i === index ? " r3-run-dot--now" : ""}`} />
+            ))}
+          </span>
+        )}
+        {!profile.untimed && !single && <span className="r3-run-time">{minutes} min</span>}
         <button type="button" className="r3-link-button r3-run-leave" onClick={onClose}>
           Leave the {what}
         </button>
       </div>
-      <DeedMeter meter={meter} streak={flow.streak} calm={calm} numerals={numerals} />
+      {!single && <DeedMeter meter={meter} streak={flow.streak} calm={calm} numerals={numerals} />}
       {error && (
         <p className="r3-board-error" role="alert">
           {error}{" "}
@@ -439,19 +480,23 @@ export function DeedRun({
         </p>
       )}
       {demo.demo ? <TaskDemo demo={demo.demo} calm={calm} onDone={demo.finish} /> : (<>
+      {/* A rune walk's Set off names its stops; each stop's prompt is asked at its own stone (I10). */}
+      {!settingOff && (
       <div className="r3-question">
         <p className="r3-question-text">{question.prompt}</p>
-        {canSpeak() && (
+        {/* A rune's one read control is the stone's own (RI-a / S4). */}
+        {canSpeak() && question.kind !== "rune" && (
           <button type="button" className="r3-round r3-read" aria-label="Read aloud" title="Read aloud" onClick={() => say(question.readAloud ?? question.prompt)}>
             <GameIcon name="sparkles" className="r3-read-icon" />
           </button>
         )}
       </div>
-      <TaskPresenter task={question} flow={flow} variant="board" numerals={numerals} calm={calm} readAloud={profile.readAloud} disabled={busy} nudge={nudge} site={site} onRespond={(encoded) => void choose(encoded)} onWalk={onWalk && isWalkingRun(run) ? () => onWalk(run) : undefined} />
+      )}
+      <TaskPresenter task={question} flow={flow} variant="board" numerals={numerals} calm={calm} readAloud={profile.readAloud} disabled={busy} nudge={nudge} site={site} say={say} onRespond={(encoded) => void choose(encoded)} onWalk={walk} stops={walk ? runeStops(run).map((s) => s.label) : undefined} />
       </>)}
       {/* A resolved question with no result is a run picked back up with every answer in: its finish step. */}
       {(feedback || phase === "resolved") && (
-        <div className={`r3-feedback${flow.result?.correct ? " r3-feedback--right" : ""}`}>
+        <div ref={feedbackRef} className={`r3-feedback${flow.result?.correct ? " r3-feedback--right" : ""}`}>
           <div>
             {feedback?.heading && <p className="r3-feedback-heading">{feedback.heading}</p>}
             <p className="r3-feedback-text" role="status">

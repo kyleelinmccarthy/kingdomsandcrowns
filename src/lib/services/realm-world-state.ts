@@ -8,16 +8,17 @@ import { addPlacesFound } from "@/lib/services/realm-places";
 import type { Exec, Tx } from "@/lib/services/realm-play";
 import { LORE, LORE_IDS, type LoreId } from "@/lib/realm/lore";
 import { rewardKey, type WorldObject } from "@/lib/realm/world-objects";
-import { lockedNow, nextRewards, solvedCount, type WorldRow } from "@/lib/realm/world-state";
+import { brokenNow, lockedNow, nextRewards, solvedCount, type WorldRow } from "@/lib/realm/world-state";
+import { runeObjectById } from "@/lib/realm/rune-objects";
 import { towerRef } from "@/lib/realm/puzzle-tower";
 import { DEEDS } from "@/lib/utils/deeds";
 import type { QuestionOutcome } from "@/lib/utils/deed-scoring";
-import type { TowerOutcome, WorldOutcome } from "@/lib/utils/deed-run-types";
+import type { RuneOutcome, TowerOutcome, WorldOutcome } from "@/lib/utils/deed-run-types";
 import type { ContentBand } from "@/lib/utils/content-bands";
 
 /**
- * THE WORLD'S STATE on the server: reading a hero's `realm_world_state` rows and opening a chest or
- * vault door. Plain module; callers have already authorised the hero. The rules are pure
+ * THE WORLD'S STATE on the server: reading a hero's `realm_world_state` rows, opening a chest or
+ * vault door, and fixing a rune object. Plain module; callers have already authorised the hero. The rules are pure
  * (`realm/world-state.ts`); this is where they meet the database and the server's day.
  */
 
@@ -130,6 +131,47 @@ export async function openWorldObject(
   if (kept.length > 0) await tx.insert(W).values(kept).onConflictDoNothing({ target });
   await addPlacesFound(childId, rewards.flatMap((r) => (r.kind === "fragment" ? [r.placeId] : [])), tx);
   return { objectId: object.id, opened: true, rewards };
+}
+
+/**
+ * Fixes rune objects for the hero inside the caller's locked transaction (R-I1, R-I21, PC-G2, RG-c),
+ * after the caller has closed the run in it. One entry per cast: an id that is not a rune object
+ * gives no outcome, and only the first entry for an id counts. A miss writes nothing. A right cast
+ * writes the object "fixed" at `now` when it is broken on the server's day (`brokenNow`), or always
+ * when `renew` asks (a side quest's cast at an object named fixed, R-I22); otherwise it was already
+ * fixed and nothing is written. The rows are read once. `withChildLock` holds the database's write
+ * lock, so a second finish waits, then reads the "fixed" this one wrote. Anything that throws rolls
+ * the whole transaction back, the run's close included (RG-n).
+ */
+export async function fixRuneObjects(
+  tx: Tx, childId: string, fixes: readonly { objectId: string; outcome: QuestionOutcome }[], now: Date, clock: WorldClock, renew: boolean,
+): Promise<RuneOutcome[]> {
+  const seen = new Set<string>();
+  const casts = fixes.flatMap((f) => {
+    const object = runeObjectById(f.objectId);
+    if (!object || seen.has(object.id)) return [];
+    seen.add(object.id);
+    return [{ object, outcome: f.outcome }];
+  });
+  if (casts.length === 0) return [];
+  const rows = await loadWorldRows(childId, tx);
+  const W = schema.realmWorldState;
+  const outcomes: RuneOutcome[] = [];
+  for (const { object, outcome } of casts) {
+    if (outcome === "miss") {
+      outcomes.push({ objectId: object.id, fixed: false, reason: "missed" });
+      continue;
+    }
+    const row = rows.find((r) => r.objectId === object.id) ?? null;
+    if (!renew && !brokenNow(object, row, clock.today, clock.zone)) {
+      outcomes.push({ objectId: object.id, fixed: false, reason: "already-fixed" });
+      continue;
+    }
+    await tx.insert(W).values({ id: nanoid(), childId, objectId: object.id, state: "fixed", updatedAt: now })
+      .onConflictDoUpdate({ target: [W.childId, W.objectId], set: { state: "fixed", updatedAt: now } });
+    outcomes.push({ objectId: object.id, fixed: true });
+  }
+  return outcomes;
 }
 
 /**

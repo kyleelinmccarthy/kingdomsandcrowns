@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { FOCUS_MAX, FOCUS_WEIGHT, focusAreasOf, focusWindow, validFocus } from "./focus";
+import { FOCUS_MAX, FOCUS_WEIGHT, focusAreasOf, focusOptions, focusWindow, validFocus } from "./focus";
 import type { Grade } from "./grade-levels";
 
 const ALL3 = { math: "3", reading: "3", language: "3", science: "3" } as const;
@@ -38,6 +38,28 @@ describe("focusWindow", () => {
   it("offers nothing for a strand missing from the grades", () => {
     expect(focusWindow({ math: "3" }).every((s) => s.area === "math")).toBe(true);
     expect(focusWindow({})).toEqual([]);
+  });
+});
+
+describe("focusOptions", () => {
+  it("marks a rune-only skill runeOnly, and its sibling lang-g1 not", () => {
+    const options = focusOptions(focusWindow({ language: "1" }));
+    expect(options.find((o) => o.id === "spell-g1")).toEqual({ id: "spell-g1", label: "Spelling", area: "language", grade: "1", runeOnly: true });
+    const sibling = options.find((o) => o.id === "lang-g1")!;
+    expect(sibling).toEqual({ id: "lang-g1", label: "Sentences and word kinds", area: "language", grade: "1" });
+    expect("runeOnly" in sibling).toBe(false);
+  });
+
+  it("marks nothing else: only the rune row is runeOnly, and the trail rows keep trailOnly alone", () => {
+    const grades = { math: "6", reading: "7", language: "1", science: "6", logic: "6" } as const;
+    const all = focusOptions(focusWindow(grades));
+    expect(all.filter((o) => o.runeOnly).map((o) => o.id)).toEqual(["spell-g1"]);
+    expect(all.filter((o) => o.trailOnly).map((o) => o.id)).toEqual(["read-g6"]);
+    expect(all.find((o) => o.id === "read-g6")).not.toHaveProperty("runeOnly");
+  });
+
+  it("a grade-2 hero's window holds spell-g1 (one step down) as a rune-only option", () => {
+    expect(focusOptions(focusWindow({ language: "2" })).filter((o) => o.runeOnly).map((o) => o.id)).toEqual(["spell-g1"]);
   });
 });
 

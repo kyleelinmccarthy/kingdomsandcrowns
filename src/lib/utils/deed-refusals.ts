@@ -27,10 +27,14 @@ export const PRACTICE_HERO_ONLY = "Puzzle practice is for the hero to play.";
 export const PRACTICE_OFF = "Puzzle practice is switched off for now.";
 /** A chest, vault door or Tower floor is opened by the hero alone; a grown-up's visit opens nothing (PC-G7). */
 export const WORLD_HERO_ONLY = "Locks are for the hero to open.";
-/** The chest or door stands open (a chest until its week is out, a door for good). */
+/** What a chest or door board says when the server answers that it stands open (a chest until its week is out, a door for good). An answer, never thrown (`ObjectHeld`, smoke I12). */
 export const WORLD_OPEN = "That's already open.";
 /** The grown-up has switched logic locks off, so no chest, door or Tower lock is offered (R-G7). */
 export const WORLD_LOCKS_OFF = "The locks are resting for now.";
+/** A rune object is fixed by the hero alone; a grown-up's visit casts nothing (R-I1). */
+export const RUNE_HERO_ONLY = "Runes are for the hero to cast.";
+/** The grown-up has switched rune spellcraft off, so no rune object is offered (R-I13). */
+export const RUNES_OFF = "The runes are resting for now.";
 /** A Tower floor the hero has not opened yet. */
 export const TOWER_SHUT = "That floor isn't open yet.";
 /** The Crown Challenge opens only on a side quest with every star. */
@@ -50,7 +54,7 @@ export const PLAN_NOT_READY = "That plan isn't ready yet.";
 export const PLANS_CHANGED = "The plans changed. Take another look at the board.";
 
 const KNOWN = new Set([
-  PLANS_CHANGED, PRACTICE_HERO_ONLY, PRACTICE_OFF, WORLD_HERO_ONLY, WORLD_OPEN, WORLD_LOCKS_OFF, TOWER_SHUT,
+  PLANS_CHANGED, PRACTICE_HERO_ONLY, PRACTICE_OFF, WORLD_HERO_ONLY, WORLD_LOCKS_OFF, TOWER_SHUT, RUNE_HERO_ONLY, RUNES_OFF,
   ALREADY_ANSWERED, ANSWER_FIRST, NO_SECOND_TRIES, PICK_SHOWN, TRY_DIFFERENT, CLOSED, HERO_ONLY, BUILD_HERO_ONLY, RISE_HERO_ONLY, PIN_HERO_ONLY, DELIVERY_HERO_ONLY,
   CHALLENGE_LOCKED, NOT_IN_CHRONICLE, NONE_READY, FINISHED, NOT_IN_RUN, NOT_THROUGH, ANSWER_EVERY,
   CHALLENGE_NOT_READY, PLAN_NOT_READY,

@@ -8,7 +8,7 @@ import { useWorldState, type WorldStateOptions } from "./use-world-state";
  * locks open, and the canvas the scene draws from, which must stay the same object until what it
  * draws changes (the memoised `World` builds its E spots from it).
  */
-const VIEW: WorldStateView = { locksOn: true, open: ["door:longwater"], decor: ["sundial"], tower: [{ band: "g45", open: true, solved: 1 }] };
+const VIEW: WorldStateView = { locksOn: true, runesOn: false, open: ["door:longwater"], fixed: [], decor: ["sundial"], tower: [{ band: "g45", open: true, solved: 1 }] };
 
 /** What the frame hands the hook: the places store's add, the toast, the place names, whether a panel is open. */
 function options(over: Partial<WorldStateOptions> = {}): WorldStateOptions {
@@ -25,7 +25,7 @@ describe("useWorldState", () => {
   it("is the empty state when the bundle sent none", () => {
     const { result } = renderHook(() => useWorldState(undefined, options()));
     expect(result.current.view).toBe(EMPTY_WORLD_STATE);
-    expect(result.current.canvas).toEqual({ locksOn: false, locks: [], decor: [], storeys: 0, towerKnown: false });
+    expect(result.current.canvas).toEqual({ locksOn: false, locks: [], runes: [], decor: [], storeys: 0, towerKnown: false });
   });
 
   it("keeps the canvas the same object across a re-render, and across an equal bundle", () => {
@@ -191,5 +191,43 @@ describe("useWorldState: a map fragment", () => {
     rerender({ o: later });
     expect(first.say).not.toHaveBeenCalled();
     expect(later.say).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("useWorldState: the rune objects", () => {
+  const RUNES_ON: WorldStateView = { ...VIEW, runesOn: true };
+
+  it("a fix moves the view's fixed list and the canvas's fixed flag, in a new canvas", () => {
+    const { result } = renderHook(() => useWorldState(RUNES_ON, options()));
+    const first = result.current.canvas;
+    expect(first.runes.find((r) => r.id === "rune:west-wagon")).toMatchObject({ fixed: false, label: "the broken wagon" });
+    act(() => result.current.applyRuneOutcomes([{ objectId: "rune:west-wagon", fixed: true }]));
+    expect(result.current.view.fixed).toEqual(["rune:west-wagon"]);
+    expect(result.current.canvas).not.toBe(first);
+    expect(result.current.canvas.runes.find((r) => r.id === "rune:west-wagon")).toMatchObject({ fixed: true, label: "the wagon" });
+  });
+
+  it("an object the server says already held is shown fixed too", () => {
+    const { result } = renderHook(() => useWorldState(RUNES_ON, options()));
+    act(() => result.current.applyRuneOutcomes([{ objectId: "rune:old-tree", fixed: false, reason: "already-fixed" }]));
+    expect(result.current.view.fixed).toEqual(["rune:old-tree"]);
+  });
+
+  it("a miss changes nothing, the canvas stays the same object, and applyRuneOutcomes stays one function", () => {
+    const { result, rerender } = renderHook(() => useWorldState(RUNES_ON, options()));
+    const first = result.current.canvas;
+    const apply = result.current.applyRuneOutcomes;
+    act(() => apply([{ objectId: "rune:west-wagon", fixed: false, reason: "missed" }]));
+    expect(result.current.view).toBe(RUNES_ON);
+    expect(result.current.canvas).toBe(first);
+    rerender();
+    expect(result.current.applyRuneOutcomes).toBe(apply);
+  });
+
+  it("with runes off the records move but the canvas draws none", () => {
+    const { result } = renderHook(() => useWorldState(VIEW, options()));
+    act(() => result.current.applyRuneOutcomes([{ objectId: "rune:west-wagon", fixed: true }]));
+    expect(result.current.view.fixed).toEqual(["rune:west-wagon"]);
+    expect(result.current.canvas.runes).toEqual([]);
   });
 });

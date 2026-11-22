@@ -1,5 +1,6 @@
 /* A reading trail's surfaces (trail-presenter.tsx, trail-map.tsx, trail-demo.tsx): Set off on the
-   Realm's board, the village map off it, and Pip's worked clue. Two coats, as the bench and the lock
+   Realm's board, the village map off it, and Pip's worked clue. Set off (set-off.tsx) and Pip's card
+   (`PipSteps`) are shared with the rune walk and Pip's rune, so they wear these classes too. Two coats, as the bench and the lock
    have: `trail--board` is the Realm board's timber and gold, `trail--page` the Side Quests page's
    tokens. The map is a picture with real buttons laid over it (F-13): the box is its column's width
    and keeps the picture's shape, each place keeps its percentage spot, and each stays a 40 px target

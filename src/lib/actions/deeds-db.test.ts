@@ -7,8 +7,9 @@ import { seededRng } from "@/lib/utils/drill-generators";
 import { lockFor } from "@/lib/tasks/locks";
 import { CHALLENGE, SCORING, starsFor } from "@/lib/utils/deed-scoring";
 import { CHALLENGE_NOT_READY, HERO_ONLY, PICK_SHOWN, TRY_DIFFERENT } from "@/lib/utils/deed-refusals";
+import { HELD, asRun } from "@/test/object-start";
 import type { Question } from "@/lib/utils/drill-generators";
-import type { LockTask, MeasureTask, TrailTask } from "@/lib/tasks/types";
+import type { ClientTask, LockTask, MeasureTask, RuneTask, TrailTask } from "@/lib/tasks/types";
 import { ANCHOR_IDS, type AnchorId } from "@/lib/realm/anchors";
 import { sideQuestPay } from "@/lib/utils/side-quest-pay";
 import { TASK_CODECS } from "@/lib/tasks/codecs";
@@ -16,8 +17,14 @@ import { PATTERN } from "@/test/lock-stubs";
 import { TRAIL, TRAIL_REDIRECT, WELL_REDIRECT } from "@/test/trail-stubs";
 import { isTaskCorrect, kindOf, type Task } from "@/lib/tasks/registry";
 import { BENCH } from "@/lib/tasks/bench";
-import { TRAIL_DEED_IDS, findDeed } from "@/lib/utils/deeds";
-import { KINGDOM_PROGRESS_DDL, REALM_ACCESS_DDL, REALM_LEDGER_DDL, REALM_SETTINGS_DDL } from "@/test/realm-db-ddl";
+import { RUNE_DEED_IDS, TRAIL_DEED_IDS, findDeed } from "@/lib/utils/deeds";
+import { KINGDOM_PROGRESS_DDL, REALM_ACCESS_DDL, REALM_LEDGER_DDL, REALM_SETTINGS_DDL, REALM_WORLD_STATE_DDL } from "@/test/realm-db-ddl";
+import { containsWord } from "@/lib/content/pool-validate";
+import { RUNE_MIN_PER_EFFECT, effectKey } from "@/lib/content/rune-pools";
+import { RUNE_RESET_DAYS, VILLAGE_RUNE_OBJECTS, runeObjectById, type RuneEffect } from "@/lib/realm/rune-objects";
+import { runeRight, runeWrong } from "@/test/rune-answers";
+import { runeStub } from "@/test/rune-stubs";
+import type { AttemptResult, RunStart } from "@/lib/utils/deed-run-types";
 
 /**
  * The second-chance contract against a REAL libsql database. Every rule here is enforced from
@@ -40,7 +47,12 @@ vi.mock("@/lib/services/realm-play", async () => {
   const actual = await vi.importActual<typeof import("@/lib/services/realm-play")>("@/lib/services/realm-play");
   return { ...actual, loadRealmSettings: vi.fn(async () => ({ ...DEFAULT_REALM_SETTINGS })), paySideQuest: vi.fn(actual.paySideQuest) };
 });
-vi.mock("@/lib/services/realm-clock", () => ({ realmNow: async () => ({ date: "2026-11-09", timeOfDay: "10:00" }) }));
+vi.mock("@/lib/services/realm-clock", () => ({ realmNow: vi.fn(async () => ({ date: "2026-11-09", timeOfDay: "10:00" })) }));
+// The family's zone, for the rune objects' day (RI-a / N14): mocked beside `realmNow`; `usableTimeZone` is the real one.
+vi.mock("@/lib/services/family-timezone", async () => ({
+  ...(await vi.importActual<typeof import("@/lib/services/family-timezone")>("@/lib/services/family-timezone")),
+  getTimezoneForChild: async () => "UTC",
+}));
 vi.mock("@/lib/services/learning-profile", () => ({ loadLearningProfileRow: async () => null }));
 vi.mock("@/lib/utils/deed-engine", async () => {
   const actual = await vi.importActual<typeof import("@/lib/utils/deed-engine")>("@/lib/utils/deed-engine");
@@ -62,6 +74,11 @@ const { loadRealmSettings, paySideQuest } = await import("@/lib/services/realm-p
 const { buildDeedRun } = await import("@/lib/utils/deed-engine");
 const { buildDeedRun: realBuildDeedRun } = await vi.importActual<typeof import("@/lib/utils/deed-engine")>("@/lib/utils/deed-engine");
 const { requireChildAccess } = await import("@/lib/auth/access");
+const runeObjects = await import("./rune-objects");
+const startRuneObjectRun = asRun(runeObjects.startRuneObjectRun);
+const { realmNow } = await import("@/lib/services/realm-clock");
+const { loadWorldRows, worldClock } = await import("@/lib/services/realm-world-state");
+const { brokenNow } = await import("@/lib/realm/world-state");
 
 // The tables the run touches, as the migrations make them (foreign keys left out); `subject` and
 // `activity_log` carry only the columns the school count reads.
@@ -91,6 +108,8 @@ const DDL = [
   ...REALM_SETTINGS_DDL,
   ...REALM_LEDGER_DDL,
   ...REALM_ACCESS_DDL,
+  // The rune objects a language side quest fixes (RI-a / N14).
+  ...REALM_WORLD_STATE_DDL,
   // The open season a raised building's record names (the columns `buildingAfter` reads).
   `CREATE TABLE season (id text PRIMARY KEY NOT NULL, child_id text NOT NULL, ordinal integer DEFAULT 1 NOT NULL, start_date text NOT NULL, completed_at integer)`,
 ];
@@ -153,7 +172,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  for (const t of ["deed_run", "skill_mastery", "kingdom_progress", "realm_settings", "realm_play_ledger", "recess_block", "learning_focus", "drill_item", "child", "season"]) await client.query(`DELETE FROM ${t}`);
+  for (const t of ["deed_run", "skill_mastery", "kingdom_progress", "realm_settings", "realm_play_ledger", "recess_block", "learning_focus", "drill_item", "child", "season", "realm_world_state"]) await client.query(`DELETE FROM ${t}`);
   vi.mocked(loadRealmSettings).mockResolvedValue({ ...DEFAULT_REALM_SETTINGS });
   vi.mocked(buildDeedRun).mockClear();
 });
@@ -744,7 +763,7 @@ describe("a young hero watches Aldo before the run's first bench task (R-C9, I-1
   it("is never due in a run with no bench task, even for a grade-2 hero", async () => {
     gradeIs("2");
     // Math side quests are played at the bench now, so the grown-up's switch is what makes a run choice.
-    vi.mocked(loadRealmSettings).mockResolvedValue({ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: false, lock: true, trail: true } });
+    vi.mocked(loadRealmSettings).mockResolvedValue({ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: false, lock: true, trail: true, rune: true } });
     const r = await startDeedRun("c1", "well-stones", "realm");
     expect(r.questions.every((q) => q.kind === "choice")).toBe(true);
     expect(r.demo).toBeUndefined();
@@ -1410,7 +1429,7 @@ describe("a trail task in a run (R-H1, slice 5)", () => {
 });
 
 describe("the grown-up's switch for building by measuring (Review Focus 4)", () => {
-  const HANDS_ON_OFF = { ...DEFAULT_REALM_SETTINGS, mechanics: { measure: false, lock: false, trail: false } };
+  const HANDS_ON_OFF = { ...DEFAULT_REALM_SETTINGS, mechanics: { measure: false, lock: false, trail: false, rune: false } };
   const CUT: MeasureTask = {
     kind: "measure", id: "m-cut", skillId: SKILL, prompt: "Cut a board three quarters of a foot long.",
     mode: "cut", unit: "ft", answer: "3/4", step: "1/4", maxLength: "2", bridge: "1/2 + 1/4 = 3/4",
@@ -1419,18 +1438,18 @@ describe("the grown-up's switch for building by measuring (Review Focus 4)", () 
 
   it("offers the engine every hands-on kind that is on, and no choice entry (choice is always there)", async () => {
     await startDeedRun("c1", "well-stones", "realm");
-    expect(enabledKindsOf()).toEqual(new Set(["measure", "lock", "trail"]));
+    expect(enabledKindsOf()).toEqual(new Set(["measure", "lock", "trail", "rune"]));
   });
 
   it("each switch is its own: the bench off leaves the locks on, and the locks off leave the bench", async () => {
-    vi.mocked(loadRealmSettings).mockResolvedValueOnce({ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: false, lock: true, trail: true } });
+    vi.mocked(loadRealmSettings).mockResolvedValueOnce({ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: false, lock: true, trail: true, rune: true } });
     await startDeedRun("c1", "well-stones", "realm");
-    expect(enabledKindsOf()).toEqual(new Set(["lock", "trail"]));
+    expect(enabledKindsOf()).toEqual(new Set(["lock", "trail", "rune"]));
     vi.mocked(buildDeedRun).mockClear();
     await client.query("DELETE FROM deed_run");
-    vi.mocked(loadRealmSettings).mockResolvedValueOnce({ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true, lock: false, trail: true } });
+    vi.mocked(loadRealmSettings).mockResolvedValueOnce({ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true, lock: false, trail: true, rune: true } });
     await startDeedRun("c1", "well-stones", "realm");
-    expect(enabledKindsOf()).toEqual(new Set(["measure", "trail"]));
+    expect(enabledKindsOf()).toEqual(new Set(["measure", "trail", "rune"]));
   });
 
   it("turned off, offers the engine no hands-on kind: a new run is all choice", async () => {
@@ -1465,7 +1484,7 @@ describe("the gate stays multiple choice (R-C4)", () => {
   const runCount = async () => Number((await client.query("SELECT count(*) AS n FROM deed_run")).rows[0].n);
 
   it("builds a gate run with no hands-on kind, whatever the grown-up has switched on", async () => {
-    vi.mocked(loadRealmSettings).mockResolvedValue({ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true, lock: true, trail: true } });
+    vi.mocked(loadRealmSettings).mockResolvedValue({ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true, lock: true, trail: true, rune: true } });
     const r = await startDeedRun("c1", "well-stones", "gate");
     expect(vi.mocked(buildDeedRun).mock.calls[0][0].enabledKinds).toEqual(new Set());
     expect(r.questions.length).toBeGreaterThan(0);
@@ -1495,7 +1514,7 @@ describe("a grade 6 to 12 reading side quest stays multiple choice where trails 
    * It names no trail mechanic and starts the real `well-signs` with trails off or at the gate, so
    * H7's flip of that deed to `trail` leaves it alone (F-5).
    */
-  const TRAILS_OFF = { ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true, lock: true, trail: false } };
+  const TRAILS_OFF = { ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true, lock: true, trail: false, rune: true } };
   const readerAt = (reading: string) => vi.mocked(loadHeroLevels).mockResolvedValue({
     enabled: true, tone: "gentle", band: "6-8", grades: { math: "3", reading, language: "3", science: "3" },
   } as unknown as Awaited<ReturnType<typeof loadHeroLevels>>);
@@ -1552,12 +1571,12 @@ describe("a grade 6 to 12 reading side quest stays multiple choice where trails 
     readerAt("7");
     vi.mocked(loadRealmSettings).mockResolvedValue(TRAILS_OFF);
     await startDeedRun("c1", "well-signs", "realm");
-    expect(vi.mocked(buildDeedRun).mock.calls[0][0].enabledKinds).toEqual(new Set(["measure", "lock"]));
+    expect(vi.mocked(buildDeedRun).mock.calls[0][0].enabledKinds).toEqual(new Set(["measure", "lock", "rune"]));
   });
 });
 
 describe("a grade-3 math side quest is played at the bench (slice 2, C13)", () => {
-  const MEASURE_OFF = { ...DEFAULT_REALM_SETTINGS, mechanics: { measure: false, lock: true, trail: true } };
+  const MEASURE_OFF = { ...DEFAULT_REALM_SETTINGS, mechanics: { measure: false, lock: true, trail: true, rune: true } };
   const GROWN_UP = { access: { userId: "u-parent" }, familyId: "f1" } as unknown as Awaited<ReturnType<typeof requireChildAccess>>;
   const benched = (skillId: string) => skillId in BENCH;
 
@@ -1658,7 +1677,7 @@ describe("a grade-3 math side quest is played at the bench (slice 2, C13)", () =
 
   it("leaves a reading side quest with trails off exactly as it was: choice tasks, with no kind stored", async () => {
     // Pinned to trails off: a reading side quest is a trail since H7 (its trail runs are pinned below).
-    vi.mocked(loadRealmSettings).mockResolvedValue({ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true, lock: true, trail: false } });
+    vi.mocked(loadRealmSettings).mockResolvedValue({ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true, lock: true, trail: false, rune: true } });
     for (let i = 0; i < 30; i++) {
       await client.query(
         `INSERT INTO drill_item (id, pool_id, skill_id, band, prompt, answer, distractors, read_aloud, level, updated_at)
@@ -1680,13 +1699,13 @@ describe("a grade-3 math side quest is played at the bench (slice 2, C13)", () =
     it("an arbitrary string behaves as the page: a grown-up may start the run, and the bench is on", async () => {
       vi.mocked(requireChildAccess).mockResolvedValueOnce(GROWN_UP);
       await expect(startDeedRun("c1", "well-stones", "REALM" as never)).resolves.toBeDefined();
-      expect(vi.mocked(buildDeedRun).mock.calls[0][0].enabledKinds).toEqual(new Set(["measure", "lock", "trail"]));
+      expect(vi.mocked(buildDeedRun).mock.calls[0][0].enabledKinds).toEqual(new Set(["measure", "lock", "trail", "rune"]));
       expect(await runCount()).toBe(1);
     });
 
     it("is not the gate unless it says so exactly", async () => {
       await startDeedRun("c1", "well-stones", "gate " as never);
-      expect(vi.mocked(buildDeedRun).mock.calls[0][0].enabledKinds).toEqual(new Set(["measure", "lock", "trail"]));
+      expect(vi.mocked(buildDeedRun).mock.calls[0][0].enabledKinds).toEqual(new Set(["measure", "lock", "trail", "rune"]));
     });
 
     it("the two named worlds keep their rules: realm and gate refuse a grown-up", async () => {
@@ -1701,7 +1720,7 @@ describe("a grade-3 math side quest is played at the bench (slice 2, C13)", () =
 
 describe("a science side quest sorts on a lock's face (R-F11)", () => {
   const GRADE_3 = { enabled: true, tone: "gentle", band: "3-5", grades: { math: "3", reading: "3", language: "3", science: "3" } };
-  const LOCKS_OFF = { ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true, lock: false, trail: true } };
+  const LOCKS_OFF = { ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true, lock: false, trail: true, rune: true } };
   async function storedTasks(id: string): Promise<Task[]> {
     return JSON.parse((await client.query("SELECT questions FROM deed_run WHERE id = ?1", [id])).rows[0].questions) as Task[];
   }
@@ -1993,7 +2012,7 @@ describe("reading side quests are clue trails (H7)", () => {
   const GRADE_3 = { enabled: true, tone: "gentle", band: "3-5", grades: { math: "3", reading: "3", language: "3", science: "3" } };
   const readerAt = (reading: string, science = "3") =>
     vi.mocked(loadHeroLevels).mockResolvedValue({ ...GRADE_3, grades: { ...GRADE_3.grades, reading, science } } as never);
-  const TRAILS_OFF = { ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true, lock: true, trail: false } };
+  const TRAILS_OFF = { ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true, lock: true, trail: false, rune: true } };
   const storedTasks = async (id: string) => JSON.parse((await client.query("SELECT questions FROM deed_run WHERE id = ?1", [id])).rows[0].questions as string) as Task[];
   const storedSkills = async (id: string) => JSON.parse((await client.query("SELECT skill_ids FROM deed_run WHERE id = ?1", [id])).rows[0].skill_ids as string) as string[];
   /** The stored tasks as clues, holding that every one is. */
@@ -2179,7 +2198,7 @@ describe("reading side quests are clue trails (H7)", () => {
     vi.mocked(loadRealmSettings).mockResolvedValue(TRAILS_OFF);
     await readingItems("read-g3");
     const start = await startDeedRun("c1", "well-signs", "realm");
-    expect(vi.mocked(buildDeedRun).mock.calls[0][0].enabledKinds).toEqual(new Set(["measure", "lock"]));
+    expect(vi.mocked(buildDeedRun).mock.calls[0][0].enabledKinds).toEqual(new Set(["measure", "lock", "rune"]));
     const tasks = await storedTasks(start.runId);
     expect(tasks).toHaveLength(8);
     for (const t of tasks) {
@@ -2189,7 +2208,7 @@ describe("reading side quests are clue trails (H7)", () => {
     expect(start.questions.every((q) => q.kind === "choice")).toBe(true);
     // The same settings still sort a science side quest on a lock's face.
     const science = await startDeedRun("c1", "well-water", "realm");
-    expect(vi.mocked(buildDeedRun).mock.calls[1][0].enabledKinds).toEqual(new Set(["measure", "lock"]));
+    expect(vi.mocked(buildDeedRun).mock.calls[1][0].enabledKinds).toEqual(new Set(["measure", "lock", "rune"]));
     expect((await storedTasks(science.runId)).every((t) => kindOf(t) === "lock")).toBe(true);
   });
 
@@ -2246,4 +2265,477 @@ describe("reading side quests are clue trails (H7)", () => {
     const walked = await startDeedRun("c1", "well-signs", "realm");
     expect(clues(await storedTasks(walked.runId))).toHaveLength(4);
   });
+});
+
+describe("language side quests are rune walks (I11: R-I2, R-I8, R-I14, R-I17, R-I19, R-I22)", () => {
+  const GRADE_3 = { enabled: true, tone: "gentle", band: "3-5", grades: { math: "3", reading: "3", language: "3", science: "3" } };
+  const spellerAt = (language: string) =>
+    vi.mocked(loadHeroLevels).mockResolvedValue({ ...GRADE_3, grades: { ...GRADE_3.grades, language } } as never);
+  const RUNES_OFF = { ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true, lock: true, trail: true, rune: false } };
+  const HERO_ACCESS = { access: { userId: "child:c1" }, familyId: "f1" } as unknown as Awaited<ReturnType<typeof requireChildAccess>>;
+  const GROWN_UP = { access: { userId: "u-parent" }, familyId: "f1" } as unknown as Awaited<ReturnType<typeof requireChildAccess>>;
+  const WAGON = "rune:west-wagon";
+  const storedTasks = async (id: string) => JSON.parse((await client.query("SELECT questions FROM deed_run WHERE id = ?1", [id])).rows[0].questions as string) as Task[];
+  /** The stored tasks as runes, holding that every one is. */
+  const runesOf = async (id: string): Promise<RuneTask[]> => (await storedTasks(id)).map((t) => {
+    expect(kindOf(t)).toBe("rune");
+    return t as RuneTask;
+  });
+  const runCount = async () => Number((await client.query("SELECT count(*) AS n FROM deed_run")).rows[0].n);
+  async function worldRows(): Promise<Record<string, { state: string; at: number }>> {
+    const rows = (await client.query("SELECT object_id, state, updated_at FROM realm_world_state WHERE child_id = 'c1' ORDER BY object_id")).rows;
+    return Object.fromEntries(rows.map((r) => [r.object_id as string, { state: r.state as string, at: Number(r.updated_at) }]));
+  }
+  const insertFixed = (objectId: string, at: Date) =>
+    client.query("INSERT INTO realm_world_state (id, child_id, object_id, state, updated_at) VALUES (?1, 'c1', ?2, 'fixed', ?3)", [`w-${objectId}`, objectId, at]);
+  /** The REAL engine at a chosen seed (the action seeds from the clock). */
+  const atSeed = (seed: number) => vi.mocked(buildDeedRun).mockImplementationOnce((i) => realBuildDeedRun({ ...i, seed }));
+  async function languageItems(skillId: string) {
+    for (let i = 0; i < 30; i++) {
+      await client.query(
+        `INSERT INTO drill_item (id, pool_id, skill_id, band, prompt, answer, distractors, read_aloud, level, updated_at)
+         VALUES (?1, ?2, ?2, 'g68', ?3, ?4, ?5, NULL, 2, unixepoch())`,
+        [`${skillId}-item-${i}`, skillId, `Word ${i}?`, `A${i}`, JSON.stringify([`B${i}`, `C${i}`, `D${i}`])],
+      );
+    }
+  }
+  /** Casts every stored rune right, ready to finish. */
+  async function castAll(runId: string): Promise<RuneTask[]> {
+    const tasks = await runesOf(runId);
+    for (const [i, t] of tasks.entries()) expect(await answerDeedQuestion(runId, i, runeRight(t)), t.id).toMatchObject({ correct: true });
+    return tasks;
+  }
+  /** A well-formed wrong cast unlike `not`: one tile whose letters differ from the tile `not` cast. */
+  function otherWrong(t: RuneTask, not: string): string {
+    const first = t.tiles[Number(not.slice(2))];
+    for (let i = 0; i < t.tiles.length; i++) {
+      const s = TASK_CODECS.rune.encode([i]);
+      if (t.tiles[i] !== first && !isTaskCorrect(t, s)) return s;
+    }
+    throw new Error(`no other wrong cast for ${t.id}`);
+  }
+  const wordsIn = (text: string, tasks: readonly RuneTask[]) => tasks.flatMap((t) => t.words).filter((w) => containsWord(text, w, { inflections: true }));
+  const SERVER_KEYS = /"words"|"entry"|"explain"|"why"/;
+  /**
+   * What a start shows, as one string to search: everything but its run id (a random nanoid, never
+   * a word) and, for a dictation (k1, g23), the spoken `readAloud` and the view's `effect`, which may be
+   * the word itself (R-I18's one exception, I2's note). `pending.hint` is the one hint a start may hold.
+   */
+  function shown(start: RunStart, dictation: boolean): string {
+    const questions = start.questions.map((q) => {
+      if (!dictation) return q;
+      const { readAloud: _spoken, ...rest } = q as ClientTask & { readAloud?: string };
+      void _spoken;
+      return { ...rest, view: { ...(rest as Extract<ClientTask, { kind: "rune" }>).view, effect: "" } };
+    });
+    const { runId: _id, ...rest } = start;
+    void _id;
+    return JSON.stringify({ ...rest, questions, pending: start.pending ? { ...start.pending, hint: "" } : null });
+  }
+  /** An attempt's result as a string to search, without the fields named. */
+  const resultText = (r: AttemptResult, without: readonly (keyof AttemptResult)[]) =>
+    JSON.stringify(Object.fromEntries(Object.entries(r).filter(([k]) => !without.includes(k as keyof AttemptResult))));
+  beforeEach(() => {
+    vi.mocked(loadHeroLevels).mockResolvedValue(GRADE_3 as never);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    vi.mocked(loadHeroLevels).mockResolvedValue(GRADE_3 as never);
+    vi.mocked(requireChildAccess).mockResolvedValue(HERO_ACCESS);
+    vi.mocked(realmNow).mockImplementation(async () => ({ date: "2026-11-09", timeOfDay: "10:00" }));
+  });
+
+  it("names the four language side quests as runes, for the memory (R-I14, R-I19)", () => {
+    expect([...RUNE_DEED_IDS]).toEqual(["mill-ledger", "bridge-toll", "market-crier", "library-scribe"]);
+  });
+
+  it.each(["K", "3", "5", "7", "10"])("a grade-%s language side quest is runes at village objects, and no word leaks (Review Focus 1, RI-a / S17)", async (grade) => {
+    spellerAt(grade);
+    const dictation = grade === "K" || grade === "3";
+    const start = await startDeedRun("c1", "mill-ledger", "realm");
+    const tasks = await runesOf(start.runId);
+    expect(tasks).toHaveLength(3);
+    expect(start.questions.map((q) => q.kind)).toEqual(["rune", "rune", "rune"]);
+    for (const [i, t] of tasks.entries()) {
+      const object = runeObjectById(t.object?.id)!;
+      expect(object, t.id).not.toBeNull();
+      expect(object.place, t.id).toBeNull();
+      expect(object.effect, t.id).toBe(t.effect);
+      expect((start.questions[i] as Extract<ClientTask, { kind: "rune" }>).view.object).toEqual(t.object);
+      expect(t.listen, t.id).toBe(dictation);
+      // A dictation says its word, and only there (R-I18); a meaning says it nowhere.
+      if (dictation) expect(containsWord(t.readAloud ?? "", t.words[0]), t.id).toBe(true);
+    }
+    expect(new Set(tasks.map((t) => t.object!.id)).size).toBe(3);
+    const secrets = (json: string, allowedHint?: string) => {
+      for (const t of tasks) {
+        expect(json, t.entry).not.toContain(t.entry);
+        if (t.hint !== allowedHint) expect(json, t.hint).not.toContain(t.hint);
+      }
+      expect(json).not.toMatch(SERVER_KEYS);
+    };
+    // The fresh start.
+    const fresh = shown(start, dictation);
+    expect(wordsIn(fresh, tasks), `grade ${grade} fresh`).toEqual([]);
+    secrets(fresh);
+    expect(fresh).not.toMatch(/"hint"/);
+    // A wrong first cast: the open second chance's line is the hint, and nothing else of the word.
+    const first = runeWrong(tasks[0]);
+    const open = await answerDeedQuestion(start.runId, 0, first);
+    expect(open).toMatchObject({ correct: false, secondChance: true, hint: tasks[0].hint, feedback: "wrong_word" });
+    expect(open).not.toHaveProperty("answer");
+    expect(open).not.toHaveProperty("reveal");
+    const openText = resultText(open, ["hint"]);
+    expect(wordsIn(openText, tasks), `grade ${grade} second chance`).toEqual([]);
+    secrets(openText);
+    // The resumed start: the hint only as `pending.hint`.
+    const resumed = await startDeedRun("c1", "mill-ledger", "realm");
+    expect(resumed.runId).toBe(start.runId);
+    expect(resumed.pending).toMatchObject({ index: 0, ruledOut: first, hint: tasks[0].hint });
+    const back = shown(resumed, dictation);
+    expect(wordsIn(back, tasks), `grade ${grade} resumed`).toEqual([]);
+    secrets(back);
+    // The resolved miss: the word in `answer`, `explain` and `reveal` alone.
+    const miss = await retryDeedQuestion(start.runId, 0, otherWrong(tasks[0], first));
+    expect(miss).toMatchObject({ correct: false, secondChance: false });
+    expect(miss.answer).toContain(tasks[0].words[0]);
+    expect(miss.reveal).toMatch(/^r:\d+(,\d+)+$/);
+    expect(wordsIn(resultText(miss, ["answer", "explain", "reveal"]), tasks), `grade ${grade} resolved`).toEqual([]);
+    expect(resultText(miss, ["answer", "explain", "reveal"])).not.toContain(tasks[0].entry);
+  });
+
+  it("broken objects are named first: with both light objects fixed, no light task while other effects have broken objects", async () => {
+    for (const o of VILLAGE_RUNE_OBJECTS.filter((x) => x.effect === "light")) await insertFixed(o.id, new Date("2026-11-09T09:00:00Z"));
+    for (const seed of [1, 2, 3, 4, 5, 6]) {
+      await client.query("DELETE FROM deed_run");
+      vi.mocked(buildDeedRun).mockClear();
+      atSeed(seed);
+      const start = await startDeedRun("c1", "mill-ledger", "realm");
+      expect(vi.mocked(buildDeedRun).mock.calls[0][0].recentRunes, `seed ${seed}`).toEqual([effectKey("light")]);
+      for (const t of await runesOf(start.runId)) {
+        expect(t.effect, `seed ${seed}`).not.toBe("light");
+        expect(t.object!.label, `seed ${seed}`).toBe(runeObjectById(t.object!.id)!.label);
+      }
+    }
+  });
+
+  it("a right side quest fixes its objects in the finish, and pays by stars (R-I21, R-I22)", async () => {
+    const start = await startDeedRun("c1", "mill-ledger", "realm");
+    const tasks = await castAll(start.runId);
+    // The record lands at the finish, never at a cast.
+    expect(await worldRows()).toEqual({});
+    vi.mocked(paySideQuest).mockClear();
+    const before = Math.floor(Date.now() / 1000);
+    const summary = await completeDeedRun(start.runId);
+    const after = Math.ceil(Date.now() / 1000);
+    expect(summary).toMatchObject({ kind: "deed", stars: 3, flawless: true, total: 3, counted: true });
+    expect(summary.runes).toEqual(tasks.map((t) => ({ objectId: t.object!.id, fixed: true })));
+    const rows = await worldRows();
+    expect(Object.keys(rows).sort()).toEqual(tasks.map((t) => t.object!.id).sort());
+    for (const row of Object.values(rows)) {
+      expect(row.state).toBe("fixed");
+      expect(row.at).toBeGreaterThanOrEqual(before);
+      expect(row.at).toBeLessThanOrEqual(after);
+    }
+    expect(paySideQuest).toHaveBeenCalledWith("c1", start.runId, 3);
+    expect(summary.minutesEarned).toBe(sideQuestPay(3, DEFAULT_REALM_SETTINGS, 0).minutes);
+    expect(summary.minutesEarned).toBeGreaterThan(0);
+    // A second finish is refused and writes nothing more.
+    await expect(completeDeedRun(start.runId)).rejects.toThrow();
+    expect(await worldRows()).toEqual(rows);
+  });
+
+  it("a fixed object named in a side quest is renewed: its row moves to now; it is named by its broken label, as the walk draws it (owner, 2026-11-21)", async () => {
+    const earlier = new Date("2026-11-08T12:00:00Z");
+    for (const o of VILLAGE_RUNE_OBJECTS) await insertFixed(o.id, earlier);
+    const start = await startDeedRun("c1", "mill-ledger", "realm");
+    const tasks = await castAll(start.runId);
+    for (const t of tasks) expect(t.object!.label).toBe(runeObjectById(t.object!.id)!.label);
+    const summary = await completeDeedRun(start.runId);
+    expect(summary.runes).toEqual(tasks.map((t) => ({ objectId: t.object!.id, fixed: true })));
+    const rows = await worldRows();
+    const named = new Set(tasks.map((t) => t.object!.id));
+    for (const [id, row] of Object.entries(rows)) {
+      expect(row.state).toBe("fixed");
+      if (named.has(id)) expect(row.at, id).toBeGreaterThan(earlier.getTime() / 1000);
+      else expect(row.at, id).toBe(earlier.getTime() / 1000);
+    }
+  });
+
+  it("a rune run picked back up names the objects it already cast right, so the walk's card keeps their ticks (smoke bug 3)", async () => {
+    const start = await startDeedRun("c1", "mill-ledger", "realm");
+    expect(start).not.toHaveProperty("mended");
+    const tasks = await runesOf(start.runId);
+    await answerDeedQuestion(start.runId, 0, runeRight(tasks[0]));
+    // A resolved miss is not mended.
+    const first = runeWrong(tasks[1]);
+    await answerDeedQuestion(start.runId, 1, first);
+    await retryDeedQuestion(start.runId, 1, otherWrong(tasks[1], first));
+    const resumed = await startDeedRun("c1", "mill-ledger", "realm");
+    expect(resumed.runId).toBe(start.runId);
+    expect(resumed.mended).toEqual([tasks[0].object!.id]);
+    // Right on the second try is mended too.
+    await answerDeedQuestion(start.runId, 2, runeWrong(tasks[2]));
+    await retryDeedQuestion(start.runId, 2, runeRight(tasks[2]));
+    expect((await startDeedRun("c1", "mill-ledger", "realm")).mended).toEqual([tasks[0].object!.id, tasks[2].object!.id]);
+  });
+
+  it("a missed cast leaves its object broken; the others are fixed", async () => {
+    const start = await startDeedRun("c1", "mill-ledger", "realm");
+    const tasks = await runesOf(start.runId);
+    const first = runeWrong(tasks[0]);
+    await answerDeedQuestion(start.runId, 0, first);
+    expect(await retryDeedQuestion(start.runId, 0, otherWrong(tasks[0], first))).toMatchObject({ correct: false, secondChance: false });
+    for (const i of [1, 2]) await answerDeedQuestion(start.runId, i, runeRight(tasks[i]));
+    const summary = await completeDeedRun(start.runId);
+    expect(summary.runes).toEqual([
+      { objectId: tasks[0].object!.id, fixed: false, reason: "missed" },
+      { objectId: tasks[1].object!.id, fixed: true },
+      { objectId: tasks[2].object!.id, fixed: true },
+    ]);
+    expect(Object.keys(await worldRows()).sort()).toEqual([tasks[1].object!.id, tasks[2].object!.id].sort());
+  });
+
+  it("a Crown Challenge's right casts fix too (R-I22)", async () => {
+    await seedRun({ id: "earned", deedId: "mill-ledger", responses: ["6", "9", "12", "15"], completed: true, stars: 3 });
+    const start = await startDeedRun("c1", "mill-ledger", "realm", { challenge: true });
+    expect(start.kind).toBe("challenge");
+    const tasks = await castAll(start.runId);
+    expect(tasks).toHaveLength(CHALLENGE.questions);
+    const summary = await completeDeedRun(start.runId);
+    expect(summary).toMatchObject({ kind: "challenge", crowned: true });
+    expect(summary.runes).toEqual(tasks.map((t) => ({ objectId: t.object!.id, fixed: true })));
+    expect(Object.keys(await worldRows()).sort()).toEqual(tasks.map((t) => t.object!.id).sort());
+  });
+
+  it("a grown-up finishing the hero's run on the page mends nothing; stars and the building follow today's rules (RI-a / S8)", async () => {
+    vi.mocked(requireChildAccess).mockResolvedValue(GROWN_UP);
+    const start = await startDeedRun("c1", "mill-ledger", "page");
+    await castAll(start.runId);
+    const summary = await completeDeedRun(start.runId);
+    expect(summary).toMatchObject({ kind: "deed", stars: 3, counted: true, minutesEarned: 0 });
+    expect(summary).not.toHaveProperty("runes");
+    expect(await worldRows()).toEqual({});
+    expect(await deedsDone()).toBe(1);
+    expect((await stored(start.runId)).stars).toBe(3);
+  });
+
+  it("binding comes before the challenge's size check: three mend words keep two, and the challenge waits (RI-a / S9)", async () => {
+    // The strict loader refuses an all-mend pool (it fails `pool-size`), so the draw itself is turned to mend.
+    const allMend = (i: Parameters<typeof realBuildDeedRun>[0]) => {
+      const built = realBuildDeedRun(i);
+      return { ...built, questions: built.questions.map((q) => (kindOf(q) === "rune" ? { ...q, effect: "mend" as RuneEffect } : q)) };
+    };
+    await seedRun({ id: "earned", deedId: "mill-ledger", responses: ["6", "9", "12", "15"], completed: true, stars: 3 });
+    vi.mocked(buildDeedRun).mockImplementationOnce(allMend);
+    await expect(startDeedRun("c1", "mill-ledger", "realm", { challenge: true })).rejects.toThrow(CHALLENGE_NOT_READY);
+    expect(vi.mocked(buildDeedRun).mock.results[0].value.questions).toHaveLength(3);
+    expect(await runCount()).toBe(1);
+    // A side quest is not held to three: its two bound words start, one at each mend object.
+    vi.mocked(buildDeedRun).mockImplementationOnce(allMend);
+    const start = await startDeedRun("c1", "mill-ledger", "realm");
+    const tasks = await runesOf(start.runId);
+    expect(tasks).toHaveLength(2);
+    expect(tasks.map((t) => t.object!.id).sort()).toEqual(VILLAGE_RUNE_OBJECTS.filter((o) => o.effect === "mend").map((o) => o.id).sort());
+  });
+
+  it("a stored rune task whose object left the catalog grades and finishes, fixing nothing (Review Focus 4)", async () => {
+    const gone = runeStub({ id: "lang-gk:rune:0000000a", object: { id: "rune:gone", label: "the gone thing" } });
+    const here = runeStub({ id: "lang-gk:rune:0000000b", object: { id: WAGON, label: "the broken wagon" } });
+    await seedRun({ id: "mixed", deedId: "mill-ledger", questions: [gone, here] as never });
+    for (const [i, t] of [gone, here].entries()) expect(await answerDeedQuestion("mixed", i, runeRight(t))).toMatchObject({ correct: true });
+    expect((await completeDeedRun("mixed")).runes).toEqual([{ objectId: WAGON, fixed: true }]);
+    expect(Object.keys(await worldRows())).toEqual([WAGON]);
+    await client.query("DELETE FROM realm_world_state");
+    await seedRun({ id: "lost", deedId: "bridge-toll", questions: [gone] as never });
+    await answerDeedQuestion("lost", 0, runeRight(gone));
+    const summary = await completeDeedRun("lost");
+    expect(summary).toMatchObject({ kind: "deed", stars: 3 });
+    expect(summary).not.toHaveProperty("runes");
+    expect(await worldRows()).toEqual({});
+  });
+
+  it("a forged cast is refused and writes nothing, first try and second (Review Focus 2, RI-a / S17)", async () => {
+    const start = await startDeedRun("c1", "mill-ledger", "realm");
+    const forged: unknown[] = ["r:0,0", "r:99", "r:", "r:1,", "toString", "__proto__", 42, {}, [0, 1], "", "x".repeat(10_240)];
+    for (const raw of forged) await expect(answerDeedQuestion(start.runId, 0, raw), String(raw).slice(0, 20)).rejects.toThrow(PICK_SHOWN);
+    expect(JSON.parse((await stored(start.runId)).responses)).toEqual([null, null, null]);
+    expect((await stored(start.runId)).second_tries).toBe("[]");
+    expect(Number((await client.query("SELECT count(*) AS n FROM skill_mastery")).rows[0].n)).toBe(0);
+    const [task] = await runesOf(start.runId);
+    await answerDeedQuestion(start.runId, 0, runeWrong(task));
+    const before = await stored(start.runId);
+    const mastery = (await client.query("SELECT level, attempt_total FROM skill_mastery")).rows;
+    for (const raw of [...forged, null]) await expect(retryDeedQuestion(start.runId, 0, raw), String(raw).slice(0, 20)).rejects.toThrow(PICK_SHOWN);
+    expect(await stored(start.runId)).toEqual(before);
+    expect((await client.query("SELECT level, attempt_total FROM skill_mastery")).rows).toEqual(mastery);
+  });
+
+  it("a language choice run stored before the deploy resumes and completes, with stars and nothing fixed (Review Focus 4, F-22)", async () => {
+    const old: Question[] = [0, 1, 2, 3].map((i) => ({
+      id: `lang-g3-item-${i}`, skillId: "lang-g3", prompt: `Word ${i}?`, choices: [`A${i}`, `B${i}`, `C${i}`, `D${i}`], answer: `A${i}`,
+    }));
+    await seedRun({ id: "old-lang", deedId: "mill-ledger", questions: old });
+    await client.query("UPDATE deed_run SET skill_ids = '[\"lang-g3\"]' WHERE id = 'old-lang'");
+    await answerDeedQuestion("old-lang", 0, "A0");
+    const resumed = await startDeedRun("c1", "mill-ledger", "realm");
+    expect(resumed.runId).toBe("old-lang");
+    expect(vi.mocked(buildDeedRun)).not.toHaveBeenCalled();
+    expect(resumed.questions.map((q) => q.kind)).toEqual(["choice", "choice", "choice", "choice"]);
+    for (const i of [1, 2, 3]) expect(await answerDeedQuestion("old-lang", i, `A${i}`)).toMatchObject({ correct: true });
+    const summary = await completeDeedRun("old-lang");
+    expect(summary).toMatchObject({ kind: "deed", flawless: true, stars: 3, counted: true });
+    expect(summary).not.toHaveProperty("runes");
+    expect(await worldRows()).toEqual({});
+  });
+
+  it("runes off: a grade-6 speller's side quest is eight multiple-choice vocab-g68 questions, and no rune memory is read (F-22)", async () => {
+    spellerAt("6");
+    vi.mocked(loadRealmSettings).mockResolvedValue(RUNES_OFF);
+    await languageItems("vocab-g68");
+    const start = await startDeedRun("c1", "mill-ledger", "realm");
+    const call = vi.mocked(buildDeedRun).mock.calls[0][0];
+    expect(call.enabledKinds).toEqual(new Set(["measure", "lock", "trail"]));
+    expect(call.recentRunes).toBeUndefined();
+    const tasks = await storedTasks(start.runId);
+    expect(tasks).toHaveLength(8);
+    for (const t of tasks) {
+      expect("kind" in t).toBe(false);
+      expect(t.skillId).toBe("vocab-g68");
+    }
+    expect(start.questions.every((q) => q.kind === "choice")).toBe(true);
+  });
+
+  it("asks the rune memory only for a language side quest with runes on, never at the gate", async () => {
+    await startDeedRun("c1", "well-stones", "realm");
+    expect(vi.mocked(buildDeedRun).mock.calls[0][0].recentRunes).toBeUndefined();
+    await languageItems("lang-g3");
+    await startDeedRun("c1", "bridge-toll", "gate");
+    expect(vi.mocked(buildDeedRun).mock.calls[1][0].recentRunes).toBeUndefined();
+    expect((await storedTasks((await startDeedRun("c1", "bridge-toll", "gate")).runId)).every((t) => !("kind" in t))).toBe(true);
+    await startDeedRun("c1", "market-crier", "realm");
+    expect(vi.mocked(buildDeedRun).mock.calls[2][0].recentRunes).toEqual([]);
+  });
+
+  it("a grown-up's lang-g1 focus turns a grade-1 hero's language side quest to choice; left undrawn, it walks (R-I8)", async () => {
+    spellerAt("1");
+    await languageItems("lang-g1");
+    await client.query("INSERT INTO learning_focus (id, child_id, skill_id, created_at) VALUES ('fl', 'c1', 'lang-g1', unixepoch())");
+    // Seed 1 draws the focus (recorded in deed-engine.test.ts): the clock is the seed.
+    vi.spyOn(Date, "now").mockReturnValue(1);
+    const start = await startDeedRun("c1", "mill-ledger", "realm");
+    expect(vi.mocked(buildDeedRun).mock.calls[0][0].focusSkillIds).toEqual(["lang-g1"]);
+    const tasks = await storedTasks(start.runId);
+    expect(tasks).toHaveLength(8);
+    for (const t of tasks) {
+      expect("kind" in t, t.id).toBe(false);
+      expect(t.skillId).toBe("lang-g1");
+    }
+    expect(start.questions.every((q) => q.kind === "choice")).toBe(true);
+    // Seed 7 draws spell-g1 (recorded): the same hero walks three runes.
+    await client.query("DELETE FROM deed_run");
+    vi.spyOn(Date, "now").mockReturnValue(7);
+    const walked = await runesOf((await startDeedRun("c1", "mill-ledger", "realm")).runId);
+    expect(walked).toHaveLength(3);
+    for (const t of walked) expect(t.skillId).toBe("spell-g1");
+  });
+
+  it("the next run passes over the last one's words, from the same seed (R-I19)", async () => {
+    atSeed(1);
+    const first = await startDeedRun("c1", "mill-ledger", "realm");
+    const firstKeys = (await castAll(first.runId)).map((t) => t.entry);
+    await completeDeedRun(first.runId);
+    atSeed(1);
+    const second = await startDeedRun("c1", "market-crier", "realm");
+    // The memory is every language side quest's; three fixes leave each effect a broken object, so no effect is passed over.
+    expect(vi.mocked(buildDeedRun).mock.calls[1][0].recentRunes).toEqual(firstKeys);
+    const secondKeys = (await runesOf(second.runId)).map((t) => t.entry);
+    for (const k of firstKeys) expect(secondKeys).not.toContain(k);
+  });
+
+  it("a run started with runes on still finishes, and fixes, after runes go off (R-I13)", async () => {
+    const start = await startDeedRun("c1", "mill-ledger", "realm");
+    await castAll(start.runId);
+    vi.mocked(loadRealmSettings).mockResolvedValue(RUNES_OFF);
+    expect((await completeDeedRun(start.runId)).runes?.every((r) => r.fixed)).toBe(true);
+    expect(Object.keys(await worldRows())).toHaveLength(3);
+  });
+
+  it("an open rune world run at an object a side quest fixes is answered as holding at start, and finishing it writes nothing (I7's open run)", async () => {
+    // Every village object but the wagon holds, so the side quest's one broken object is the wagon.
+    for (const o of VILLAGE_RUNE_OBJECTS.filter((x) => x.id !== WAGON)) await insertFixed(o.id, new Date("2026-11-09T09:00:00Z"));
+    const open = await startRuneObjectRun("c1", WAGON);
+    const side = await startDeedRun("c1", "mill-ledger", "realm");
+    const tasks = await castAll(side.runId);
+    expect(tasks.map((t) => t.object!.id)).toContain(WAGON);
+    await completeDeedRun(side.runId);
+    const fixedAt = (await worldRows())[WAGON];
+    expect(fixedAt.state).toBe("fixed");
+    // The wagon holds, so its board says so; the open run is left to age out, never resumed.
+    await expect(runeObjects.startRuneObjectRun("c1", WAGON)).resolves.toEqual(HELD);
+    expect((await stored(open.runId)).completed_at).toBeNull();
+    // Should the hero still hold its stone open, a right cast there finishes as "already held" and writes nothing.
+    const [task] = await runesOf(open.runId);
+    await answerDeedQuestion(open.runId, 0, runeRight(task));
+    expect((await completeDeedRun(open.runId)).runes).toEqual([{ objectId: WAGON, fixed: false, reason: "already-fixed" }]);
+    expect((await worldRows())[WAGON]).toEqual(fixedAt);
+  });
+
+  it("a week of three language side quests a day never repeats a word, at every band (R-I19, RI-a / S18)", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    // The server's day follows the clock, so objects fixed on a day break again on the fourth day after.
+    vi.mocked(realmNow).mockImplementation(async (_childId: string, now: Date = new Date()) => ({ date: now.toISOString().slice(0, 10), timeOfDay: "10:00" }));
+    const HOURS_8 = 8 * 60 * 60 * 1000;
+    const deeds = ["mill-ledger", "bridge-toll", "market-crier"];
+    for (const grade of ["K", "2", "4", "6", "9"]) {
+      spellerAt(grade);
+      const child = `week-${grade}`;
+      const runs: string[][] = [];
+      const renewed: string[] = [];
+      const brokeAgain: string[] = [];
+      const fixedOnce = new Set<string>();
+      const byEffect = new Map<RuneEffect, number>();
+      let at = new Date("2026-11-23T06:00:00Z").getTime();
+      for (let day = 0; day < 7; day++) {
+        for (const deedId of deeds) {
+          vi.setSystemTime(at);
+          at += HOURS_8;
+          // What stood fixed as the run began, by the server's own rule: every stop is named by its broken label now.
+          const [rows, clock] = await Promise.all([loadWorldRows(child), worldClock(child)]);
+          const fixedAtStart = (id: string) => !brokenNow(runeObjectById(id)!, rows.find((r) => r.objectId === id) ?? null, clock.today, clock.zone);
+          const start = await startDeedRun(child, deedId, "realm");
+          const tasks = await runesOf(start.runId);
+          expect(tasks, `grade ${grade} day ${day} ${deedId}`).toHaveLength(3);
+          for (const [i, t] of tasks.entries()) await answerDeedQuestion(start.runId, i, runeRight(t));
+          const summary = await completeDeedRun(start.runId);
+          expect(summary.runes?.map((r) => r.fixed), `grade ${grade} day ${day} ${deedId}`).toEqual([true, true, true]);
+          for (const t of tasks) {
+            expect(t.object!.label).toBe(runeObjectById(t.object!.id)!.label);
+            if (fixedAtStart(t.object!.id)) renewed.push(t.object!.id);
+            else if (fixedOnce.has(t.object!.id)) brokeAgain.push(`${t.object!.id} day ${day}`);
+            fixedOnce.add(t.object!.id);
+          }
+          runs.push(tasks.map((t) => t.entry));
+          for (const t of tasks) byEffect.set(t.effect, (byEffect.get(t.effect) ?? 0) + 1);
+        }
+      }
+      expect(runs).toHaveLength(21);
+      const all = runs.flat();
+      expect(all).toHaveLength(63);
+      // The rule (R-I19, R-I22): pass-over outranks freshness, so an effect with something broken is drawn
+      // ahead of a fresher one, and can take more than its fifth of the week. An entry can come back only
+      // once its effect has been drawn more times in the 21 runs than it has entries (RUNE_MIN_PER_EFFECT,
+      // 16), since each effect's fresh entries are always taken first. A week of play stays within that for
+      // every effect, so no word comes back.
+      for (const [effect, n] of byEffect) expect(n, `grade ${grade}: ${effect}`).toBeLessThanOrEqual(RUNE_MIN_PER_EFFECT);
+      expect(new Set(all).size, `grade ${grade}: a word came back within the week`).toBe(all.length);
+      // The week fixed, renewed and broke objects again: some stops named a fixed object (renewing it), and
+      // some named, broken, an object fixed earlier in the week (RI-a / S18).
+      expect(renewed.length, `grade ${grade}`).toBeGreaterThan(0);
+      expect(brokeAgain.length, `grade ${grade}`).toBeGreaterThan(0);
+      expect(brokeAgain.every((s) => Number(s.split("day ")[1]) >= RUNE_RESET_DAYS), brokeAgain.join("; ")).toBe(true);
+    }
+    // 105 runs started, cast and finished on a real database: well past the default 5 s under a full suite.
+  }, 60_000);
 });

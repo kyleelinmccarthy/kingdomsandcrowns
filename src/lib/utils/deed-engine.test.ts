@@ -1,15 +1,16 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
+import { createHash } from "node:crypto";
 import { applyProfile, buildDeedRun, chooseSkills, drawForSkill, gradeAnswer, runCandidates, selectSkills, type BuildRunInput, type PoolItem } from "./deed-engine";
-import { DEEDS, SIDE_QUEST_QUESTIONS, TRAIL_CLUES, findDeed, type Deed } from "./deeds";
+import { DEEDS, RUNE_STOPS, SIDE_QUEST_QUESTIONS, TRAIL_CLUES, findDeed, type Deed } from "./deeds";
 import { REVIEW } from "./review-schedule";
 import { CHALLENGE } from "./deed-scoring";
 import { GENERATORS, seededRng } from "./drill-generators";
-import { SKILLS, choiceDrawable } from "./skills";
+import { SKILLS, choiceDrawable, findSkill } from "./skills";
 import { FOCUS_WEIGHT, focusWindow } from "./focus";
 import { GRADES } from "./grade-levels";
 import { skillsFor } from "./skills";
 import type { Question } from "./drill-generators";
-import type { ChoiceTask, LockTask, MeasureTask, Task, TaskKind } from "@/lib/tasks/types";
+import type { ChoiceTask, LockTask, MeasureTask, RuneTask, Task, TaskKind } from "@/lib/tasks/types";
 import { BENCH } from "@/lib/tasks/bench";
 import { TASK_KINDS, kindOf } from "@/lib/tasks/registry";
 import { HANDS_ON_KINDS } from "@/lib/tasks/kinds";
@@ -19,11 +20,23 @@ import { __setSortPoolsForTest, sortTaskFromId } from "@/lib/tasks/locks/sort";
 import { __setTrailPoolsForTest, trailPoolFor, trailTaskOf } from "@/lib/tasks/trails";
 import { TRAIL_SKILLS, trailKey } from "@/lib/content/trail-pools";
 import { fixtureTrailPool } from "@/test/trail-pool-fixture";
+import { __setRunePoolsForTest, runePoolFor } from "@/lib/tasks/runes";
+import { effectKey, runeKey } from "@/lib/content/rune-pools";
+import { fixtureRunePool } from "@/test/rune-pool-fixture";
 
 const deedMath = findDeed("well-stones")!;      // math
 const deedReading = findDeed("well-signs")!;    // reading
 const deedLanguage = findDeed("mill-ledger")!;  // language
 const deedScience = findDeed("well-water")!;     // science
+/**
+ * Language as multiple choice, which is what a run that cannot play runes is (runes off, the gate). The
+ * language deeds are `rune` since I11, so the candidate cases about what a choice run can draw use this
+ * fixture and mean the same thing they meant before the flip. It is the deed as it was then: eight
+ * questions and no stops (a choice deed "draws its mechanic", so a rune deed's three would shorten it).
+ */
+const { stops: _runeStops, ...millLedger } = findDeed("mill-ledger")!;
+void _runeStops;
+const choiceLanguage: Deed = { ...millLedger, mechanic: "choice", questionCount: SIDE_QUEST_QUESTIONS };
 
 function poolItems(skillId: string, n: number, level = 2): PoolItem[] {
   return Array.from({ length: n }, (_, i) => ({
@@ -297,7 +310,8 @@ describe("chooseSkills by grade", () => {
     // Grade-4 language is spell-g45 alone now, but the caller can still hand over items it
     // fetched for a skill this run will not practise. Those must not leak into the run.
     const items = [...poolItems("spell-g45", 10), ...poolItems("vocab-g45", 10)];
-    const run = buildDeedRun(input({ deed: deedLanguage, grade: "4", poolItems: items, masteryBySkill: {} }));
+    // The choice language deed (I11): with runes on, grade 4 is a rune walk, and this is about pool items.
+    const run = buildDeedRun(input({ deed: choiceLanguage, grade: "4", poolItems: items, masteryBySkill: {} }));
     const poolSkillIds = [...new Set(run.skillIds.filter((id) => id === "spell-g45" || id === "vocab-g45"))];
     expect(poolSkillIds).toEqual(["spell-g45"]);
   });
@@ -316,7 +330,9 @@ describe("every skill at a hero's grade can actually be served", () => {
     ["math", deedMath],
     // The choice path's reach; the trail path's is pinned with the trail runs (H7, below).
     ["reading", choiceReading],
-    ["language", deedLanguage],
+    // The choice path's reach too (I11): a language side quest with runes on walks one rune skill a grade,
+    // pinned with the rune runs below; this is about what a multiple-choice run can serve.
+    ["language", choiceLanguage],
     ["science", deedScience],
   ] as const;
 
@@ -771,8 +787,10 @@ describe("buildDeedRun keeps its output as deeds name a mechanic", () => {
   // math deeds are `measure` now, so a draw of a benched skill (area-perimeter, frac-unit, ...) is
   // re-recorded below; every other entry here is byte-identical, and the choice path is pinned apart.
   const reading = poolItems("read-g3", 30);
+  /** A grade-3 language run's choice items (I11): `lang-g3` is the skill a grade-3 language choice run draws. */
+  const language = [...poolItems("lang-g3", 30), ...poolItems("spell-g23", 30)];
   const ids = (deed: typeof deedMath, seed: number, over: Partial<BuildRunInput> = {}) =>
-    buildDeedRun(input({ deed, seed, poolItems: reading, dueSkillIds: ["div-facts", "read-g3"], ...over })).questions.map((q) => q.id);
+    buildDeedRun(input({ deed, seed, poolItems: deed.area === "language" ? language : reading, dueSkillIds: ["div-facts", "read-g3"], ...over })).questions.map((q) => q.id);
   const RECORDED: Record<string, string[]> = {
     "well-stones@1": ["round-nearest:69@10", "round-nearest:99@10", "round-nearest:73@10", "round-nearest:46@10", "div-facts:6/1", "round-nearest:33@10", "round-nearest:723@10", "round-nearest:631@10"],
     "well-stones@42": ["round-nearest:35@10", "round-nearest:63@10", "div-facts:11/1", "round-nearest:28@10", "round-nearest:155@10", "round-nearest:948@10", "round-nearest:37@10", "round-nearest:13@10"],
@@ -783,6 +801,14 @@ describe("buildDeedRun keeps its output as deeds name a mechanic", () => {
     "well-signs@1": ["read-g3:trail:091c3f6f", "read-g3:trail:081c3ddc", "read-g3:trail:0b1c4295", "read-g3:trail:0858f428"],
     "well-signs@42": ["read-g3:trail:d3141c67", "read-g3:trail:d2141ad4", "read-g3:trail:d5141f8d", "read-g3:trail:0858f428"],
     "well-signs@20261110": ["read-g3:trail:25cb3885", "read-g3:trail:24cb36f2", "read-g3:trail:23cb355f", "read-g3:trail:948a2acf"],
+    // Re-recorded (I11): the language side quests are runes, so a grade-3 run is three `lang-g3` words of
+    // three effects. The deed does not seed the draw, so all four deeds ask alike. Their choice twins
+    // below hold the ids they drew before, unchanged.
+    ...Object.fromEntries(["mill-ledger", "bridge-toll", "market-crier", "library-scribe"].flatMap((deedId) => [
+      [`${deedId}@1`, ["lang-g3:rune:87167c9d", "lang-g3:rune:f3b5632b", "lang-g3:rune:17030969"]],
+      [`${deedId}@42`, ["lang-g3:rune:f8b56b0a", "lang-g3:rune:f1927d0d", "lang-g3:rune:87167c9d"]],
+      [`${deedId}@20261110`, ["lang-g3:rune:f8b56b0a", "lang-g3:rune:85167977", "lang-g3:rune:ea927208"]],
+    ])),
   };
   it.each(Object.entries(RECORDED))("%s asks the same questions in the same order", (key, expected) => {
     const [deedId, seed] = key.split("@");
@@ -798,6 +824,12 @@ describe("buildDeedRun keeps its output as deeds name a mechanic", () => {
     "well-signs@1": ["read-g3-item-14", "read-g3-item-24", "read-g3-item-8", "read-g3-item-10", "read-g3-item-16", "read-g3-item-6", "read-g3-item-11", "read-g3-item-12"],
     "well-signs@42": ["read-g3-item-26", "read-g3-item-25", "read-g3-item-1", "read-g3-item-16", "read-g3-item-28", "read-g3-item-7", "read-g3-item-2", "read-g3-item-27"],
     "well-signs@20261110": ["read-g3-item-18", "read-g3-item-10", "read-g3-item-14", "read-g3-item-19", "read-g3-item-5", "read-g3-item-28", "read-g3-item-16", "read-g3-item-23"],
+    // Recorded at b84534d, before the language deeds named `rune` (I11): with runes off, each is the eight it always was.
+    ...Object.fromEntries(["mill-ledger", "bridge-toll", "market-crier", "library-scribe"].flatMap((deedId) => [
+      [`${deedId}@1`, ["lang-g3-item-14", "lang-g3-item-24", "lang-g3-item-8", "lang-g3-item-10", "lang-g3-item-16", "lang-g3-item-6", "lang-g3-item-11", "lang-g3-item-12"]],
+      [`${deedId}@42`, ["lang-g3-item-26", "lang-g3-item-25", "lang-g3-item-1", "lang-g3-item-16", "lang-g3-item-28", "lang-g3-item-7", "lang-g3-item-2", "lang-g3-item-27"]],
+      [`${deedId}@20261110`, ["lang-g3-item-18", "lang-g3-item-10", "lang-g3-item-14", "lang-g3-item-19", "lang-g3-item-5", "lang-g3-item-28", "lang-g3-item-16", "lang-g3-item-23"]],
+    ])),
   };
   it.each(Object.entries(RECORDED_CHOICE))("%s with hands-on kinds off asks the old questions in the old order", (key, expected) => {
     const [deedId, seed] = key.split("@");
@@ -887,8 +919,11 @@ describe("a focus skill a grade off the hero's own", () => {
 
   it("adds nothing to chooseSkills when there is no focus, for every deed strand and grade", () => {
     // Reading is left out: its trail-only rows are filtered by `runCandidates` and not by `chooseSkills` (R-H8, below).
-    for (const deed of [deedMath, deedLanguage, deedScience]) {
-      for (const g of GRADES) expect(runCandidates(deed, g, [])).toEqual(chooseSkills(deed, g));
+    // Language is compared against `chooseSkills(d, g, choiceDrawable)`, because grade 1 now holds a rune-only row
+    // (`spell-g1`, R-I7) that a choice run cannot play and the unfiltered walk still lists. It is the choice
+    // language deed (I11): the real one is a rune walk with runes on, and walks one rune skill a grade.
+    for (const deed of [deedMath, choiceLanguage, deedScience]) {
+      for (const g of GRADES) expect(runCandidates(deed, g, [])).toEqual(chooseSkills(deed, g, choiceDrawable));
     }
     for (const g of ["K", "1", "2", "3", "4", "5"] as const) expect(runCandidates(choiceReading, g, [])).toEqual(chooseSkills(choiceReading, g));
     expect(runCandidates(deedMath, "3", ["add-100", "read-g4", "nope", "add-100", "mul-facts"]).map((s) => s.id))
@@ -1368,14 +1403,71 @@ describe("a run draws only what it can play (R-H8)", () => {
   });
 
   it("changes nothing for math, science and language at any grade, with every kind on, none on, or no set at all", () => {
-    for (const deed of [deedMath, deedLanguage, deedScience]) {
+    // Language is compared against the choice-drawable walk, for the reason in "adds nothing to chooseSkills" above (R-I7),
+    // and as the choice deed (I11): the real language deeds walk runes with runes on, pinned with the rune runs below.
+    for (const deed of [deedMath, choiceLanguage, deedScience]) {
       for (const g of GRADES) {
-        const all = chooseSkills(deed, g).map((s) => s.id);
+        const all = chooseSkills(deed, g, choiceDrawable).map((s) => s.id);
         expect(ids(deed, g), `${deed.area} ${g} all on`).toEqual(all);
         expect(runCandidates(deed, g, [], CHOICE_ONLY).map((s) => s.id), `${deed.area} ${g} none on`).toEqual(all);
         expect(runCandidates(deed, g).map((s) => s.id), `${deed.area} ${g} no set`).toEqual(all);
       }
     }
+  });
+
+  /** What a language choice run drew before `spell-g1` joined the catalog, pinned literally (Review Focus 3). */
+  const LANGUAGE_BEFORE: Record<(typeof GRADES)[number], string[]> = {
+    K: ["lang-gk"], "1": ["lang-g1"], "2": ["spell-g23"], "3": ["lang-g3"], "4": ["spell-g45"], "5": ["vocab-g45"],
+    "6": ["vocab-g68"], "7": ["vocab-g68"], "8": ["vocab-g68"], "9": ["vocab-g912"], "10": ["vocab-g912"], "11": ["vocab-g912"], "12": ["vocab-g912"],
+  };
+
+  it("language stays multiple choice where runes cannot play: every grade K to 12 draws what it drew before, never an empty run", () => {
+    for (const g of GRADES) {
+      expect(ids(choiceLanguage, g), `grade ${g} all on`).toEqual(LANGUAGE_BEFORE[g]);
+      expect(ids(choiceLanguage, g, [], CHOICE_ONLY), `grade ${g} none on`).toEqual(LANGUAGE_BEFORE[g]);
+      expect(runCandidates(choiceLanguage, g).map((s) => s.id), `grade ${g} no set`).toEqual(LANGUAGE_BEFORE[g]);
+      expect(runCandidates(choiceLanguage, g, [], ALL_ON).length, `grade ${g} is empty`).toBeGreaterThan(0);
+    }
+    expect(ids(choiceLanguage, "1")).toEqual(["lang-g1"]);
+  });
+
+  it("never offers a rune skill to a choice run, even as a grown-up's focus pick", () => {
+    expect(ids(choiceLanguage, "1", ["spell-g1"])).toEqual(["lang-g1"]);
+    expect(ids(choiceLanguage, "2", ["spell-g1"])).toEqual(["spell-g23"]);
+    expect(ids(choiceLanguage, "1", ["spell-g1"], CHOICE_ONLY)).toEqual(["lang-g1"]);
+  });
+
+  it("draws nothing for a rune skill as multiple choice, and never throws", () => {
+    const rune = SKILLS.find((s) => s.id === "spell-g1")!;
+    expect(drawForSkill(rune, 0, 3, seededRng(1), [], new Set(), new Set())).toEqual([]);
+    expect(drawForSkill(rune, 4, 3, seededRng(2), poolItems("spell-g1", 10), new Set(), new Set())).toEqual([]);
+  });
+
+  describe("selectSkills takes a rune skill in the content pick", () => {
+    const lang = SKILLS.find((s) => s.id === "lang-g1")!;
+    const rune = SKILLS.find((s) => s.id === "spell-g1")!;
+
+    it("draws a rune skill alongside a pool skill, each at least once over seeds 1 to 40", () => {
+      const seen = new Set<string>();
+      for (let seed = 1; seed <= 40; seed++) for (const s of selectSkills([lang, rune], {}, seededRng(seed))) seen.add(s.id);
+      expect([...seen].sort()).toEqual(["lang-g1", "spell-g1"]);
+    });
+
+    it("draws one content skill, not one of each", () => {
+      for (let seed = 1; seed <= 40; seed++) expect(selectSkills([lang, rune], {}, seededRng(seed))).toHaveLength(1);
+    });
+
+    it("draws a lone rune skill, and a generator skill beside it", () => {
+      expect(selectSkills([rune], {}, seededRng(1)).map((s) => s.id)).toEqual(["spell-g1"]);
+      const add = SKILLS.find((s) => s.id === "add-10")!;
+      expect(selectSkills([add, rune], {}, seededRng(1)).map((s) => s.id)).toEqual(["add-10", "spell-g1"]);
+    });
+
+    it("weights it like any content skill: a grown-up's focus lifts it", () => {
+      const firsts = (focus: ReadonlySet<string>) =>
+        Array.from({ length: 200 }, (_, i) => selectSkills([lang, rune], {}, seededRng(i + 1), {}, focus)[0].id).filter((id) => id === "spell-g1").length;
+      expect(firsts(new Set(["spell-g1"]))).toBeGreaterThan(firsts(new Set()));
+    });
   });
 
   it("leaves a grade-6+ reading focus on a trail skill out of a choice run, and keeps one a choice run can draw", () => {
@@ -1566,6 +1658,83 @@ describe("a trail run: whole trails of the skill's pool (H4, R-H9, R-H11)", () =
     expect(buildDeedRun(input({ deed: deedMath, grade: "3", seed: 21, enabledKinds: ALL_ON, recentTrails: ["trail-g23/fx-01-trail"] }))).toEqual(base);
     const sci = buildDeedRun(input({ deed: deedScience, grade: "3", seed: 5, enabledKinds: ALL_ON }));
     expect(buildDeedRun(input({ deed: deedScience, grade: "3", seed: 5, enabledKinds: ALL_ON, recentTrails: ["trail-g23/fx-01-trail"] }))).toEqual(sci);
+  });
+});
+
+describe("a rune run: words spread over the effects (I4, R-I19)", () => {
+  // N12: a language deed played as runes, as the real ones are since I11 (`questionCount: 3`, `stops: RUNE_STOPS`).
+  const runeDeed: Deed = { ...findDeed("mill-ledger")!, mechanic: "rune", questionCount: 3, stops: RUNE_STOPS };
+  const real = TASK_RUN_DRAWERS.rune!;
+  afterEach(() => {
+    TASK_RUN_DRAWERS.rune = real;
+    __setRunePoolsForTest(null);
+  });
+  const runeKeyOf = (q: Task): string => (q as { entry: string }).entry;
+
+  it("rune-run: a mechanic-rune language deed at grade K with the fixture pool draws 3 tasks of kind rune (N12)", () => {
+    __setRunePoolsForTest([fixtureRunePool("k1")]);
+    const run = buildDeedRun(input({ deed: runeDeed, grade: "K", enabledKinds: ALL_ON }));
+    expect(run.skillIds).toEqual(["lang-gk"]);
+    expect(run.questions).toHaveLength(3);
+    for (const q of run.questions) expect(kindOf(q)).toBe("rune");
+    for (const q of run.questions) expect(q.id).toMatch(/^lang-gk:rune:[0-9a-f]{8}$/);
+    expect(new Set(run.questions.map((q) => (q as { effect: string }).effect)).size).toBe(3);
+  });
+
+  it("plays as choice, exactly as before, when no pool credits the skill", () => {
+    __setRunePoolsForTest([]);
+    const run = buildDeedRun(input({ deed: runeDeed, grade: "K", enabledKinds: ALL_ON, poolItems: poolItems("lang-gk", 30) }));
+    expect(run.questions.length).toBeGreaterThan(0);
+    for (const q of run.questions) expect(kindOf(q)).toBe("choice");
+  });
+
+  it("passes recentRunes to the draw as avoid, beside recentTrails, and the draw keeps off them", () => {
+    const pool = fixtureRunePool("k1");
+    __setRunePoolsForTest([pool]);
+    const recent = pool.entries.filter((e) => e.level <= 1).map((e) => runeKey(pool.poolId, e.id));
+    const trails = ["trail-g23/fx-01-trail"];
+    const calls: string[][] = [];
+    TASK_RUN_DRAWERS.rune = (skill, level, count, rng, exclude, avoid) => {
+      calls.push([...avoid].sort());
+      return real(skill, level, count, rng, exclude, avoid);
+    };
+    for (const seed of [1, 2, 3]) {
+      const run = buildDeedRun(input({ deed: runeDeed, grade: "K", seed, enabledKinds: ALL_ON, recentRunes: recent, recentTrails: trails }));
+      expect(run.questions).toHaveLength(3);
+      for (const q of run.questions) expect(recent, `seed ${seed}`).not.toContain(runeKeyOf(q));
+    }
+    expect(calls.length).toBeGreaterThan(0);
+    for (const avoid of calls) expect(avoid).toEqual([...recent, ...trails].sort());
+  });
+
+  it("recentRunes reaches the refill: with every near entry recent and the first draw short, the top-up draws no avoided entry while others remain", () => {
+    const pool = fixtureRunePool("k1");
+    __setRunePoolsForTest([pool]);
+    // Mastery 0 draws near levels 0-1. Every near entry is recent, so the fresh ones are the far ones.
+    const recent = pool.entries.filter((e) => e.level <= 1).map((e) => runeKey(pool.poolId, e.id));
+    const calls: { count: number; avoid: string[] }[] = [];
+    TASK_RUN_DRAWERS.rune = (skill, level, count, rng, exclude, avoid) => {
+      calls.push({ count, avoid: [...avoid].sort() });
+      const drawn = real(skill, level, count, rng, exclude, avoid);
+      // The first draw comes up one short, so the engine goes back for the rest.
+      return calls.length === 1 ? drawn.slice(0, count - 1) : drawn;
+    };
+    const run = buildDeedRun(input({ deed: runeDeed, grade: "K", seed: 9, enabledKinds: ALL_ON, recentRunes: recent }));
+    expect(calls.length).toBeGreaterThanOrEqual(2);
+    expect(calls[1].count).toBe(1);
+    for (const call of calls) expect(call.avoid).toEqual([...recent].sort());
+    expect(run.questions).toHaveLength(3);
+    for (const q of run.questions) expect(recent).not.toContain(runeKeyOf(q));
+  });
+
+  it("leaves the measure, sort and trail draws alone: recentRunes moves no recorded id", () => {
+    const base = buildDeedRun(input({ deed: deedMath, grade: "3", seed: 21, enabledKinds: ALL_ON }));
+    expect(buildDeedRun(input({ deed: deedMath, grade: "3", seed: 21, enabledKinds: ALL_ON, recentRunes: ["rune-k1/fx-mend-01"] }))).toEqual(base);
+    const sci = buildDeedRun(input({ deed: deedScience, grade: "3", seed: 5, enabledKinds: ALL_ON }));
+    expect(buildDeedRun(input({ deed: deedScience, grade: "3", seed: 5, enabledKinds: ALL_ON, recentRunes: ["rune-k1/fx-mend-01"] }))).toEqual(sci);
+    const reading = findDeed("well-signs")!;
+    const trail = buildDeedRun(input({ deed: reading, grade: "3", seed: 4, enabledKinds: ALL_ON }));
+    expect(buildDeedRun(input({ deed: reading, grade: "3", seed: 4, enabledKinds: ALL_ON, recentRunes: ["rune-k1/fx-mend-01"] }))).toEqual(trail);
   });
 });
 
@@ -1792,5 +1961,255 @@ describe("reading side quests are clue trails (H7: R-H9, R-H10, R-H21, R-H22)", 
       expect(r.questions).toHaveLength(4);
       for (const q of r.questions) expect(CLUE_AT.get(q.id)!.level, `seed ${seed}`).toBeGreaterThanOrEqual(2);
     }
+  });
+});
+
+/**
+ * Review Focus 3 and the I3 brief: a run with no rune candidate is byte-identical to what it was before
+ * `spell-g1` joined the catalog. The digests below were taken at the commit before I3 (925f6a0), with the
+ * same inputs, so they pin the whole built run (skills, tasks, choice order) for every grade and seed.
+ * If one moves, a choice run changed: that needs a person's ruling, not a new digest.
+ */
+describe("a language choice run is byte-identical to before the rune row (I3)", () => {
+  const LANGUAGE_SKILLS = ["lang-gk", "lang-g1", "lang-g3", "spell-g23", "spell-g45", "vocab-g45", "vocab-g68", "vocab-g912"];
+  const items = LANGUAGE_SKILLS.flatMap((id) => [0, 1, 2, 3, 4].flatMap((level) => poolItems(`${id}`, 12, level).map((it) => ({ ...it, id: `${it.id}-L${level}`, level }))));
+  const digest = (over: Partial<BuildRunInput>): string => {
+    const runs = GRADES.flatMap((grade) =>
+      Array.from({ length: 6 }, (_, i) =>
+        buildDeedRun(input({ deed: choiceLanguage, grade, seed: 1000 + i * 37, poolItems: items, enabledKinds: ALL_ON, ...over })),
+      ),
+    );
+    return createHash("sha256").update(JSON.stringify(runs)).digest("hex").slice(0, 16);
+  };
+
+  it("holds for every grade and six seeds, with every kind on", () => {
+    expect(digest({})).toBe("2d959e9cc6b8f325");
+  });
+
+  it("holds with a rune focus pick, which a choice run drops", () => {
+    expect(digest({ focusSkillIds: ["spell-g1"] })).toBe(digest({}));
+  });
+});
+
+/**
+ * Determinism (I11): every run with no rune candidate is byte-identical to what it was before the
+ * language deeds named `rune`. The digests were taken at b84534d (the commit before I11) with these
+ * exact inputs: every deed, every grade, three seeds, an item pool for every pool skill at three levels.
+ * Math, reading and science run with every kind on; language with runes off (its only way to have no
+ * rune candidate). The gate's digest has every deed with no hands-on kind. If one moves, a run changed
+ * that I11 must not touch: that needs a person's ruling, not a new digest.
+ */
+describe("a run with no rune candidate is byte-identical to before the language deeds were runes (I11)", () => {
+  const RUNES_OFF: ReadonlySet<TaskKind> = new Set<TaskKind>(["measure", "lock", "trail"]);
+  const allItems = SKILLS.filter((s) => s.source.kind === "pool")
+    .flatMap((s) => [0, 2, 4].flatMap((level) => poolItems(s.id, 10, level).map((it) => ({ ...it, id: `${it.id}-L${level}` }))));
+  const digest = (on: (area: string) => ReadonlySet<TaskKind>): string => {
+    const runs = DEEDS.flatMap((deed) => GRADES.flatMap((grade) =>
+      [3, 77, 4096].map((seed) => buildDeedRun(input({ deed, grade, seed, poolItems: allItems, enabledKinds: on(deed.area) })))));
+    return createHash("sha256").update(JSON.stringify(runs)).digest("hex").slice(0, 16);
+  };
+
+  it("holds for every deed, grade and seed: other areas with every kind on, language with runes off", () => {
+    expect(digest((area) => (area === "language" ? RUNES_OFF : ALL_ON))).toBe("75018afbd8baa287");
+  });
+
+  it("holds at the gate, for every deed", () => {
+    expect(digest(() => CHOICE_ONLY)).toBe("94f12c101c3d02f2");
+  });
+});
+
+describe("language side quests are rune walks (I11: R-I7, R-I8, R-I9, R-I19)", () => {
+  // The real deed, a rune walk since I11, drawing from the shipped rune pools.
+  const language = findDeed("mill-ledger")!;
+  const RUNES_OFF: ReadonlySet<TaskKind> = new Set<TaskKind>(["measure", "lock", "trail"]);
+  type G = (typeof GRADES)[number];
+  /** The skill a speller's runes credit, by grade (R-I6, R-I7). */
+  const RUNE_SKILL_AT: Record<G, string> = {
+    K: "lang-gk", 1: "spell-g1", 2: "spell-g23", 3: "lang-g3", 4: "spell-g45", 5: "vocab-g45",
+    6: "vocab-g68", 7: "vocab-g68", 8: "vocab-g68", 9: "vocab-g912", 10: "vocab-g912", 11: "vocab-g912", 12: "vocab-g912",
+  };
+  /** I3's choice table: what the same side quest plays with runes off or at the gate (Review Focus 3). */
+  const CHOICE_SKILL_AT: Record<G, string> = { ...RUNE_SKILL_AT, 1: "lang-g1" };
+  const LANGUAGE_ITEMS = ["lang-gk", "lang-g1", "lang-g3", "spell-g23", "spell-g45", "vocab-g45", "vocab-g68", "vocab-g912"].flatMap((id) => poolItems(id, 30));
+  const run = (over: Partial<BuildRunInput> = {}) => buildDeedRun(input({ deed: language, enabledKinds: ALL_ON, poolItems: LANGUAGE_ITEMS, ...over }));
+  const kinds = (r: { questions: Task[] }) => r.questions.map(kindOf);
+  const allRune = (r: { questions: Task[] }) => r.questions.length > 0 && kinds(r).every((k) => k === "rune");
+  const effectOf = (q: Task) => (q as RuneTask).effect;
+  /** What the fresh draw picks for this input, from the same seeded rng `buildDeedRun` starts with. */
+  const drawn = (g: G, focus: string[], seed: number) =>
+    selectSkills(runCandidates(language, g, focus, ALL_ON), {}, seededRng(seed), {}, new Set(focus)).map((s) => s.id);
+  afterEach(() => __setRunePoolsForTest(null));
+
+  it("a speller's rune skill at every grade, with runes on; runes off, or the gate, gives I3's choice table (Review Focus 3)", () => {
+    for (const g of GRADES) {
+      expect(runCandidates(language, g, [], ALL_ON).map((s) => s.id), `grade ${g}`).toEqual([RUNE_SKILL_AT[g]]);
+      expect(runCandidates(language, g, [], new Set<TaskKind>(["rune"])).map((s) => s.id), `grade ${g} runes alone`).toEqual([RUNE_SKILL_AT[g]]);
+      expect(runCandidates(language, g).map((s) => s.id), `grade ${g} no set`).toEqual([RUNE_SKILL_AT[g]]);
+      expect(runePoolFor(RUNE_SKILL_AT[g]), `grade ${g}`).toBeDefined();
+      for (const on of [RUNES_OFF, CHOICE_ONLY]) expect(runCandidates(language, g, [], on).map((s) => s.id), `grade ${g} off`).toEqual([CHOICE_SKILL_AT[g]]);
+    }
+  });
+
+  it("a walking run turns grade 1's [lang-g1, spell-g1] into [spell-g1], which only rune-k1 credits (R-I7, I3's carry-over)", () => {
+    expect(chooseSkills(language, "1").map((s) => s.id)).toEqual(["lang-g1", "spell-g1"]);
+    expect(runCandidates(language, "1", [], ALL_ON).map((s) => s.id)).toEqual(["spell-g1"]);
+    expect(runePoolFor("spell-g1")?.poolId).toBe("rune-k1");
+    expect(findSkill("spell-g1")!.source.kind).toBe("rune");
+  });
+
+  it("never walks a hero above their language grade: every rune skill is at or below it, so review stays where it was (RH-c)", () => {
+    for (const g of GRADES) {
+      const skill = findSkill(RUNE_SKILL_AT[g])!;
+      expect(skill.grades.some((sg) => GRADES.indexOf(sg) <= GRADES.indexOf(g)), `grade ${g}: ${skill.id}`).toBe(true);
+      // Without a focus, the run practises exactly that skill.
+      for (let seed = 1; seed <= 5; seed++) expect(run({ grade: g, seed }).skillIds, `grade ${g} seed ${seed}`).toEqual([RUNE_SKILL_AT[g]]);
+    }
+  });
+
+  it("a rune run is three words of three effects: grade 3, seed 1, the default length", () => {
+    const r = run({ grade: "3", seed: 1 });
+    expect(r.skillIds).toEqual(["lang-g3"]);
+    expect(r.questions).toHaveLength(3);
+    expect(allRune(r)).toBe(true);
+    for (const q of r.questions) expect(q.id).toMatch(/^lang-g3:rune:[0-9a-f]{8}$/);
+    expect(new Set(r.questions.map(effectOf)).size).toBe(3);
+    // Unbound: the start binds each word to an object (R-I22), the engine does not.
+    for (const q of r.questions) expect((q as RuneTask).object).toBeNull();
+  });
+
+  it("asks two or three words, whatever the grown-up's length: 2 at 4, 3 at 8 and at 12 (R-I9)", () => {
+    for (const g of GRADES) {
+      expect(run({ grade: g, seed: 2, sideQuestLength: 4 }).questions, `grade ${g}`).toHaveLength(2);
+      expect(run({ grade: g, seed: 2, sideQuestLength: 8 }).questions, `grade ${g}`).toHaveLength(3);
+      expect(run({ grade: g, seed: 2, sideQuestLength: 12 }).questions, `grade ${g}`).toHaveLength(3);
+    }
+  });
+
+  it("a walking rune run takes no other kind: a spell-g23 choice miss is left out, and a rune miss comes back last", () => {
+    const choiceMiss: ChoiceTask = { id: "spell-g23-item-3", skillId: "spell-g23", prompt: "Prompt 3", choices: ["A3", "B3"], answer: "A3" };
+    const runeMiss = run({ grade: "2", seed: 99 }).questions[0];
+    expect(kindOf(runeMiss)).toBe("rune");
+    const r = run({ grade: "2", seed: 1, recentMisses: [choiceMiss, runeMiss] });
+    expect(r.questions).toHaveLength(3);
+    expect(allRune(r)).toBe(true);
+    expect(r.questions.some((q) => q.id === choiceMiss.id)).toBe(false);
+    expect(r.questions[2]).toEqual(runeMiss);
+    expect(r.questions.slice(0, 2).some((q) => q.id === runeMiss.id)).toBe(false);
+  });
+
+  it("runes off: eight multiple-choice questions, as before (a regression guard, F-22)", () => {
+    const r = run({ grade: "3", seed: 1, enabledKinds: RUNES_OFF });
+    expect(r.questions).toHaveLength(8);
+    expect(r.skillIds).toEqual(["lang-g3"]);
+    choices(r.questions);
+    expect(r).toEqual(buildDeedRun(input({ deed: choiceLanguage, grade: "3", seed: 1, enabledKinds: RUNES_OFF, poolItems: LANGUAGE_ITEMS })));
+  });
+
+  it("the gate is multiple choice, at the grown-up's whole length (a regression guard, F-22)", () => {
+    const r = run({ grade: "3", seed: 1, enabledKinds: CHOICE_ONLY });
+    expect(r.questions).toHaveLength(8);
+    choices(r.questions);
+    expect(r).toEqual(buildDeedRun(input({ deed: choiceLanguage, grade: "3", seed: 1, enabledKinds: CHOICE_ONLY, poolItems: LANGUAGE_ITEMS })));
+    expect(run({ grade: "3", seed: 1, enabledKinds: CHOICE_ONLY, sideQuestLength: 12 }).questions).toHaveLength(12);
+  });
+
+  it("a Crown Challenge is three runes", () => {
+    for (const g of GRADES) {
+      const r = run({ grade: g, seed: 1, questionCount: CHALLENGE.questions, levelBoost: CHALLENGE.levelBoost, recentMisses: [], dueSkillIds: [] });
+      expect(r.questions, `grade ${g}`).toHaveLength(3);
+      expect(allRune(r), `grade ${g}`).toBe(true);
+    }
+  });
+
+  describe("a grown-up's focus no rune can play wins (R-I8, the owner's answer)", () => {
+    it("a drawn lang-g1 focus makes the side quest multiple choice, at the whole length", () => {
+      // Seed 1 draws the lang-g1 focus (recorded).
+      expect(drawn("1", ["lang-g1"], 1)).toEqual(["lang-g1"]);
+      const r = run({ grade: "1", seed: 1, focusSkillIds: ["lang-g1"] });
+      expect(r.questions).toHaveLength(8);
+      expect(kinds(r)).not.toContain("rune");
+      choices(r.questions);
+      const long = run({ grade: "1", seed: 1, focusSkillIds: ["lang-g1"], sideQuestLength: 12 });
+      expect(long.questions).toHaveLength(12);
+      expect(kinds(long)).not.toContain("rune");
+    });
+
+    it("the same focus left undrawn keeps the walk", () => {
+      // Seed 7 draws spell-g1 (recorded).
+      expect(drawn("1", ["lang-g1"], 7)).toEqual(["spell-g1"]);
+      const r = run({ grade: "1", seed: 7, focusSkillIds: ["lang-g1"] });
+      expect(r.questions).toHaveLength(3);
+      expect(allRune(r)).toBe(true);
+      for (const q of r.questions) expect(q.skillId).toBe("spell-g1");
+    });
+
+    it("with runes off, a grade-1 lang-g1 focus run is the pre-slice choice run (a regression guard, F-22, RI-a / N13)", () => {
+      // Recorded at b84534d, before the language deeds named `rune`, with the same inputs.
+      const BEFORE: Record<number, string[]> = {
+        1: ["lang-g1-item-14", "lang-g1-item-24", "lang-g1-item-8", "lang-g1-item-10", "lang-g1-item-16", "lang-g1-item-6", "lang-g1-item-11", "lang-g1-item-12"],
+        2: ["lang-g1-item-18", "lang-g1-item-6", "lang-g1-item-3", "lang-g1-item-13", "lang-g1-item-7", "lang-g1-item-19", "lang-g1-item-22", "lang-g1-item-20"],
+        3: ["lang-g1-item-7", "lang-g1-item-27", "lang-g1-item-0", "lang-g1-item-21", "lang-g1-item-22", "lang-g1-item-10", "lang-g1-item-16", "lang-g1-item-19"],
+        4: ["lang-g1-item-12", "lang-g1-item-0", "lang-g1-item-5", "lang-g1-item-18", "lang-g1-item-20", "lang-g1-item-27", "lang-g1-item-24", "lang-g1-item-19"],
+        5: ["lang-g1-item-29", "lang-g1-item-21", "lang-g1-item-28", "lang-g1-item-3", "lang-g1-item-11", "lang-g1-item-24", "lang-g1-item-1", "lang-g1-item-19"],
+        6: ["lang-g1-item-15", "lang-g1-item-21", "lang-g1-item-3", "lang-g1-item-17", "lang-g1-item-13", "lang-g1-item-25", "lang-g1-item-16", "lang-g1-item-8"],
+      };
+      for (const [seed, expected] of Object.entries(BEFORE)) {
+        const r = buildDeedRun(input({ deed: language, grade: "1", seed: Number(seed), poolItems: poolItems("lang-g1", 30), focusSkillIds: ["lang-g1"], enabledKinds: RUNES_OFF }));
+        expect(r.questions.map((q) => q.id), `seed ${seed}`).toEqual(expected);
+        for (const q of r.questions) expect("kind" in q).toBe(false);
+      }
+    });
+
+    it("a vocabulary focus a rune presents stays a rune, never a sort, with locks on (R-I8: the rune wins over 4a's sort)", () => {
+      expect(ALL_ON.has("lock")).toBe(true);
+      for (const [g, focus] of [["6", "vocab-g68"], ["4", "vocab-g45"], ["9", "vocab-g912"]] as const) {
+        for (let seed = 1; seed <= 40; seed++) {
+          const r = run({ grade: g, seed, focusSkillIds: [focus] });
+          expect(allRune(r), `grade ${g} seed ${seed}`).toBe(true);
+          expect(r.questions, `grade ${g} seed ${seed}`).toHaveLength(3);
+        }
+      }
+    });
+
+    it("with runes off, 4a's sort still takes a vocabulary focus, as before slice 6", () => {
+      const sorts: Task[] = [];
+      for (let seed = 1; seed <= 40; seed++) {
+        const r = run({ grade: "5", seed, focusSkillIds: ["vocab-g45"], enabledKinds: RUNES_OFF });
+        expect(kinds(r), `seed ${seed}`).not.toContain("rune");
+        sorts.push(...r.questions.filter((q) => q.skillId === "vocab-g45"));
+        expect(r, `seed ${seed}`).toEqual(buildDeedRun(input({ deed: choiceLanguage, grade: "5", seed, focusSkillIds: ["vocab-g45"], enabledKinds: RUNES_OFF, poolItems: LANGUAGE_ITEMS })));
+      }
+      expect(sorts.length).toBeGreaterThan(0);
+      for (const t of sorts) {
+        expect(kindOf(t)).toBe("lock");
+        expect((t as LockTask).puzzle).toBe("sort");
+      }
+    });
+  });
+
+  describe("recentRunes (R-I19, R-I22)", () => {
+    const pool = runePoolFor("lang-g3")!;
+    const levelOf = new Map(pool.entries.map((e) => [runeKey(pool.poolId, e.id), e.level]));
+
+    it("with every near entry in it, the run draws far entries", () => {
+      // Mastery 0: the near levels are 0 and 1.
+      const recent = pool.entries.filter((e) => e.level <= 1).map((e) => runeKey(pool.poolId, e.id));
+      for (let seed = 1; seed <= 10; seed++) {
+        expect(run({ grade: "3", seed }).questions.some((q) => levelOf.get((q as RuneTask).entry)! <= 1), `seed ${seed} draws near without it`).toBe(true);
+        const r = run({ grade: "3", seed, recentRunes: recent });
+        expect(r.questions).toHaveLength(3);
+        for (const q of r.questions) expect(levelOf.get((q as RuneTask).entry), `seed ${seed}`).toBeGreaterThanOrEqual(2);
+      }
+    });
+
+    it("with an effect key in it, that effect comes last", () => {
+      for (let seed = 1; seed <= 20; seed++) {
+        expect(run({ grade: "3", seed, recentRunes: [effectKey("mend")] }).questions.map(effectOf), `seed ${seed}`).not.toContain("mend");
+        // Four passed over: the one left is drawn first, then the others in turn.
+        const four = run({ grade: "3", seed, recentRunes: (["mend", "light", "water", "open"] as const).map(effectKey) }).questions.map(effectOf);
+        expect(four[0], `seed ${seed}`).toBe("grow");
+        expect(four.slice(1), `seed ${seed}`).not.toContain("grow");
+      }
+    });
   });
 });

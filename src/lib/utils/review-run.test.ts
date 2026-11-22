@@ -94,6 +94,22 @@ describe("never above the hero's own grade in a strand (RH-c)", () => {
     }
   });
 
+  it("never offers a rune skill: spell-g1 has no choice questions, so its mastery lights no stone and builds no run (R-I7)", () => {
+    const mastery = [row("spell-g1", 2, 300), row("lang-g1", 1, 9)];
+    const G1 = { math: "1", reading: "1", language: "1", science: "1" } as const;
+    // Alone, it is never due, as a hero at its own grade and as a focus pick.
+    for (const scope of [{ grades: G1 }, { grades: G1, focusSkillIds: ["spell-g1"] }, ANY, { grades: TOP, focusSkillIds: ["spell-g1"] }]) {
+      expect(reviewDue([row("spell-g1", 2, 300)], NOW, scope)).toBe(false);
+    }
+    // Beside a reviewable skill, only that one comes back, whether or not it is also a miss or a focus.
+    const r = run({ mastery, grades: G1, focusSkillIds: ["spell-g1"], recentMisses: [miss("spell-g1", "rm1")], poolItems: poolFor("lang-g1", "spell-g1") });
+    expect(r.skillIds).toEqual(["lang-g1"]);
+    expect(r.questions.map((q) => q.id)).not.toContain("rm1");
+    expect(r.questions.every((q) => q.skillId === "lang-g1")).toBe(true);
+    // A hero with only that row has nothing to review.
+    expect(run({ mastery: [row("spell-g1", 2, 300)], grades: G1, poolItems: poolFor("spell-g1") })).toEqual({ skillIds: [], questions: [] });
+  });
+
   it("a stored read-g1 miss does not bring it back for a K hero either", () => {
     const r = run({ mastery: [row("read-g1", 2, 300), row("sight-k1", 1, 9)], grades: K, recentMisses: [miss("read-g1", "r1")], poolItems: poolFor("read-g1", "sight-k1") });
     expect(r.questions.map((q) => q.id)).not.toContain("r1");

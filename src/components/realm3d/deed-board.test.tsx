@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/actions/deeds", () => ({
@@ -12,8 +12,8 @@ vi.mock("@/lib/utils/speech", () => ({ canSpeak: () => true, speak: vi.fn(), sto
 
 import { answerDeedQuestion, completeDeedRun, resolveDeedQuestion, retryDeedQuestion, startDeedRun } from "@/lib/actions/deeds";
 import { villagerById } from "@/lib/realm/villagers";
-import { speak } from "@/lib/utils/speech";
-import { DeedBoard, deedResultOf } from "./deed-board";
+import { speak, stopSpeaking } from "@/lib/utils/speech";
+import { DeedBoard, deedResultOf, RunResultCard } from "./deed-board";
 import { ALL_ANSWERED } from "@/lib/utils/deed-run-flow";
 import type { RunStart } from "@/lib/utils/deed-run-types";
 
@@ -827,6 +827,197 @@ describe("a reading trail on the board (H8)", () => {
 
   it("narrated clues make no choice task speak with read-aloud off", async () => {
     await begin({ ...run, responses: [null, null], narrateClues: true });
+    expect(speak).not.toHaveBeenCalled();
+  });
+});
+
+describe("a rune on the board (R-I11, R-I18)", () => {
+  type RuneClient = Extract<RunStart["questions"][number], { kind: "rune" }>;
+  const WAGON = { id: "rune:west-wagon", label: "the broken wagon" };
+  const LANTERN = { id: "rune:lane-lantern", label: "the dark lantern" };
+  /** A K–1 dictation: "mend", tiles d m a e n i. */
+  const k1 = (n: number, object: RuneClient["view"]["object"] = WAGON): RuneClient => ({
+    kind: "rune", id: `lang-gk:rune:0000000${n}`, skillId: "lang-gk", prompt: "The wagon is broken. Build the word you hear.", readAloud: "Mend. Mend the wagon. Mend.",
+    view: { effect: "mend", object, tiles: ["d", "m", "a", "e", "n", "i"], listen: true },
+  });
+  /** A grade 2–3 dictation whose word is its effect id (R-I18, owner; RI-d). */
+  const g23: RuneClient = {
+    kind: "rune", id: "spell-g23:rune:1a2b3c4d", skillId: "spell-g23", prompt: "The lantern is dark. Build the word you hear.", readAloud: "Light. Light the lantern. Light.",
+    view: { effect: "light", object: LANTERN, tiles: ["t", "ee", "l", "s", "igh", "f"], listen: true },
+  };
+  /** A meaning (grade 4 and up). */
+  const meaning: RuneClient = {
+    kind: "rune", id: "vocab-g68:rune:9f8e7d6c", skillId: "vocab-g68", prompt: "To put a thing back the way it was.", readAloud: "To put a thing back the way it was.",
+    view: { effect: "mend", object: WAGON, tiles: ["ore", "st", "pre", "re", "ive", "ed"], listen: false },
+  };
+  const runeRun = (questions: RuneClient[], over: Partial<RunStart> = {}): RunStart => ({
+    ...run, deed: { id: "mill-ledger", title: "The Mill Ledger", story: "The miller needs words.", area: "language" }, questions, responses: questions.map(() => null), ...over,
+  });
+  const OPEN = { correct: false, secondChance: true, hint: "It rhymes with send.", feedback: "wrong_word" as const, firstPick: "r:1,2,4,0" };
+  const MISS = { correct: false, secondChance: false, answer: "The word was mend.", explain: "Mend means to make whole.", reveal: "r:1,3,4,0" };
+
+  async function begin(r: RunStart, over: Partial<React.ComponentProps<typeof DeedBoard>> = {}) {
+    vi.mocked(startDeedRun).mockResolvedValue(r);
+    board(over);
+    vi.mocked(speak).mockClear();
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
+  }
+  const click = (name: string | RegExp) => act(async () => void fireEvent.click(screen.getByRole("button", { name })));
+  const castWord = async (...tiles: string[]) => {
+    const tray = screen.getByRole("group", { name: "Runes to tap" });
+    for (const t of tiles) fireEvent.click(within(tray).getByRole("button", { name: t }));
+    await click("Cast");
+  };
+
+  it("a dictation is spoken with read-aloud off: a K–1 word", async () => {
+    await begin(runeRun([k1(1)]));
+    expect(speak).toHaveBeenCalledWith("Mend. Mend the wagon. Mend.");
+  });
+
+  it("a dictation is spoken with read-aloud off: a grade-2 hero's word (R-I18, owner)", async () => {
+    await begin(runeRun([g23]));
+    expect(speak).toHaveBeenCalledWith("Light. Light the lantern. Light.");
+    // The word is heard, never shown, and the effect is a picture (RI-d).
+    expect(document.body.textContent).not.toMatch(/\blight\b/i);
+  });
+
+  it("a meaning is not spoken unless asked: the stone's Hear the meaning says it", async () => {
+    await begin(runeRun([meaning]));
+    expect(speak).not.toHaveBeenCalled();
+    await click("Hear the meaning");
+    expect(speak).toHaveBeenLastCalledWith("To put a thing back the way it was.");
+  });
+
+  it("one read control on a rune task: the stone's, never the board's Read aloud (RI-a / S4)", async () => {
+    await begin(runeRun([k1(1)]));
+    expect(screen.queryByRole("button", { name: "Read aloud" })).toBeNull();
+    expect(screen.getAllByRole("button", { name: /^Hear the (word|meaning)$/ })).toHaveLength(1);
+    cleanup();
+    await begin({ ...run, responses: [null, null] });
+    expect(screen.getByRole("button", { name: "Read aloud" })).toBeInTheDocument();
+  });
+
+  it("the board speaks a rune's second-chance and miss lines", async () => {
+    vi.mocked(answerDeedQuestion).mockResolvedValue(OPEN);
+    vi.mocked(retryDeedQuestion).mockResolvedValue(MISS);
+    await begin(runeRun([k1(1), k1(2, LANTERN)]));
+    await castWord("m", "a", "n", "d");
+    expect(answerDeedQuestion).toHaveBeenCalledWith("run-1", 0, "r:1,2,4,0");
+    expect(screen.getByText("Not that word. It rhymes with send.")).toBeInTheDocument();
+    expect(speak).toHaveBeenLastCalledWith("Not that word. It rhymes with send.");
+    await castWord("m", "e", "n", "d");
+    expect(retryDeedQuestion).toHaveBeenCalledWith("run-1", 0, "r:1,3,4,0");
+    expect(speak).toHaveBeenLastCalledWith("The word was mend. Mend means to make whole.");
+  });
+
+  it("a miss line and Show me are brought into the board's view on a short screen (smoke bug 1)", async () => {
+    const into = vi.fn();
+    const was = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = into;
+    try {
+      vi.mocked(answerDeedQuestion).mockResolvedValue(OPEN);
+      await begin(runeRun([k1(1), k1(2, LANTERN)]));
+      expect(into).not.toHaveBeenCalled();
+      await castWord("m", "a", "n", "d");
+      expect(into).toHaveBeenCalledWith({ block: "nearest" });
+      expect(into.mock.contexts.at(-1)).toBe(document.querySelector(".r3-feedback"));
+    } finally {
+      Element.prototype.scrollIntoView = was;
+    }
+  });
+
+  it("a two-rune walking run in the Realm shows Set off with both labels, which hands the run to the walk", async () => {
+    const onWalk = vi.fn();
+    const two = runeRun([k1(1), k1(2, LANTERN)]);
+    await begin(two, { onWalk });
+    expect(screen.getByText("Two things in the village need a rune: the broken wagon and the dark lantern. Walk to each one and cast it there.")).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "The rune stone" })).toBeNull();
+    await click("Set off");
+    expect(onWalk).toHaveBeenCalledTimes(1);
+    expect(onWalk).toHaveBeenCalledWith(two);
+  });
+
+  it("the Set off card shows no stop's prompt: each is asked at its own stone (I8 carry-over)", async () => {
+    await begin(runeRun([k1(1), k1(2, LANTERN)]), { onWalk: vi.fn() });
+    expect(screen.getByRole("button", { name: "Set off" })).toBeInTheDocument();
+    expect(screen.queryByText("The wagon is broken. Build the word you hear.")).toBeNull();
+    expect(document.querySelector(".r3-question-text")).toBeNull();
+    // On the stone (no walk), the prompt is the question line as before.
+    cleanup();
+    await begin(runeRun([k1(1), k1(2, LANTERN)]));
+    expect(screen.getByText("The wagon is broken. Build the word you hear.")).toHaveClass("r3-question-text");
+  });
+
+  it("no task word is spoken at Set off, even a dictation with read-aloud on; the walk's card says the destination once Set off is pressed (RI-a / S5, review I-1, rune-walk.test)", async () => {
+    await begin(runeRun([k1(1), k1(2, LANTERN)]), { onWalk: vi.fn(), profile: { readAloud: true, untimed: true } });
+    expect(screen.getByRole("button", { name: "Set off" })).toBeInTheDocument();
+    expect(speak).not.toHaveBeenCalled();
+  });
+
+  it("a run picked back up at its finish step speaks nothing unprompted: there is nothing left to cast (I8 parked)", async () => {
+    await begin(runeRun([k1(1), k1(2, LANTERN)], { responses: ["r:1,3,4,0", "r:1,3,4,0"] }), { profile: { readAloud: true, untimed: true } });
+    expect(screen.getByText("Every answer is in.")).toBeInTheDocument();
+    expect(speak).not.toHaveBeenCalled();
+  });
+
+  it("Hear the word on the board's stone is the board's own line: closing the board stops it (I8 parked)", async () => {
+    const token = { said: "Mend. Mend the wagon. Mend." };
+    await begin(runeRun([k1(1), k1(2, LANTERN)]));
+    vi.mocked(speak).mockReturnValue(token as never);
+    fireEvent.click(screen.getByRole("button", { name: "Hear the word" }));
+    vi.mocked(stopSpeaking).mockClear();
+    cleanup();
+    expect(stopSpeaking).toHaveBeenCalledWith(token);
+    vi.mocked(speak).mockReturnValue(undefined as never);
+  });
+
+  it("a rune run with a stop that left the catalog is not walked: it plays on the stone (RI-a / N5)", async () => {
+    await begin(runeRun([k1(1), k1(2, { id: "rune:gone", label: "the broken gone thing" })]), { onWalk: vi.fn() });
+    expect(screen.queryByRole("button", { name: "Set off" })).toBeNull();
+    expect(screen.getByRole("group", { name: "The rune stone" })).toBeInTheDocument();
+  });
+
+  it("a run that may not be walked (runes off since it began) plays on the stone, and its finish mirrors the fixes (RI-a / S7)", async () => {
+    const canWalk = vi.fn(() => false);
+    const onRuneOutcomes = vi.fn();
+    const runes = [{ objectId: "rune:west-wagon", fixed: true }];
+    vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "The word was mend." });
+    vi.mocked(completeDeedRun).mockResolvedValue({
+      correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 3, previousBest: 0, deedBest: 3, counted: true, crowned: false, kind: "deed",
+      building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 6, maxStars: 9, practice: false }, minutesEarned: 3, sideQuestPayFull: false, runes,
+    });
+    const one = runeRun([k1(1)]);
+    await begin(one, { onWalk: vi.fn(), canWalk, onRuneOutcomes });
+    expect(canWalk).toHaveBeenCalledWith(one);
+    expect(screen.queryByRole("button", { name: "Set off" })).toBeNull();
+    await castWord("m", "e", "n", "d");
+    await click("Finish side quest");
+    expect(onRuneOutcomes).toHaveBeenCalledTimes(1);
+    expect(onRuneOutcomes).toHaveBeenCalledWith(runes);
+  });
+
+  it("a walkable run is still offered the walk when canWalk says so", async () => {
+    await begin(runeRun([k1(1), k1(2, LANTERN)]), { onWalk: vi.fn(), canWalk: () => true });
+    expect(screen.getByRole("button", { name: "Set off" })).toBeInTheDocument();
+  });
+
+  it("a rune world run's result card draws the object mended, or still broken", () => {
+    const one = runeRun([k1(1)], { kind: "world", deed: { id: "rune:west-wagon", title: "The rune stone", story: "Something here needs a rune.", area: "language" } });
+    const summary = { correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 0 as const, previousBest: 0 as const, deedBest: 0 as const, counted: false, crowned: false, kind: "world" as const, building: null, minutesEarned: 0, sideQuestPayFull: false };
+    const fixed = render(<RunResultCard run={one} summary={{ ...summary, runes: [{ objectId: "rune:west-wagon", fixed: true }] }} onClose={() => {}} />);
+    expect(screen.getByRole("heading", { name: "The rune works!" })).toBeInTheDocument();
+    const mended = fixed.container.querySelector("svg.rune-pic")!.innerHTML;
+    cleanup();
+    const missed = render(<RunResultCard run={one} summary={{ ...summary, flawless: false, runes: [{ objectId: "rune:west-wagon", fixed: false, reason: "missed" }] }} onClose={() => {}} />);
+    expect(screen.getByRole("heading", { name: "The rune fades." })).toBeInTheDocument();
+    expect(missed.container.querySelector("svg.rune-pic")!.innerHTML).not.toBe(mended);
+    cleanup();
+    const gone = render(<RunResultCard run={one} summary={{ ...summary, runes: [{ objectId: "rune:gone", fixed: false, reason: "missed" }] }} onClose={() => {}} />);
+    expect(gone.container.querySelector("svg.rune-pic")).toBeNull();
+  });
+
+  it("other kinds' speech is unchanged: a choice is not spoken with read-aloud off", async () => {
+    await begin({ ...run, responses: [null, null] });
     expect(speak).not.toHaveBeenCalled();
   });
 });

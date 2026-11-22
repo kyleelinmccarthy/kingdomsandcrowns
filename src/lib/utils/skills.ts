@@ -9,13 +9,17 @@ export type SkillArea = "math" | "reading" | "language" | "science" | "logic";
  * questions, so it is never drawn as `choice` and a choice draw of it is empty. A `trail` skill is
  * the same in this respect: it is practised only as a reading trail (a clue answered by a place),
  * whose clues live in `src/content/trails/` and are credited to the skill by their pool (R-H8), so
- * it has no choice questions either. `choiceDrawable` is the one test of "has choice questions".
+ * it has no choice questions either. A `rune` skill is the third of its kind (slice 6, R-I7): it is
+ * practised only as rune spellcraft (a word built from tiles), whose words live in `src/content/runes/`
+ * and are credited to the skill by their pool, so it has no choice questions. `choiceDrawable` is the
+ * one test of "has choice questions".
  */
 export type SkillSource =
   | { kind: "generator"; generatorId: string }
   | { kind: "pool"; poolId: string }
   | { kind: "lock" }
-  | { kind: "trail" };
+  | { kind: "trail" }
+  | { kind: "rune" };
 
 /**
  * `grades` is readonly. Nothing shares an array any more — every row names its own single
@@ -27,8 +31,8 @@ export type Skill = { id: string; label: string; area: SkillArea; grades: readon
 
 /**
  * True when a multiple-choice question can be drawn for the skill: a generator or a pool. A lock
- * skill and a trail skill have none (their tasks are another kind), so a choice draw of one is
- * empty and a run that can only play choice never takes one as a candidate.
+ * skill, a trail skill and a rune skill have none (their tasks are another kind), so a choice draw
+ * of one is empty and a run that can only play choice never takes one as a candidate.
  */
 export function choiceDrawable(s: Skill): boolean {
   return s.source.kind === "generator" || s.source.kind === "pool";
@@ -68,6 +72,7 @@ const gen = (generatorId: string): SkillSource => ({ kind: "generator", generato
 const pool = (poolId: string): SkillSource => ({ kind: "pool", poolId });
 const lock = (): SkillSource => ({ kind: "lock" });
 const trail = (): SkillSource => ({ kind: "trail" });
+const rune = (): SkillSource => ({ kind: "rune" });
 
 export const SKILLS: Skill[] = [
   { id: "add-10", label: "Addition within 10", area: "math", grades: ["K"], source: gen("add") },
@@ -191,6 +196,13 @@ export const SKILLS: Skill[] = [
    */
   { id: "lang-gk", label: "Letters and words", area: "language", grades: ["K"], source: pool("lang-gk") },
   { id: "lang-g1", label: "Sentences and word kinds", area: "language", grades: ["1"], source: pool("lang-g1") },
+  /**
+   * Spelling at grade 1, a rune-only row (R-I7). `lang-g1` is sentences and word kinds, not spelling, and
+   * grade 1 has no spelling pool, so this row is credited by the rune pools (`rune-k1`) alone. It has no
+   * multiple-choice questions: a run that cannot play runes (runes off, the gate) never takes it, review
+   * never offers it, and a grade 1 hero is served `lang-g1` exactly as before.
+   */
+  { id: "spell-g1", label: "Spelling", area: "language", grades: ["1"], source: rune() },
   { id: "lang-g3", label: "Spelling and verbs", area: "language", grades: ["3"], source: pool("lang-g3") },
   /**
    * Reading at the three grades this task authored. Reading had pools at K and grade 2 only, so

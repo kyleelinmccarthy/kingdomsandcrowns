@@ -59,6 +59,7 @@ vi.mock("@/lib/actions/improvements", () => ({ markBuildingsAnnounced: vi.fn(asy
 vi.mock("@/lib/actions/realm-chronicle", () => ({ getChronicle: vi.fn(async () => ({ weeks: [], canSeal: false, lore: [] })) }));
 vi.mock("@/lib/actions/review", () => ({ startReviewRun: vi.fn(), getReviewDue: vi.fn(async () => false) }));
 vi.mock("@/lib/actions/world-locks", () => ({ startWorldLockRun: vi.fn(), startTowerRun: vi.fn() }));
+vi.mock("@/lib/actions/rune-objects", () => ({ startRuneObjectRun: vi.fn() }));
 vi.mock("@/lib/actions/spells", () => ({ getSpellbook: vi.fn(async () => ({ spells: [], slots: 4, level: 3, unlocked: ["ember", "tide", "bolt", "orb"], schoolCounts: { element: 2, form: 0, modifier: 0 }, subjectNamesBySchool: { element: ["Math"], form: [], modifier: [] } })) }));
 vi.mock("@/lib/actions/realm", () => ({ getRealmKingdom: vi.fn() }));
 vi.mock("@/lib/actions/quest-assignments", () => ({ getAssignmentQuestInfo: vi.fn(async () => null) }));
@@ -68,6 +69,11 @@ vi.mock("@/lib/actions/realm-play", () => ({
   getTroubleBounty: vi.fn(async () => ({ enabled: false, capMinutes: 0, subCapMinutes: 0, paidMinutes: 0, remainingMinutes: 0, clearsToday: 0, paidHomes: [] })),
   recordTroubleClears: vi.fn(),
 }));
+// Pass-through, so a test can see the frame mirror a rune finish even where the canvas draws no runes (runes off).
+vi.mock("@/lib/realm/world-state", async (orig) => {
+  const real = await orig<typeof import("@/lib/realm/world-state")>();
+  return { ...real, applyRuneOutcomes: vi.fn(real.applyRuneOutcomes) };
+});
 vi.mock("@/lib/realm3d/worldgen", async (orig) => {
   const real = await orig<typeof import("@/lib/realm3d/worldgen")>();
   const world = {
@@ -87,12 +93,19 @@ import { markCeremonySeen } from "@/lib/actions/seasons";
 import { markBuildingsAnnounced, markDeliverySeen, pinPlan, startBuildRun } from "@/lib/actions/improvements";
 import { KEEP_YARD } from "@/lib/realm/keep-yard";
 import { EMPTY_WORKS, type Works } from "@/lib/realm/works-state";
-import { CHRONICLE_TARGET, PLANS_TARGET } from "@/lib/realm3d/interact";
+import { CHRONICLE_TARGET, PLANS_TARGET, runeTarget } from "@/lib/realm3d/interact";
 import { getChronicle } from "@/lib/actions/realm-chronicle";
 import { BUILD_HERO_ONLY } from "@/lib/utils/deed-refusals";
 import { startReviewRun } from "@/lib/actions/review";
 import { startTowerRun, startWorldLockRun } from "@/lib/actions/world-locks";
-import { worldCanvas, type WorldStateView } from "@/lib/realm/world-state";
+import { startRuneObjectRun } from "@/lib/actions/rune-objects";
+import { toClientTask } from "@/lib/tasks/registry";
+import { RUNE_HOLDS_LINE, RUNE_TITLE } from "@/lib/tasks/rune-copy";
+import { HELD } from "@/test/object-start";
+import { runeStub } from "@/test/rune-stubs";
+import { applyRuneOutcomes, worldCanvas, type WorldStateView } from "@/lib/realm/world-state";
+import { RUNE_DONE, RUNE_FINISH, RUNE_HOLDS_HERE, RUNE_LEAVE, RUNE_TRACKER_LABEL } from "@/lib/tasks/rune-copy";
+import { MEND, RUNE_WALK_SUMMARY, WALK_STOPS, runeWalkRun } from "@/test/rune-walk-run";
 import { saveRealmSound } from "@/lib/actions/realm-sound";
 import { getRealmAccess, getTroubleBounty, recordTroubleClears } from "@/lib/actions/realm-play";
 import { stepRide, type RideBus } from "@/lib/realm3d/riding";
@@ -271,7 +284,7 @@ describe("the riddle stones", () => {
 });
 
 describe("the world's locks", () => {
-  const view: WorldStateView = { locksOn: true, open: ["door:longwater"], decor: ["sundial"], tower: [] };
+  const view: WorldStateView = { locksOn: true, runesOn: false, open: ["door:longwater"], fixed: [], decor: ["sundial"], tower: [] };
   const chest = { kind: "lock" as const, id: "chest:west-lane", label: "the old chest", verb: "Open" };
   const lockRun = {
     runId: "lock-1",
@@ -403,7 +416,80 @@ describe("the world's locks", () => {
 
   it("draws no locks when the bundle sent no world state", () => {
     mount();
-    expect(handed.props!.worldLocks).toEqual({ locksOn: false, locks: [], decor: [], storeys: 0, towerKnown: false });
+    expect(handed.props!.worldLocks).toEqual({ locksOn: false, locks: [], runes: [], decor: [], storeys: 0, towerKnown: false });
+  });
+});
+
+describe("the rune objects", () => {
+  const view: WorldStateView = { locksOn: true, runesOn: true, open: [], fixed: ["rune:lane-lantern"], decor: [], tower: [] };
+  const wagon = { kind: "rune" as const, id: "rune:west-wagon", label: "the broken wagon", verb: "Cast a rune at" };
+  const lantern = { kind: "rune" as const, id: "rune:lane-lantern", label: "the lantern", verb: "Look at" };
+  const runeRun = {
+    runId: "rune-1",
+    deed: { id: "rune:west-wagon", title: RUNE_TITLE, story: "Something here needs a rune. Build the word and cast it.", area: "language" as const },
+    questions: [toClientTask(runeStub())],
+    responses: [null] as (string | null)[],
+    kind: "world" as const,
+    pending: null,
+  };
+
+  it("the canvas has the fifteen rune objects with runes on, and none with them off", () => {
+    mount({ realm: { ...realm, worldState: view } });
+    expect((handed.props!.worldLocks as ReturnType<typeof worldCanvas>).runes).toHaveLength(15);
+    expect(handed.props!.worldLocks).toEqual(worldCanvas(view));
+    cleanup();
+    mount({ realm: { ...realm, worldState: { ...view, runesOn: false } } });
+    expect((handed.props!.worldLocks as ReturnType<typeof worldCanvas>).runes).toHaveLength(0);
+    // The records stay: the lock's own canvas is unchanged either way.
+    expect(handed.props!.worldLocks).toMatchObject({ locksOn: true });
+  });
+
+  it("E at a broken rune object opens its board, not the look panel, and starts its run", async () => {
+    vi.mocked(startRuneObjectRun).mockResolvedValue(runeRun);
+    const { bus } = mount({ realm: { ...realm, worldState: view } });
+    await act(async () => void bus.onInteract(wagon));
+    expect(startRuneObjectRun).toHaveBeenCalledWith("demo-child-1", "rune:west-wagon");
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    expect(screen.getByRole("dialog", { name: RUNE_TITLE })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "The rune stone" })).toBeInTheDocument();
+    expect(bus.paused).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Leave the rune" }));
+    expect(bus.paused).toBe(false);
+  });
+
+  it("E at a fixed rune object asks the server, as at an open chest (RI-a / S20)", async () => {
+    vi.mocked(startRuneObjectRun).mockResolvedValue(HELD);
+    const { bus } = mount({ realm: { ...realm, worldState: view } });
+    await act(async () => void bus.onInteract(lantern));
+    expect(startRuneObjectRun).toHaveBeenCalledWith("demo-child-1", "rune:lane-lantern");
+    expect(screen.getByRole("dialog", { name: RUNE_TITLE })).toHaveTextContent(RUNE_HOLDS_LINE);
+    // Held as drawn: nothing is reported, and the world is drawn as it was (I9 parked).
+    expect(applyRuneOutcomes).not.toHaveBeenCalled();
+    expect(handed.props!.worldLocks).toEqual(worldCanvas(view));
+  });
+
+  it("a visiting grown-up looks at an object and starts nothing", async () => {
+    const { bus } = mount({ viewer: "parent", realm: { ...realm, isChildView: false, worldState: view } });
+    await act(async () => void bus.onInteract(lantern));
+    expect(screen.getByRole("dialog", { name: RUNE_TITLE })).toHaveTextContent("The rune holds here.");
+    expect(startRuneObjectRun).not.toHaveBeenCalled();
+  });
+
+  it("Esc at an object's own board closes it and plays on", async () => {
+    vi.mocked(startRuneObjectRun).mockResolvedValue(runeRun);
+    const { bus } = mount({ realm: { ...realm, worldState: view } });
+    await act(async () => void bus.onInteract(wagon));
+    expect(screen.getByRole("dialog", { name: RUNE_TITLE })).toBeInTheDocument();
+    esc();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(bus.paused).toBe(false);
+  });
+
+  it("an object id outside the catalog opens no rune board", async () => {
+    const { bus } = mount({ realm: { ...realm, worldState: view } });
+    await act(async () => void bus.onInteract({ ...wagon, id: "rune:nope" }));
+    expect(startRuneObjectRun).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog", { name: RUNE_TITLE })).toBeNull();
   });
 });
 
@@ -1774,5 +1860,326 @@ describe("a reading trail, walked in the Realm (R-H14)", () => {
     expect(view.container.querySelector(".r3-clock-text")).toHaveTextContent("Earn play time with a side quest");
     await act(async () => bus.onInteract(mill));
     expect(answerDeedQuestion).toHaveBeenCalledWith("r1", 0, "landmark:mill");
+  });
+});
+
+describe("a rune walk in the Realm (R-I2, R-I11, I10)", () => {
+  const runesOn: WorldStateView = { locksOn: true, runesOn: true, open: [], fixed: [], decor: [], tower: [] };
+  const withRunes = (view: WorldStateView = runesOn) => ({ realm: { ...realm, worldState: view } });
+  const stop = (i: number) => ({ kind: "rune" as const, id: WALK_STOPS[i].id, label: WALK_STOPS[i].label, verb: "Cast a rune at" });
+  const oldTree = { kind: "rune" as const, id: "rune:old-tree", label: "the wilted tree", verb: "Cast a rune at" };
+  const [WAGON, LANTERN, FLOWERS] = WALK_STOPS.map((s) => s.id);
+  const RIGHT = { correct: true, secondChance: false, answer: "The word was mend." };
+  const OPEN = { correct: false, secondChance: true, hint: "It rhymes with send.", feedback: "wrong_word" as const, firstPick: "r:1,2,4,0" };
+  const MISS = { correct: false, secondChance: false, answer: "The word was mend.", explain: "Mend means to make whole.", reveal: MEND };
+  const trailRun = {
+    runId: "t1",
+    deed: { id: "well-signs", title: "Signs for the Well", story: "The sign-painter left clues.", area: "reading" as const },
+    questions: [1, 2].map((n) => ({ kind: "trail" as const, id: `read-g1:trail:0000000${n}`, skillId: "read-g1", prompt: `Clue ${n}.`, view: {} })),
+    responses: [null, null] as (string | null)[],
+    kind: "deed" as const,
+    pending: null,
+  };
+  const card = () => screen.queryByRole("region", { name: RUNE_TRACKER_LABEL });
+  const trailCard = () => screen.queryByRole("region", { name: "Reading trail" });
+  const stone = () => screen.queryByRole("dialog", { name: "The rune stone" });
+  const canvasWalk = () => handed.props!.runeWalk as { named: string[]; mended: string[] } | null;
+  const drawnFixed = (id: string) => (handed.props!.worldLocks as ReturnType<typeof worldCanvas>).runes.find((r) => r.id === id)?.fixed;
+  const press = (t: Parameters<HudBus["onInteract"]>[0]) => act(async () => void handed.bus!.onInteract(t));
+  const click = (name: string | RegExp) => act(async () => void fireEvent.click(screen.getByRole("button", { name })));
+  async function cast(...tiles: string[]) {
+    const tray = screen.getByRole("group", { name: "Runes to tap" });
+    for (const t of tiles) fireEvent.click(within(tray).getByRole("button", { name: t }));
+    await click("Cast");
+  }
+  const castMend = () => cast("m", "e", "n", "d");
+
+  /** Bram's board, Begin (the server hands back `run`), and Set off when the board offers it. */
+  async function talkAndBegin(run: ReturnType<typeof runeWalkRun> | typeof trailRun) {
+    vi.mocked(startDeedRun).mockResolvedValue(run);
+    act(() => handed.bus!.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
+  }
+  async function setOff(run = runeWalkRun(), over: Partial<React.ComponentProps<typeof RealmGame>> = withRunes()) {
+    const mounted = mount(over);
+    await talkAndBegin(run);
+    await click("Set off");
+    return mounted;
+  }
+
+  it("Set off on a rune run closes the board, shows the rune tracker, and names the stops on the canvas", async () => {
+    mount(withRunes());
+    expect(canvasWalk()).toBeNull();
+    cleanup();
+    const { bus, view } = await setOff();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(card()).toHaveTextContent("Next: the broken wagon");
+    // The card sits in the column's walk slot, ahead of the objective card (trail-walk.css's `:has(> .r3-walk-slot > .trail-walk)`).
+    expect(view.container.querySelector(".r3-left-stack > .r3-walk-slot > .trail-walk")).toBe(card());
+    expect(canvasWalk()).toEqual({ named: [WAGON, LANTERN, FLOWERS], mended: [] });
+    expect(handed.props!.trailOn).toBe(false);
+    expect(bus.paused).toBe(false);
+  });
+
+  it("E at the current stop opens the stone, not the any-time board, and pauses the world", async () => {
+    const { bus } = await setOff();
+    await press(stop(0));
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    expect(within(stone()!).getByRole("group", { name: "The rune stone" })).toBeInTheDocument();
+    expect(stone()).toHaveTextContent("The wagon is broken. Build the word you hear.");
+    expect(startRuneObjectRun).not.toHaveBeenCalled();
+    expect(bus.paused).toBe(true);
+  });
+
+  it("two E presses before a re-render open one stone", async () => {
+    await setOff();
+    await act(async () => {
+      handed.bus!.onInteract(stop(0));
+      handed.bus!.onInteract(stop(0));
+    });
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+  });
+
+  it("after a right cast the stone stays, and Done moves to the next stop (RI-a / B1)", async () => {
+    vi.mocked(answerDeedQuestion).mockResolvedValue(RIGHT);
+    const { bus } = await setOff();
+    await press(stop(0));
+    await castMend();
+    expect(answerDeedQuestion).toHaveBeenCalledWith("r1", 0, MEND);
+    expect(stone()).not.toBeNull();
+    expect(within(stone()!).getByRole("button", { name: RUNE_DONE })).toBeInTheDocument();
+    expect(startRuneObjectRun).not.toHaveBeenCalled();
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    await click(RUNE_DONE);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(bus.paused).toBe(false);
+    expect(card()).toHaveTextContent("Next: the dark lantern");
+    await press(stop(1));
+    expect(stone()).toHaveTextContent("The rune stone");
+    expect(startRuneObjectRun).not.toHaveBeenCalled();
+  });
+
+  it("the stone is not dimmed: it is outside the paused frame, and the card is under it (RI-a / B2)", async () => {
+    const { view } = await setOff();
+    await press(stop(0));
+    expect(stone()!.closest(".r3-frame")).toBeNull();
+    expect(view.container.querySelector(".r3-frame--paused")).not.toBeNull();
+    expect(card()!.closest(".r3-frame--paused")).not.toBeNull();
+  });
+
+  it("a right cast mends the object on the canvas at once; its record lands at the finish (R-I21)", async () => {
+    vi.mocked(answerDeedQuestion).mockResolvedValue(RIGHT);
+    await setOff();
+    await press(stop(0));
+    await castMend();
+    expect(canvasWalk()!.mended).toEqual([WAGON]);
+    // Drawn mended at once, by the walk's view; its record (the view) is still broken until the finish.
+    expect(drawnFixed(WAGON)).toBe(true);
+    expect(applyRuneOutcomes).not.toHaveBeenCalled();
+  });
+
+  it("a named object fixed on its record is drawn broken until its cast, then mended; an object the walk does not name keeps its record, and the record stands after the walk (owner, 2026-11-21)", async () => {
+    vi.mocked(answerDeedQuestion).mockResolvedValue(RIGHT);
+    await setOff(runeWalkRun(), withRunes({ ...runesOn, fixed: [WAGON, LANTERN, "rune:old-tree"] }));
+    const spot = (id: string) => (handed.props!.worldLocks as ReturnType<typeof worldCanvas>).runes.find((r) => r.id === id)!;
+    // Named and fixed on its record: broken, by its broken label, with the cast verb.
+    expect(spot(WAGON)).toMatchObject({ fixed: false, label: "the broken wagon" });
+    expect(runeTarget(spot(WAGON)).verb).toBe("Cast a rune at");
+    expect(spot(LANTERN)).toMatchObject({ fixed: false, label: "the dark lantern" });
+    // Not named: as its record says.
+    expect(spot("rune:old-tree")).toMatchObject({ fixed: true, label: "the tree" });
+    expect(runeTarget(spot("rune:old-tree")).verb).toBe("Look at");
+    await press(stop(0));
+    await castMend();
+    // Cast right on this walk: mended at once, and E there says "Look at" (smoke bug 4).
+    expect(spot(WAGON)).toMatchObject({ fixed: true, label: "the wagon" });
+    expect(runeTarget(spot(WAGON)).verb).toBe("Look at");
+    await click(RUNE_DONE);
+    expect(spot(WAGON).fixed).toBe(true);
+    expect(spot(LANTERN).fixed).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: RUNE_LEAVE }));
+    // The walk is over: every object as its record says.
+    expect(spot(WAGON)).toMatchObject({ fixed: true, label: "the wagon" });
+    expect(spot(LANTERN)).toMatchObject({ fixed: true, label: "the lantern" });
+  });
+
+  it("a walk picked back up after a reload keeps the ticks of the stops the server says it cast right (smoke bug 3)", async () => {
+    await setOff(runeWalkRun({ responses: [MEND, null, null], mended: [WAGON] }));
+    const [wagon, lantern] = within(card()!).getAllByRole("listitem");
+    expect(wagon).toHaveClass("rune-walk-stop--mended");
+    expect(wagon).toHaveTextContent("mended");
+    expect(lantern).not.toHaveClass("rune-walk-stop--mended");
+    expect(card()).toHaveTextContent("Next: the dark lantern");
+    expect(drawnFixed(WAGON)).toBe(true);
+    await press(stop(0));
+    expect(card()).toHaveTextContent(RUNE_HOLDS_HERE);
+  });
+
+  it("E at a later stop says 'First, …' and opens nothing", async () => {
+    const { bus } = await setOff();
+    await press(stop(1));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(card()).toHaveTextContent("First, the broken wagon.");
+    expect(startRuneObjectRun).not.toHaveBeenCalled();
+    expect(bus.paused).toBe(false);
+  });
+
+  it("E at a mended stop says the rune holds", async () => {
+    vi.mocked(answerDeedQuestion).mockResolvedValue(RIGHT);
+    await setOff();
+    await press(stop(0));
+    await castMend();
+    await click(RUNE_DONE);
+    await press(stop(0));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(card()).toHaveTextContent(RUNE_HOLDS_HERE);
+    expect(startRuneObjectRun).not.toHaveBeenCalled();
+  });
+
+  it("E at a passed, missed stop opens its own board (RI-a / S2)", async () => {
+    vi.mocked(answerDeedQuestion).mockResolvedValue(OPEN);
+    vi.mocked(retryDeedQuestion).mockResolvedValue(MISS);
+    vi.mocked(startRuneObjectRun).mockReturnValue(new Promise(() => {}));
+    await setOff();
+    await press(stop(0));
+    await cast("m", "a", "n", "d");
+    await castMend();
+    expect(stone()).toHaveTextContent("The word was mend.");
+    await click(RUNE_DONE);
+    expect(canvasWalk()).toEqual({ named: [LANTERN, FLOWERS], mended: [] });
+    await press(stop(0));
+    expect(startRuneObjectRun).toHaveBeenCalledWith("demo-child-1", WAGON);
+  });
+
+  it("E at a rune object that is not a stop opens its own board", async () => {
+    vi.mocked(startRuneObjectRun).mockReturnValue(new Promise(() => {}));
+    await setOff();
+    await press(oldTree);
+    expect(startRuneObjectRun).toHaveBeenCalledWith("demo-child-1", "rune:old-tree");
+  });
+
+  it("E while the stone is open does nothing (RI-a / S3)", async () => {
+    await setOff();
+    await press(stop(0));
+    await press(oldTree);
+    await press(stop(1));
+    expect(startRuneObjectRun).not.toHaveBeenCalled();
+    expect(answerDeedQuestion).not.toHaveBeenCalled();
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    expect(card()).not.toHaveTextContent("First,");
+  });
+
+  it("Esc at the stone closes it and keeps the stop: it reopens on its second chance", async () => {
+    vi.mocked(answerDeedQuestion).mockResolvedValue(OPEN);
+    const { bus } = await setOff();
+    await press(stop(0));
+    await cast("m", "a", "n", "d");
+    esc();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(bus.paused).toBe(false);
+    expect(card()).toHaveTextContent("Next: the broken wagon");
+    await press(stop(0));
+    expect(stone()).toHaveTextContent("Not that word. It rhymes with send.");
+    expect(within(stone()!).getByRole("button", { name: "Show me" })).toBeInTheDocument();
+    expect(startRuneObjectRun).not.toHaveBeenCalled();
+  });
+
+  it("Esc while the cast is in flight: the answer lands, the object is mended, and E at the next stop opens its stone (fix round 1)", async () => {
+    let settle!: (r: typeof RIGHT) => void;
+    vi.mocked(answerDeedQuestion).mockReturnValue(new Promise((r) => (settle = r)) as never);
+    await setOff();
+    await press(stop(0));
+    await castMend();
+    esc();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await act(async () => settle(RIGHT));
+    expect(canvasWalk()).toEqual({ named: [LANTERN, FLOWERS], mended: [WAGON] });
+    expect(card()).toHaveTextContent("Next: the dark lantern");
+    await press(stop(1));
+    expect(stone()).toHaveTextContent("The rune stone");
+    expect(startRuneObjectRun).not.toHaveBeenCalled();
+  });
+
+  it("the walk survives the pause menu: hidden under it, and back after", async () => {
+    await setOff();
+    esc();
+    expect(handed.bus!.paused).toBe(true);
+    expect(card()).toBeNull();
+    esc();
+    expect(card()).toHaveTextContent("Next: the broken wagon");
+  });
+
+  it("a finished rune walk mirrors the fixes, opens the villager's board on its result, and raises the building when it closes", async () => {
+    vi.mocked(answerDeedQuestion).mockResolvedValue(RIGHT);
+    vi.mocked(completeDeedRun).mockResolvedValue(RUNE_WALK_SUMMARY);
+    const { bus, view } = await setOff(runeWalkRun({ responses: [MEND, MEND, null] }));
+    const doneOf = () => (handed.props!.layout as { villagers: { id: string; done: number }[] }).villagers.find((v) => v.id === "bram")!.done;
+    expect(card()).toHaveTextContent("Next: the dry flower bed");
+    await press(stop(2));
+    await castMend();
+    expect(answerDeedQuestion).toHaveBeenCalledWith("r1", 2, MEND);
+    await click(RUNE_FINISH);
+    expect(completeDeedRun).toHaveBeenCalledTimes(1);
+    expect(completeDeedRun).toHaveBeenCalledWith("r1");
+    expect(card()).toBeNull();
+    expect(canvasWalk()).toBeNull();
+    for (const id of [WAGON, LANTERN, FLOWERS]) expect(drawnFixed(id), id).toBe(true);
+    const board = screen.getByRole("dialog", { name: /The Mill Ledger/ });
+    expect(within(board).getByText("Flawless!")).toBeInTheDocument();
+    expect(bus.paused).toBe(true);
+    expect(doneOf()).toBe(2);
+    expect(view.container.querySelector(".r3-quest .r3-progress-text")).toHaveTextContent("2 of 5");
+    fireEvent.click(screen.getByRole("button", { name: /Back to the Realm/ }));
+    expect(doneOf()).toBe(3);
+    expect(screen.getByText("The Village Well is rising!")).toBeInTheDocument();
+  });
+
+  it("beginning a rune walk ends a trail walk, and the reverse", async () => {
+    mount(withRunes());
+    await talkAndBegin(trailRun);
+    await click("Set off");
+    expect(trailCard()).not.toBeNull();
+    await talkAndBegin(runeWalkRun());
+    await click("Set off");
+    expect(trailCard()).toBeNull();
+    expect(handed.props!.trailOn).toBe(false);
+    expect(card()).not.toBeNull();
+    expect(canvasWalk()!.named).toHaveLength(3);
+    await talkAndBegin(trailRun);
+    await click("Set off");
+    expect(card()).toBeNull();
+    expect(canvasWalk()).toBeNull();
+    expect(trailCard()).toHaveTextContent("Clue 1.");
+    expect(handed.props!.trailOn).toBe(true);
+  });
+
+  it("a rune run picked back up with runes off plays on the board, with no Set off, and its finish mirrors the fixes (RI-a / S7)", async () => {
+    vi.mocked(answerDeedQuestion).mockResolvedValue(RIGHT);
+    vi.mocked(completeDeedRun).mockResolvedValue(RUNE_WALK_SUMMARY);
+    mount(withRunes({ ...runesOn, runesOn: false }));
+    await talkAndBegin(runeWalkRun({ responses: [MEND, MEND, null] }));
+    expect(screen.queryByRole("button", { name: "Set off" })).toBeNull();
+    expect(screen.getByRole("group", { name: "The rune stone" })).toBeInTheDocument();
+    await castMend();
+    await click(/^Finish/);
+    expect(completeDeedRun).toHaveBeenCalledWith("r1");
+    expect(applyRuneOutcomes).toHaveBeenCalledWith(expect.objectContaining({ runesOn: false }), RUNE_WALK_SUMMARY.runes);
+    expect(card()).toBeNull();
+  });
+
+  it("Leave the rune walk: runeWalk is null on the canvas, the mended marks are gone, and the objects open their own boards", async () => {
+    vi.mocked(answerDeedQuestion).mockResolvedValue(RIGHT);
+    vi.mocked(startRuneObjectRun).mockReturnValue(new Promise(() => {}));
+    await setOff();
+    await press(stop(0));
+    await castMend();
+    await click(RUNE_DONE);
+    expect(canvasWalk()!.mended).toEqual([WAGON]);
+    fireEvent.click(screen.getByRole("button", { name: RUNE_LEAVE }));
+    expect(card()).toBeNull();
+    expect(canvasWalk()).toBeNull();
+    expect(drawnFixed(WAGON)).toBe(false);
+    await press(stop(1));
+    expect(startRuneObjectRun).toHaveBeenCalledWith("demo-child-1", LANTERN);
   });
 });

@@ -1,0 +1,28 @@
+/* The rune walk (`rune-walk.tsx`). Its card wears the trail's shell and layout (`walk-card.tsx`,
+   `trail-walk.css`: the pinned head and foot, the scrolling body with its floor, the 17rem width
+   floor and 40 px tap rings, the objective card resting during a walk). Only the stop list is its own.
+   The stone is a board (`Panel`) with the rune stone's own coat (`tasks/rune.css`). */
+
+/* The stops, one to a line: a label never squeezed, a mended one checked and softened. */
+.rune-walk-stops {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #f1d9a6;
+}
+.rune-walk-stop {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.rune-walk-stop--now { color: #fff6de; }
+.rune-walk-stop--mended { color: #c9f0a2; }
+.rune-walk-check { flex: none; width: 0.9rem; height: 0.9rem; }
