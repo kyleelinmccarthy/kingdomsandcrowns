@@ -5,6 +5,7 @@ import { GameIcon, type GameIconName } from "@/components/game-icon";
 import { MarketingHeader } from "@/components/marketing/marketing-header";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { FRAME } from "@/components/marketing/styles";
+import { RealmShowcase } from "@/components/marketing/realm-showcase";
 
 const HOW_IT_WORKS: {
   icon: GameIconName;
@@ -102,7 +103,11 @@ export function Landing() {
           <p className="mx-auto mt-3 max-w-xl text-sm text-foreground/90 [text-shadow:0_1px_12px_rgba(0,0,0,0.85)] sm:text-base">
             Logging what your students studied, keeping them motivated day after day, and assembling records
             for an annual review or portfolio is tedious and easy to fall behind on. Kingdoms &amp; Crowns
-            makes the daily habit fun for students and keeps the paperwork done for you.
+            makes the daily habit fun for students and keeps the paperwork done for you. And in{" "}
+            <a href="#realm" className="text-[var(--gold-bright)] underline underline-offset-2 hover:text-[var(--gold)]">
+              the Realm
+            </a>
+            , a 3D kingdom they build with what they learn, students get a reason to come back every day.
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <Link href="/request-access">
@@ -178,6 +183,8 @@ export function Landing() {
             </div>
           </div>
         </section>
+
+        <RealmShowcase />
 
         {/* Features */}
         <section className="mx-auto max-w-5xl px-6 py-12">
