@@ -177,6 +177,11 @@ Functions in the module:
 - `keymapFrom(raw: unknown): Keymap` validates and fills gaps. Anything unknown, malformed,
   reserved or not allowed falls back to that action's defaults. If a code is bound twice, the
   first action in table order keeps it.
+  - Within one action's saved list, refused codes are dropped and the rest kept. If the list had
+    entries and **every one** was refused, the action falls back to its defaults, so a saved
+    list of nothing but `Escape` never leaves a child without a key.
+  - An explicit empty list (`[]`) stays empty: the action is unbound. That is how an action that
+    lost its only key in a swap round-trips through storage.
 - `keymapToStored(k): string` stores only the actions that differ from their defaults. An action
   added later then gets its default key with no data fix-up.
 - `bind(k, action, code, slot): { keymap, displaced?: ActionId }` binds one key and swaps on
@@ -242,8 +247,9 @@ shared rules once:
 - **Ctrl, Meta or Alt held:** ignored, so browser shortcuts still work. Shift on its own can be
   bound as a key; it does not set `ctrlKey`, `altKey` or `metaKey`, so this guard never drops it.
 - **Auto-repeat:** dropped for one-press actions (`hold: false`).
-- **Paused:** a key down reaches only handlers registered `whilePaused`. Map and Pause use this to
-  close their own panels.
+- **Paused:** a key down reaches only handlers registered with the `always` scope. Map and Pause
+  use this to close their own panels. `always` is also the one scope the dialog guard above
+  exempts.
 - **Key up:** always delivered, so nothing sticks held across a pause or a door.
 - **`preventDefault`:** called only for keys bound to an action, and only while playing. This
   keeps the existing Space behaviour (no page scroll, no re-pressing the last-clicked button).
@@ -276,7 +282,8 @@ as `gate-quest-board.tsx` stay as they are.
   Null means all defaults.
 - **Visitor's keybinds:** a new table `realm_visitor_keybinds`:
   - `userId` text, primary key, references `user.id` with `on delete cascade`;
-  - `keybinds` text, not null;
+  - `keybinds` text, **nullable**. Null means all defaults, as for the child's column, and a
+    reset to defaults stores null rather than deleting the row;
   - `updatedAt`.
 
   This mirrors `realm_visitor_sound`. A separate table, rather than a column on the sound table,
@@ -359,7 +366,11 @@ The Controls panel (`frame-hud.tsx`) keeps its rows, now built from `ACTIONS` gr
 
   `useBakedLand` is shared. The bitmap is baked once and used by both maps. Landmark glyphs scale
   with the window, so they stay legible at the larger size (`GLYPH_SCALE` becomes a function of
-  the window).
+  the window, `glyphScaleFor`).
+  - The big map does not use the plain full-island scale. At `glyphScaleFor(2 * WORLD_HALF)` a
+    trouble's dot is as wide as the whole village and the village marks merge, which fails
+    "legible". So the big map has its own scale, `WORLD_MAP_GLYPH`, half the full-island one
+    (still about 1.5 times the minimap's).
 - **Inside a building.** The map shows the island, with the hero's arrow at the door they went in
   by.
 - **Visitors** can open it too, and it shows what the hero has found.
