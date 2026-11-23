@@ -55,10 +55,20 @@ const GOAL_BANG = "M-0.7,-3 L0.7,-3 L0.45,0.9 L-0.45,0.9 Z M0,1.7 A0.75,0.75 0 1
  * many noise queries, which is far too much for one frame, so it goes out in bands of eight
  * rows on `setTimeout(0)`: the map shows its roads and its marks immediately and the land
  * arrives over the next second, and no frame is ever long.
+ *
+ * Painted ONCE per island and kept (`BAKED`), so both maps use the same picture: the corner map
+ * bakes it as the world loads, and the big map, which mounts fresh every time the map key opens
+ * it, reads the finished picture on its first render instead of painting the island again. The
+ * cache is keyed by the world object and weak, so a new island (a new seed, a new visit) is
+ * painted anew and the old picture goes with the old world.
  */
+const BAKED = new WeakMap<RealmWorld, string>();
+
 export function useBakedLand(world: RealmWorld): string | null {
-  const [url, setUrl] = useState<string | null>(null);
+  // The picture lives in `BAKED`; this state only tells React a bake for this world just finished.
+  const [, setBakedFor] = useState<RealmWorld | null>(null);
   useEffect(() => {
+    if (BAKED.has(world)) return;
     const canvas = document.createElement("canvas");
     canvas.width = BAKE_N;
     canvas.height = BAKE_N;
@@ -92,7 +102,8 @@ export function useBakedLand(world: RealmWorld): string | null {
         timer = window.setTimeout(band, 0);
         return;
       }
-      setUrl(canvas.toDataURL("image/png"));
+      BAKED.set(world, canvas.toDataURL("image/png"));
+      setBakedFor(world);
     };
     timer = window.setTimeout(band, 0);
     return () => {
@@ -100,7 +111,7 @@ export function useBakedLand(world: RealmWorld): string | null {
       window.clearTimeout(timer);
     };
   }, [world]);
-  return url;
+  return BAKED.get(world) ?? null;
 }
 
 /**
