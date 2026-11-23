@@ -22,6 +22,8 @@ import { realmDepth, type DepthOverride, type RealmDepth } from "@/lib/realm/dep
 import { tutorialLearned } from "@/lib/realm3d/tutorial";
 import { loadRealmSound } from "@/lib/services/realm-sound";
 import { DEFAULT_SOUND, type SoundSettings } from "@/lib/realm3d/sound/settings";
+import { loadRealmKeybinds } from "@/lib/services/realm-keybinds";
+import { defaultKeymap, type Keymap } from "@/lib/realm3d/keymap";
 import { loadPlacesFound } from "@/lib/services/realm-places";
 import { loadRecessRecord } from "@/lib/services/recess";
 import { loadReviewDue } from "@/lib/services/review";
@@ -73,6 +75,8 @@ export type RealmBundle = {
   tutorialStep: number;
   /** The 3D Realm's sound settings for whoever is looking: the hero's own, or a visiting grown-up's own. */
   sound?: SoundSettings;
+  /** The 3D Realm's keybinds for whoever is looking: the hero's own, or a visiting grown-up's own. */
+  keybinds?: Keymap;
   /**
    * May whoever is looking change this child's Realm (`setRealmDepth`, `updateRealmSettings`)?
    * The hero on their own Realm, and a grown-up with edit rights; never a view-only member (a
@@ -183,6 +187,7 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
   const { access } = await requireChildAccess(childId);
   // In flight alongside everything below; a failed read is the defaults, never a closed Realm.
   const soundRead = loadRealmSound(childId, isChildActor(access) ? null : access.userId).catch(() => ({ ...DEFAULT_SOUND }));
+  const keybindsRead = loadRealmKeybinds(childId, isChildActor(access) ? null : access.userId).catch(() => defaultKeymap());
   // Likewise: a failed read is "nothing found yet on this load", never a closed Realm. The
   // client keeps its own unsaved finds and merges the server's answer on its next save.
   const placesRead = loadPlacesFound(childId).catch((err: unknown) => {
@@ -331,6 +336,7 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     depth: realmDepth({ tutorialComplete: tutorialLearned(settings.tutorialStep), override: settings.depthOverride }),
     tutorialStep: settings.tutorialStep,
     sound: await soundRead,
+    keybinds: await keybindsRead,
     canEdit: access.permission === "edit",
     placesFound: await placesRead,
     recess: await recessRead,

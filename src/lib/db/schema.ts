@@ -854,6 +854,10 @@ export const realmSettings = sqliteTable(
     // (`lib/realm3d/sound/settings.ts`). Null is the defaults. A visiting grown-up's own are
     // `realm_visitor_sound`, kept per grown-up.
     sound: text("sound"),
+    // The 3D Realm's keybinds: only the actions whose keys differ from the defaults, as JSON
+    // (`lib/realm3d/keymap.ts`). Null is the defaults. A visiting grown-up's own are
+    // `realm_visitor_keybinds`, kept per grown-up.
+    keybinds: text("keybinds"),
     // Which hands-on ways of answering a side quest are on, as JSON by kind (`lib/utils/realm-settings.ts`).
     // Null is all on; a missing kind reads as on.
     mechanics: text("mechanics"),
@@ -1007,6 +1011,20 @@ export const realmVisitorSound = sqliteTable("realm_visitor_sound", {
     .primaryKey()
     .references(() => user.id, { onDelete: "cascade" }),
   sound: text("sound").notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+});
+
+/**
+ * A grown-up's own keybinds for visiting a Realm, one row per grown-up (JSON, as
+ * `realm_settings.keybinds`). Per user, not per child, for the same reason as `realm_visitor_sound`:
+ * it is their hands, not the child's Realm. Unlike sound, `keybinds` is nullable: a reset stores
+ * null (the defaults) rather than deleting the row. No row is the defaults too.
+ */
+export const realmVisitorKeybinds = sqliteTable("realm_visitor_keybinds", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  keybinds: text("keybinds"),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
 
