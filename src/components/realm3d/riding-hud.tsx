@@ -16,8 +16,7 @@ import type { InteractTarget } from "@/lib/realm3d/hud-bus";
 import {
   askStop,
   askTravel,
-  castBlocked,
-  CAST_FROM_SADDLE,
+  dropCastAfter,
   isRiding,
   makeRideBus,
   parkNow,
@@ -58,8 +57,6 @@ export type Riding = {
   clearLine: () => void;
   /** M, or the Ride slot. */
   toggle: () => void;
-  /** A spell was asked for: true (and said why) when it must not go off. */
-  refuseCast: () => boolean;
   /** Going through a door: a riding child is set down at it and the mount waits outside. */
   atDoor: () => void;
   /** E at a hitching post: true when the sheet should open. */
@@ -85,6 +82,7 @@ export function useRiding({
   insideRef,
   onRode,
   places,
+  paused = false,
 }: {
   /** The frame's input router: the mount key arrives as an action. */
   router: InputRouter;
@@ -107,6 +105,8 @@ export function useRiding({
    * test), the ride remembers only this visit's.
    */
   places?: PlacesStore;
+  /** A panel is open: the hero's hands belong to it, so a spell waiting for the ground is forgotten. */
+  paused?: boolean;
 }): Riding {
   const access = useMemo(() => rideAccess(avatar, unlocked, viewer), [avatar, unlocked, viewer]);
   // Built once for the visit: the canvas is memoised on it.
@@ -156,8 +156,8 @@ export function useRiding({
         setRiding(r);
         if (r) onRodeRef.current?.();
       },
-      // Everything the scene says is a refusal (too deep to get down, no spells from the
-      // saddle): it gets the refusal's soft tap as well as the words.
+      // Everything the scene says is a refusal (too deep to get down, no spells on a fast-travel
+      // ride): it gets the refusal's soft tap as well as the words.
       onSay: (text) => {
         say(text);
         ride.sound.onRefuse();
@@ -223,12 +223,10 @@ export function useRiding({
   // Z, or whatever mount is bound to: get on, get off. The router keeps it out of fields, dialogs and menus.
   useAction(router, "mount", (e) => e.down && toggle(), "play");
 
-  const refuseCast = useCallback(() => {
-    if (!castBlocked(ride)) return false;
-    say(CAST_FROM_SADDLE);
-    ride.sound.onRefuse();
-    return true;
-  }, [ride, say]);
+  // A panel opening takes the hands off the world: a spell still waiting for the ground goes with it.
+  useEffect(() => {
+    if (paused) dropCastAfter(ride);
+  }, [paused, ride]);
 
   // Through a door on a mount: set down at the door, and it waits a step to the side of it.
   const atDoor = useCallback(() => {
@@ -274,7 +272,7 @@ export function useRiding({
   const go = useCallback((to: string) => askTravel(ride, to), [ride]);
   const stop = useCallback(() => askStop(ride), [ride]);
 
-  return { bus: ride, access, riding, travelling, line, clearLine, toggle, refuseCast, atDoor, atPost, destinations, go, stop, rest };
+  return { bus: ride, access, riding, travelling, line, clearLine, toggle, atDoor, atPost, destinations, go, stop, rest };
 }
 
 /* ------------------------------------------------------------------ the words */

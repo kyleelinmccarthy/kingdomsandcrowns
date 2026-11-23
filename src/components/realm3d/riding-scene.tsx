@@ -21,9 +21,10 @@ import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { slideMove, HERO_RADIUS, type Collider, type Pt } from "@/lib/realm3d/collision";
+import { pushCast, type CastQueue } from "@/lib/realm3d/casting";
 import type { HudBus } from "@/lib/realm3d/hud-bus";
 import { seedMoves, type InputRouter } from "@/lib/realm3d/input-router";
-import { camGoal, clearPark, isRiding, offTheGround, parkNow, rideRadius, settleRider, stepRide, TOO_DEEP_TO_GET_DOWN, type RideBus } from "@/lib/realm3d/riding";
+import { camGoal, clearPark, dropCastAfter, isRiding, offTheGround, parkNow, rideRadius, settleRider, stepRide, takeCastAfter, TOO_DEEP_TO_GET_DOWN, type RideBus } from "@/lib/realm3d/riding";
 import { postAt, requestStop, startTravel, stepTravel, travelGraphFor, travelRoute, VILLAGE_ID, type TravelGraph, type TravelRun } from "@/lib/realm3d/travel";
 import type { RealmWorld } from "@/lib/realm3d/worldgen";
 import { at, litMaterial, merge, paint } from "./geo-kit";
@@ -232,6 +233,7 @@ export function Riding({
   keys,
   solids,
   world,
+  casts,
 }: {
   ride: RideBus;
   bus: HudBus;
@@ -244,6 +246,8 @@ export function Riding({
   keys: React.RefObject<{ f: boolean; b: boolean; l: boolean; r: boolean }>;
   solids: Collider[];
   world: RealmWorld;
+  /** The spell queue: a spell asked for in the saddle goes into it once the hero is down. */
+  casts: CastQueue;
 }) {
   const graph = useMemo(() => travelGraphFor(world), [world]);
   const s = scratchFor(ride);
@@ -304,6 +308,9 @@ export function Riding({
       // Local +x (the child's right, looking along +z) in world terms.
       slideMove(side, p.x, p.z, p.x + c * STEP_OFF, p.z - sn * STEP_OFF, solids, 0.5, p.y);
       moveHero(p, side.x, side.z);
+      // A spell asked for in the saddle goes off now the hero is on foot.
+      const slot = takeCastAfter(ride);
+      if (slot > 0) pushCast(casts, slot);
     }
 
     /* ---- fast travel ---------------------------------------------------------- */
@@ -326,6 +333,7 @@ export function Riding({
             wantDown(ride);
           } else {
             run.current = r;
+            dropCastAfter(ride);
             setTravelling(ride, true, to);
             ride.onTravel("start", to);
             ride.sound.onTravel("start");

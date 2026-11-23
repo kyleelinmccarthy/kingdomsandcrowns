@@ -60,7 +60,8 @@ vi.mock("@/lib/realm3d/worldgen", async (orig) => {
 
 import { bind, defaultKeymap, type ActionId, type Keymap } from "@/lib/realm3d/keymap";
 import type { InputRouter } from "@/lib/realm3d/input-router";
-import { stepRide } from "@/lib/realm3d/riding";
+import { pushCast } from "@/lib/realm3d/casting";
+import { stepRide, takeCastAfter } from "@/lib/realm3d/riding";
 import type { RideBus } from "@/lib/realm3d/riding";
 import { DEFAULT_AVATAR } from "@/lib/utils/avatar-catalog";
 import { findBuilding } from "@/lib/utils/kingdom";
@@ -143,7 +144,7 @@ describe("riding, the frame's half", () => {
     expect(screen.getByRole("status")).toHaveTextContent(/Stag isn't yours to ride yet\. Reach Level 8/);
   });
 
-  it("Z gets on an earned mount; the slot and the key strip say so; no spells from the saddle", () => {
+  it("Z gets on an earned mount; the slot and the key strip say so", () => {
     mount({ avatar: pony, mounts: ["pony"] });
     expect(ride().mount).toMatchObject({ id: "pony", label: "Pony" });
     expect(screen.getByText(/M/, { selector: ".r3-keys b" })).toBeInTheDocument();
@@ -151,9 +152,57 @@ describe("riding, the frame's half", () => {
     expect(ride().want).toBe(true);
     settleRide();
     expect(screen.getByRole("button", { name: /Get off your Pony/ })).toHaveTextContent("Get off");
+  });
+
+  it("a spell clicked in the saddle gets the hero down, and the slot is handed on once they are on foot", () => {
+    mount({ avatar: pony, mounts: ["pony"] });
+    pressMount();
+    settleRide();
+    expect(ride().phase).toBe("on");
+    fireEvent.click(screen.getByRole("button", { name: /Ember Bolt/ }));
+    // Nothing cast yet, no refusal said, and the hero is on the way down.
+    expect(handed.casts!.n).toBe(0);
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(ride().castAfter).toBe(1);
+    expect(ride().want).toBe(false);
+    // The scene's half: the dismount ends, and it hands the slot on once.
+    const events: string[] = [];
+    act(() => {
+      for (let i = 0; i < 30; i++) {
+        const e = stepRide(ride(), 0.05, 0);
+        if (e) events.push(e);
+        if (e === "dismounted") pushCast(handed.casts!, takeCastAfter(ride()));
+      }
+    });
+    expect(events).toEqual(["dismounted"]);
+    expect(ride().phase).toBe("off");
+    expect(handed.casts!.n).toBe(1);
+    expect(handed.casts!.slots[0]).toBe(1);
+    expect(ride().castAfter).toBe(0);
+  });
+
+  it("a spell clicked on a fast-travel ride is refused with the road's words", () => {
+    mount({ avatar: pony, mounts: ["pony"] });
+    pressMount();
+    settleRide();
+    act(() => {
+      ride().travelling = true;
+    });
     fireEvent.click(screen.getByRole("button", { name: /Ember Bolt/ }));
     expect(handed.casts!.n).toBe(0);
-    expect(screen.getByRole("status")).toHaveTextContent("Get down to cast a spell. Press M.");
+    expect(ride().castAfter).toBe(0);
+    expect(ride().want).toBe(null);
+    expect(screen.getByRole("status")).toHaveTextContent("Spells wait until the ride is over.");
+  });
+
+  it("a panel opening forgets a spell still waiting for the ground", () => {
+    mount({ avatar: pony, mounts: ["pony"] });
+    pressMount();
+    settleRide();
+    fireEvent.click(screen.getByRole("button", { name: /Ember Bolt/ }));
+    expect(ride().castAfter).toBe(1);
+    act(() => void fireEvent.keyDown(window, { key: "Escape" }));
+    expect(ride().castAfter).toBe(0);
   });
 
   it("M no longer mounts: it is the map's key now", () => {

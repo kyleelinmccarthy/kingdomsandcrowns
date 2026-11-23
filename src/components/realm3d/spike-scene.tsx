@@ -120,7 +120,7 @@ import type { LeadBus } from "@/lib/realm3d/lead";
 import { WizardFigure } from "./wizard-figure";
 import { Villagers } from "./villagers";
 import type { SpellPageView } from "@/lib/realm/spells/pages";
-import { pushCast, type Caster, type CastQueue } from "@/lib/realm3d/casting";
+import { type Caster, type CastQueue } from "@/lib/realm3d/casting";
 import type { HudBus } from "@/lib/realm3d/hud-bus";
 import type { ActionEvent, InputRouter } from "@/lib/realm3d/input-router";
 import { castSlotOf, WALK_ACTIONS, type ActionId } from "@/lib/realm3d/keymap";
@@ -133,7 +133,7 @@ import { Doorstep } from "./doorstep";
 import { SpellFx } from "./spell-fx";
 import { Troubles } from "./troubles-scene";
 import type { TroubleBus } from "@/lib/realm3d/trouble-bus";
-import { boostJump, castBlocked, CAST_FROM_SADDLE, holdDrop, jumpSpeed, keepFooting, pace, rideFace, rideRadius, wadeLimit, writeAir, type RideBus } from "@/lib/realm3d/riding";
+import { boostJump, CAST_ON_THE_ROAD, holdDrop, jumpSpeed, keepFooting, pace, rideFace, requestCast, rideRadius, wadeLimit, writeAir, type RideBus } from "@/lib/realm3d/riding";
 import { RiddenMount, Riding, Saddle, travelGraphFor, useSeatRef } from "./riding-scene";
 import { bodyFor, slideBody, turnBody } from "@/lib/realm3d/mount-body";
 import { RecessScene } from "./recess-scene";
@@ -1155,9 +1155,9 @@ const World = memo(function World({
       // when the next one may go.
       const n = castSlotOf(e.action);
       if (n === 0 || !e.down) return;
-      // No spells from the saddle: the flat Realm's rule, said out loud.
-      if (castBlocked(ride)) ride?.onSay(CAST_FROM_SADDLE);
-      else pushCast(casts, n);
+      // From the saddle the hero gets down and the spell goes off once they are on foot
+      // (`Riding` hands it on); only a fast-travel ride refuses, and says so.
+      if (requestCast(ride, casts, n) === "travelling") ride?.onSay(CAST_ON_THE_ROAD);
     },
     "island",
   );
@@ -1211,7 +1211,7 @@ const World = memo(function World({
       <ChaseCamera heroRef={heroRef} yawRef={yawRef} view={view} bus={bus} close={close} solids={solids} world={world} ride={ride} />
       <MouseLook bus={bus} yawRef={yawRef} view={view} paused={lookPaused} />
       {/* Riding: the mount's moments, where it waits, the hitching posts and fast travel. Before the doorstep (see its note). */}
-      {ride && <Riding ride={ride} bus={bus} router={router} heroRef={heroRef} facingRef={facingRef} aimRef={aimRef} keys={keys} solids={solids} world={world} />}
+      {ride && <Riding ride={ride} bus={bus} router={router} heroRef={heroRef} facingRef={facingRef} aimRef={aimRef} keys={keys} solids={solids} world={world} casts={casts} />}
       {/* Going in and coming out of doors, and never being left inside a wall. After the camera: it may set the camera. */}
       <Doorstep bus={bus} heroRef={heroRef} yawRef={yawRef} aimRef={aimRef} keys={keys} view={view} solids={solids} props={layout.props} sitePlan={SITE_PLAN} castle={castle} castleTier={layout.castleType} castleUnlocked={castleUnlocked} world={world} ride={ride} />
       {/* After the camera (markers project from this frame's camera), before the driver (a new charge locks on before it releases). */}

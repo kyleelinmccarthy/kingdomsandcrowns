@@ -30,7 +30,8 @@ import type { SkillArea } from "@/lib/utils/skills";
 import { renderSettingsFor } from "@/lib/realm/render-settings";
 import { resolvePages, withEmptyPages } from "@/lib/realm/spells/pages";
 import { villagerById, villagerForBuilding } from "@/lib/realm/villagers";
-import { makeCaster, makeCastQueue, pushCast } from "@/lib/realm3d/casting";
+import { makeCaster, makeCastQueue } from "@/lib/realm3d/casting";
+import { CAST_ON_THE_ROAD, requestCast } from "@/lib/realm3d/riding";
 import { clockLine, escapeFrom, spellbookHref, visitClockLine, type AccessSource, type Overlay } from "@/lib/realm3d/frame";
 import { goalFor, spellHelp, type SpellbookFacts } from "@/lib/realm3d/guide";
 import { makeHudBus, type InteractTarget } from "@/lib/realm3d/hud-bus";
@@ -472,6 +473,7 @@ export function RealmGame({
     graph: travelGraph,
     insideRef,
     onRode,
+    paused,
     places: places.store,
   });
   // The companion leads (`companion-hud.tsx`): F or the pet's slot, its words, its way on the map.
@@ -771,7 +773,7 @@ export function RealmGame({
     setNear(nearOutside.current);
   }, [bus]);
 
-  const { atPost, refuseCast } = riding;
+  const { atPost } = riding;
   /** Whether E at the Ring's arch opens its board now (`use-recess.ts`, made below the clock). */
   const archOpens = useRef<() => boolean>(() => false);
   const { stopOf: runeStopAt, sayRef: runeSay, stops: runeStopList, at: runeAt } = runeWalk;
@@ -999,9 +1001,11 @@ export function RealmGame({
   const askedSpellbook = useRef(false);
   // No spells indoors: a click on the bar would otherwise wait in the queue and go off outside.
   const onCast = useCallback((slot: number) => {
-    // And none from the saddle: the flat Realm's "Dismount to cast."
-    if (!insideRef.current && !refuseCast()) pushCast(casts, slot);
-  }, [casts, refuseCast]);
+    if (insideRef.current) return;
+    // From the saddle the hero gets down and the spell follows; a fast-travel ride refuses.
+    const bus = riding.bus;
+    if (requestCast(bus, casts, slot) === "travelling") bus.onSay(CAST_ON_THE_ROAD);
+  }, [casts, riding.bus]);
   const onEmptyPage = useCallback(
     (slot: number) => {
       go({ kind: "page", slot });
