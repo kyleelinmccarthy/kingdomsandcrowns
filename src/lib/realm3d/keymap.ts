@@ -120,7 +120,11 @@ export function isBindable(code: string): boolean {
   return typeof code === "string" && BINDABLE.has(code);
 }
 
-/** The codes of one saved override, made safe: strings only, bindable only, no repeats, at most `MAX_KEYS`. Null if it is not a list. */
+/**
+ * The codes of one saved override, made safe: strings only, bindable only, no repeats, at most `MAX_KEYS`.
+ * Null (the action keeps its defaults) if it is not a list, or if it had entries and every one was refused.
+ * An explicitly empty list stays empty: that is how an unbound action (a lost clash) round-trips.
+ */
 function cleanKeys(value: unknown): string[] | null {
   if (!Array.isArray(value)) return null;
   const keys: string[] = [];
@@ -128,7 +132,7 @@ function cleanKeys(value: unknown): string[] | null {
     if (typeof code === "string" && isBindable(code) && !keys.includes(code)) keys.push(code);
     if (keys.length === MAX_KEYS) break;
   }
-  return keys;
+  return keys.length === 0 && value.length > 0 ? null : keys;
 }
 
 /**

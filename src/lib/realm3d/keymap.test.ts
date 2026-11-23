@@ -36,6 +36,12 @@ describe("keymap", () => {
     expect(keymapFrom({ jump: ["Escape", "KeyJ", "KeyK", "KeyL"] }).jump).toEqual(["KeyJ", "KeyK"]);
   });
 
+  it("an override whose every key is refused keeps that action's defaults; an explicit empty list stays unbound", () => {
+    expect(keymapFrom({ jump: ["Escape"] }).jump).toEqual(["Space"]);
+    expect(keymapFrom({ jump: ["Escape", 7, "F5"] }).jump).toEqual(["Space"]);
+    expect(keymapFrom({ jump: [] }).jump).toEqual([]);
+  });
+
   it("an override wins a clash with a default; the loser keeps what is left", () => {
     const k = keymapFrom({ jump: ["KeyW"] });
     expect(k.jump).toEqual(["KeyW"]);

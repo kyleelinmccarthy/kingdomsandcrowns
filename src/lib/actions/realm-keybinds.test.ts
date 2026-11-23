@@ -106,7 +106,7 @@ describe("saveRealmKeybinds", () => {
 
   it("garbage is stored cleaned: null, all defaults", async () => {
     actor = hero;
-    await saveRealmKeybinds("c1", { jump: "Escape", hack: 1, interact: { 0: "KeyQ" } });
+    await saveRealmKeybinds("c1", { jump: ["Escape"], hack: 1 });
     expect(await settingsKeybinds()).toBeNull();
     expect(await loadRealmKeybinds("c1", null)).toEqual(defaultKeymap());
     actor = mom;
@@ -115,13 +115,11 @@ describe("saveRealmKeybinds", () => {
     expect(rows[0].keybinds).toBeNull();
   });
 
-  it("never stores a refused key: Esc is cleaned out, leaving that action unbound (keymapFrom's rule)", async () => {
+  it("keeps an explicit empty list: an unbound action stays unbound", async () => {
     actor = hero;
-    await saveRealmKeybinds("c1", { jump: ["Escape"], hack: 1 });
-    const stored = String(await settingsKeybinds());
-    expect(stored).not.toContain("Escape");
-    expect(stored).not.toContain("hack");
-    expect(JSON.parse(stored)).toEqual({ jump: [] });
+    await saveRealmKeybinds("c1", { jump: [] });
+    expect(JSON.parse(String(await settingsKeybinds()))).toEqual({ jump: [] });
+    expect((await loadRealmKeybinds("c1", null)).jump).toEqual([]);
   });
 
   it("refuses a user with no access, writing nothing", async () => {
