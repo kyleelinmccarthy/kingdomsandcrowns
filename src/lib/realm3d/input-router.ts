@@ -12,8 +12,14 @@
  *
  * What is held is tracked per physical key on every keydown and keyup, whatever the guards say,
  * because it is the truth about the keyboard; `held(action)` reads it through the current keymap.
- * Rebinding while a key is down releases the action that lost it, and losing the window's focus
- * releases everything.
+ * The one exception is a key pressed with Meta (Cmd): macOS sends no key up for Cmd+A, so a code
+ * recorded then would stay "held" for good and `seedMoves` would strafe the hero at the next door.
+ * An action with two keys down is let go only when the last of them comes up, so letting go of W
+ * while ↑ is still held keeps walking. Rebinding while a key is down releases the action that
+ * lost it, and losing the window's focus releases everything.
+ *
+ * A bound key's UP is prevented too, while playing: some browsers press a focused button on
+ * Space's key up, so a child who clicked Pause and then jumped would pause again.
  *
  * No DOM beyond the window-like target it is given, and no three: tests drive it with a fake.
  */
@@ -81,7 +87,8 @@ export function createInputRouter(
   };
 
   const onKeyDown = (e: KeyboardEvent) => {
-    heldCodes.add(e.code);
+    // Cmd+key: no key up will come on macOS, so it is never recorded as held.
+    if (!e.metaKey) heldCodes.add(e.code);
     if (suspended) return;
     if (e.ctrlKey || e.altKey || e.metaKey) return;
     const action = actionIndex(current).get(e.code);
@@ -105,7 +112,12 @@ export function createInputRouter(
     heldCodes.delete(e.code);
     if (suspended) return;
     const action = actionIndex(current).get(e.code);
-    if (action) release(action);
+    if (!action) return;
+    // The same rule as a key down: only a bound key, only while playing, never a field's.
+    if (!state.overlay && !blocked(e.target, "play")) e.preventDefault();
+    // Its other key still down: the action is still held, so nothing is let go yet.
+    if (heldIn(current, action)) return;
+    release(action);
   };
 
   const onBlur = () => {

@@ -201,6 +201,45 @@ describe("the input router", () => {
     expect(router.held("walkForward")).toBe(true);
   });
 
+  it("records no held key for a Cmd+key down, whose key up macOS never sends", () => {
+    const { win, router } = setup();
+    router.setState(PLAY);
+    down(win, "KeyA", { metaKey: true });
+    expect(router.held("strafeLeft")).toBe(false);
+    const k = { f: false, b: false, l: false, r: false };
+    seedMoves(router, k);
+    expect(k.l).toBe(false);
+  });
+
+  it("walks on while one of an action's two keys is still down, and stops when the last comes up", () => {
+    const { win, router } = setup();
+    router.setState(PLAY);
+    const fn = listen(router, "walkForward", "play");
+    down(win, "KeyW");
+    down(win, "ArrowUp");
+    fn.mockClear();
+    up(win, "KeyW");
+    expect(fn).not.toHaveBeenCalled();
+    expect(router.held("walkForward")).toBe(true);
+    up(win, "ArrowUp");
+    expect(fn).toHaveBeenCalledWith({ action: "walkForward", down: false, repeat: false });
+    expect(router.held("walkForward")).toBe(false);
+  });
+
+  it("prevents a bound key's key up while playing, so Space does not press a focused button", () => {
+    const { win, router } = setup();
+    router.setState(PLAY);
+    down(win, "Space");
+    expect(up(win, "Space").preventDefault).toHaveBeenCalled();
+    // An unbound key, an open overlay, or a rebind listening: the key up is left alone.
+    expect(up(win, "KeyQ").preventDefault).not.toHaveBeenCalled();
+    router.setState({ overlay: true, inside: false });
+    expect(up(win, "Space").preventDefault).not.toHaveBeenCalled();
+    router.setState(PLAY);
+    router.suspend(true);
+    expect(up(win, "Space").preventDefault).not.toHaveBeenCalled();
+  });
+
   it("tells onKeymap listeners about a new keymap, until they unsubscribe", () => {
     const { router } = setup();
     const fn = vi.fn();
