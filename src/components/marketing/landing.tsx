@@ -19,34 +19,33 @@ const HOW_IT_WORKS: {
   {
     icon: "castle",
     title: "Set up your family",
-    body: "Create your parent account, add each student as a hero, and choose their subjects and quests.",
+    body: "Create an account, add each student, and pick their subjects.",
     img: "/marketing/step1-family.jpg",
     alt: "A smiling parent and child cuddled together on a sofa, looking at a laptop together",
   },
   {
     icon: "swords",
     title: "Heroes log their learning",
-    body: "Students complete quests and record what they studied — earning XP, streaks, badges, and loot for their hero.",
+    body: "Students finish quests and note what they studied. Each one earns XP and loot.",
     img: "/marketing/step2-device.jpg",
     alt: "A happy young student typing on a laptop at a desk, a notebook and pen beside them",
   },
   {
     icon: "book",
     title: "See their progress",
-    body: "Get weekly summaries and per-subject history you can copy into reviews, portfolios, or your records.",
+    body: "Weekly summaries and subject history, ready to copy into a review or portfolio.",
     img: "/marketing/step3-plant.jpg",
     alt: "A smiling parent using a laptop at home beside a large leafy houseplant",
   },
 ];
 
 const FEATURES: { icon: GameIconName; title: string; body: string }[] = [
-  { icon: "scroll", title: "Quests & XP", body: "Turn daily lessons into quests — repeating once, daily, weekly, or monthly — with rewards that keep students motivated." },
-  { icon: "calendar", title: "Weekly schedule", body: "Lay out each hero's class schedule by day, and quests follow their actual school days." },
+  { icon: "scroll", title: "Quests & XP", body: "Lessons become one-time or repeating quests that earn XP." },
+  { icon: "calendar", title: "Weekly schedule", body: "Set each student's subjects by day. Quests follow their school days." },
   { icon: "gem", title: "Loot & heroes", body: "Heroes unlock outfits, companions, and castles as they level up." },
-  { icon: "book", title: "Weekly recaps", body: "Auto-generated, first-person learning logs for record-keeping and reviews." },
-  { icon: "trophy", title: "Ranks", body: "A family hall of legends — plus an opt-in community leaderboard." },
+  { icon: "book", title: "Weekly recaps", body: "Each week's learning, written up as a log for your records." },
+  { icon: "trophy", title: "Ranks", body: "A family hall of legends, plus an opt-in community leaderboard." },
   { icon: "shield", title: "Multiple guardians", body: "Invite a co-parent, tutor, or teacher with view-only or edit access." },
-  { icon: "key", title: "Student-safe sign-in", body: "Students sign in with a simple PIN or a login you set up for them." },
 ];
 
 // Secondary call-to-action — filled navy with a gold edge so it reads as clearly
@@ -100,16 +99,15 @@ export function Landing() {
           <img src="/crown.svg" alt="" className="mx-auto mb-3 h-12 w-12 drop-shadow-[0_0_24px_rgba(201,168,76,0.35)]" aria-hidden="true" />
           <h1 className="page-title text-4xl [text-shadow:0_2px_24px_rgba(0,0,0,0.55)] sm:text-5xl">Be the Hero of Homeschool</h1>
           <h2 className="mx-auto mt-3 max-w-2xl text-lg font-bold text-white [text-shadow:0_1px_14px_rgba(0,0,0,0.7)] sm:text-xl">
-            Homeschool tracking shouldn&apos;t be a chore. It should be an epic journey.
+            Kids log their schoolwork as quests. You get the records.
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-sm text-foreground/90 [text-shadow:0_1px_12px_rgba(0,0,0,0.85)] sm:text-base">
-            Logging what your students studied, keeping them motivated day after day, and assembling records
-            for an annual review or portfolio is tedious and easy to fall behind on. Kingdoms &amp; Crowns
-            makes the daily habit fun for students and keeps the paperwork done for you. And in{" "}
+            Students earn XP and loot, and build a kingdom in{" "}
             <a href="#realm" className="text-[var(--gold-bright)] underline underline-offset-2 hover:text-[var(--gold)]">
               the Realm
             </a>
-            , a 3D kingdom they build with what they learn, students get a reason to come back every day.
+            , a 3D game played with what they learn. You get weekly summaries and subject history for reviews
+            and portfolios.
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <Link href={join.href}>
@@ -122,7 +120,7 @@ export function Landing() {
             </Link>
           </div>
           <p className="mt-4 text-xs text-foreground/75 [text-shadow:0_1px_10px_rgba(0,0,0,0.85)]">
-            Already set up by a grown-up? Students can log in or enter your family code{" "}
+            Students sign in with your family code{" "}
             <Link
               href="/login?mode=kid"
               className="text-[var(--gold-bright)] underline underline-offset-2 hover:text-[var(--gold)]"
@@ -186,8 +184,6 @@ export function Landing() {
           </div>
         </section>
 
-        <RealmShowcase />
-
         {/* Features */}
         <section className="mx-auto max-w-5xl px-6 py-12">
           {/* banner heading over the realm's library */}
@@ -207,9 +203,6 @@ export function Landing() {
               <h2 className="page-title text-3xl [text-shadow:0_2px_20px_rgba(0,0,0,0.7)] sm:text-4xl">
                 Everything your homeschool needs
               </h2>
-              <p className="mt-2 max-w-md text-sm text-foreground/80 [text-shadow:0_1px_10px_rgba(0,0,0,0.7)]">
-                A complete toolkit to keep students motivated and your records organized.
-              </p>
             </div>
           </div>
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -222,6 +215,8 @@ export function Landing() {
             ))}
           </div>
         </section>
+
+        <RealmShowcase />
 
         <Divider />
 
@@ -243,9 +238,8 @@ export function Landing() {
               <div className="text-center md:text-left">
                 <h2 className="page-title text-3xl">Built for parents</h2>
                 <p className="mt-4 max-w-xl text-muted-foreground">
-                  Only parents and guardians can create an account. Students are profiles you set up and manage
-                  from your own account. They sign in with a simple PIN or a login you create for them, and can
-                  never register on their own.
+                  Only parents and guardians can create accounts. Students sign in with a PIN or a login you make
+                  for them, and can&apos;t sign up on their own.
                 </p>
                 <p className="mt-4 max-w-xl text-muted-foreground">
                   We never sell your data or show ads.

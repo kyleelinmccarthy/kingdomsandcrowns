@@ -12,7 +12,7 @@ The marketing landing (`src/components/marketing/landing.tsx`) sells quest track
 
 | Question | Decision |
 |---|---|
-| Prominence | Its own showcase section between "How it works" and the feature grid, plus a one-line mention in the hero copy. |
+| Prominence | Its own showcase section below the feature grid ("Everything your homeschool needs"), plus a mention in the hero copy. (Moved there from between "How it works" and the features on 2026-11-23.) |
 | Visuals | Real game screenshots: one large, two small. |
 | Message | All four points: learning is the game; schoolwork builds a kingdom; play time is earned; parents stay in control. |
 | Status | Presented as available now (no "coming soon", no "new" badge). |
@@ -32,7 +32,9 @@ The marketing landing (`src/components/marketing/landing.tsx`) sells quest track
 
 ## Design
 
-**Placement:** `<Hero> · <Divider> · How it works · **Realm showcase** · Features · Divider · Built for parents · Footer`.
+**Placement:** `<Hero> · <Divider> · How it works · Features · **Realm showcase** · Divider · Built for parents · Footer`.
+
+**Copy (2026-11-23 owner review):** the whole landing was cut for length and AI-sounding phrasing (no "X shouldn't be Y, it should be Z" lines, no em-dash asides, no generic "complete toolkit" filler). The duplicate "Student-safe sign-in" feature card was dropped (Built for parents says it).
 
 ```
 ┌──────────────────────── THE REALM ────────────────────────┐
@@ -60,7 +62,7 @@ On mobile everything stacks in one column. Frames, gold icons and type reuse the
 - **Parents stay in control:** you set every number: the daily cap, off-hours access, and how minutes are earned. Gentle and non-violent by default, with accessibility options.
 - Hero copy gains a sentence pointing at the Realm.
 
-**Screenshots:** 3 JPGs in `public/marketing/screens/<SCREENS_REV>/` (`realm-village`, `realm-learning`, `realm-earned-time`), captured by `scripts/capture-screens.mjs` in demo mode as a parent visitor (`/realm?child=demo-child-1`, never gated) or the locked gate for the earned-time shot. The script uses swiftshader WebGL args and a longer settle wait for these shots, and drives the game only with keys and `page.evaluate`. It **never clicks the canvas** (pointer lock has crashed WSL here). Alt text describes what's shown.
+**Screenshots:** 3 JPGs in `public/marketing/screens/<SCREENS_REV>/`, captured by `scripts/capture-screens.mjs` in demo mode: `realm-village` (the student's own view, persona `lily`; it can be gated if her minutes run out, so the shot waits for the HUD's "min left" text and fails otherwise), `realm-learning` (walking up to Old Bram and talking to him: his math, reading and science side quests), `realm-quest-giver` (a parent visiting, `/realm?child=demo-child-1`, never gated). The script uses swiftshader WebGL args and a longer settle wait for these shots, and drives the game only with keys and `page.evaluate`. It **never clicks the canvas** (pointer lock has crashed WSL here). Alt text describes what's shown.
 
 **Tests:** `realm-showcase.test.tsx` renders the section from its config: the title, all four points and each image with non-empty alt text. The landing renders the section.
 

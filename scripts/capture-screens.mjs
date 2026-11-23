@@ -49,6 +49,8 @@ const JPEG_QUALITY = 80;
 //   (its sound Worker never lets "networkidle" settle) and time to build the
 //   island. Never click a Realm canvas: it captures the mouse (pointer lock),
 //   which has crashed WSL. Drive it with keys or page.evaluate only.
+// ready: text that must be on screen before the shot (e.g. the Realm's HUD), so a
+//   gate, quiet or loading screen fails the run instead of being saved.
 // keys: optional keyboard steps run after the page settles, in order:
 //   { hold: "KeyW", ms: 700 } holds a key (or several: ["KeyW", "KeyA"]) for ms;
 //   { hold: [...], until: "Some text" } holds them until that text shows (frame-rate
@@ -78,7 +80,7 @@ const SHOTS = [
   { persona: "lucas", url: "/castle", name: "hero-my-castle" },
   { persona: "lucas", url: "/leaderboard", name: "hero-ranks" },
   // The Realm, for the landing page's showcase (src/components/marketing/realm-showcase-data.ts).
-  { persona: "lily", url: "/realm", name: "realm-village", realm: true },
+  { persona: "lily", url: "/realm", name: "realm-village", realm: true, ready: "min left" },
   // Walk up to Old Bram at the Village Well and talk to him: his side quests.
   {
     persona: "lily",
@@ -163,6 +165,7 @@ async function run() {
         document.querySelectorAll("nextjs-portal").forEach((el) => el.remove());
       });
       await page.waitForTimeout(shot.realm ? REALM_SETTLE_MS : 1200);
+      if (shot.ready) await page.getByText(shot.ready).first().waitFor({ timeout: 60000 });
 
       // Optional interaction (e.g. open the hero customizer modal).
       if (shot.action === "customize") {

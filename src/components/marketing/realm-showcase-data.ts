@@ -22,28 +22,27 @@ export type RealmShowcaseContent = {
 export const REALM_SHOWCASE: RealmShowcaseContent = {
   eyebrow: "The Realm",
   title: "A kingdom built by learning",
-  subtitle:
-    "Every hero gets a 3D world to explore. The schoolwork they finish raises their kingdom, and the skills they practice are how the game is played.",
+  subtitle: "A 3D game where each student builds their own kingdom with what they learn.",
   points: [
     {
       icon: "brain",
       title: "Learning is the game",
-      body: "Students measure to build, follow reading clue trails, craft spells from spelling runes, and crack logic locks, matched to their grade from K to 12.",
+      body: "Measuring, reading, spelling and logic puzzles are how the game is played, set to each student's grade from K to 12.",
     },
     {
       icon: "castle",
       title: "Schoolwork builds a kingdom",
-      body: "Finished quests earn materials for new wings and upgrades. Each grade year is a season, and finishing it earns that year's Crown.",
+      body: "Finished quests earn building materials. Each school year ends with a Crown.",
     },
     {
       icon: "hourglass",
       title: "Play time is earned",
-      body: "A small free allowance every day, more minutes for stars earned on side quests, and unspent time banks for tomorrow.",
+      body: "A few free minutes a day, and more for stars on side quests. Unused time carries over.",
     },
     {
       icon: "shield",
       title: "Parents stay in control",
-      body: "You set every number: the daily cap, off-hours access, and how minutes are earned. Gentle and non-violent by default, with accessibility options.",
+      body: "You set the daily limit, when it's open, and how minutes are earned. Gentle by default, with accessibility options.",
     },
   ],
   shots: [

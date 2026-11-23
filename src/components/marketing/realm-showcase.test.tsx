@@ -4,7 +4,6 @@ import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { RealmShowcase } from "./realm-showcase";
 import { REALM_SHOWCASE } from "./realm-showcase-data";
-import { Landing } from "./landing";
 
 afterEach(cleanup);
 
@@ -41,16 +40,3 @@ describe("RealmShowcase", () => {
     }
   });
 });
-
-describe("Landing", () => {
-  it("renders the Realm section between How it works and the features", () => {
-    const { container } = render(<Landing />);
-    const howItWorks = container.querySelector("#how-it-works")!;
-    const realm = container.querySelector("#realm")!;
-    const features = screen.getByRole("heading", { name: "Everything your homeschool needs" });
-    expect(realm).not.toBeNull();
-    expect(howItWorks.compareDocumentPosition(realm) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(realm.compareDocumentPosition(features) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  });
-});
-

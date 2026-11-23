@@ -25,7 +25,7 @@ export function RealmShowcase() {
     <section
       id="realm"
       aria-labelledby="realm-title"
-      className="border-b border-gold-dim/30 bg-[radial-gradient(120%_60%_at_50%_0%,rgba(124,58,237,0.10)_0%,transparent_70%)] py-14"
+      className="border-y border-gold-dim/30 bg-[radial-gradient(120%_60%_at_50%_0%,rgba(124,58,237,0.10)_0%,transparent_70%)] py-14"
     >
       <div className="mx-auto max-w-5xl px-6">
         <div className="text-center">
