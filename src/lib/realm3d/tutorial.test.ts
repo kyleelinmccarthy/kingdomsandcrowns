@@ -204,11 +204,12 @@ describe("persistence, above the flat tutorial's numbers", () => {
 });
 
 describe("what counts as looking round", () => {
-  it("counts the captured mouse moving and a right-drag, and not a free mouse passing over", () => {
+  it("counts the captured mouse moving, a right-drag and a left-drag, and not a free mouse passing over", () => {
     expect(countsAsLook(0, true)).toBe(true);
     expect(countsAsLook(2, false)).toBe(true);
+    expect(countsAsLook(1, false)).toBe(true);
     expect(countsAsLook(0, false)).toBe(false);
-    expect(countsAsLook(1, false)).toBe(false);
+    expect(countsAsLook(4, false)).toBe(false);
   });
 
   it("teaches the click, not a drag", () => {

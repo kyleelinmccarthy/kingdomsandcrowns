@@ -28,7 +28,7 @@
  * (with whatever stands against it), so the camera sits outside like a dolls' house and looks in
  * over the knee-high course that is always drawn. The mouse is the camera exactly as outdoors,
  * through the same door (`MouseLook`) with the room's own limits (`ROOM_LOOK`): click to look
- * (Esc lets go), or right-drag while it is free; the wheel zooms. A mouse captured outside comes
+ * (Esc lets go), right-drag while it is free, left-drag to swing round the hero; the wheel zooms. A mouse captured outside comes
  * through the door still captured. The walk is the island's too: the same weight, the same
  * sidestep (`locomotion.ts`).
  *
@@ -51,6 +51,7 @@ import {
   makeAim,
   makeMoveIntent,
   moveIntent,
+  walkYaw,
   turnToward,
   BACKPEDAL,
   type Aim,
@@ -185,7 +186,7 @@ const RoomWorld = memo(function RoomWorld({
   const gaitRef = useRef<Gait>({ speed: 0, phase: 0 });
   const keys = useRef<Keys>({ f: false, b: false, l: false, r: false, jump: false, interact: false });
   const yawRef = useRef(0);
-  const view = useRef<LookState>({ pitch: plan.view.pitch, dist: plan.view.dist, held: false, lastLookAt: -1e9 });
+  const view = useRef<LookState>({ pitch: plan.view.pitch, dist: plan.view.dist, held: false, lastLookAt: -1e9, orbiting: false });
   const lookPaused = useCallback(() => roomPaused(live), [live]);
   const walls = useRef<Record<WallSide, THREE.Group | null>>({ n: null, s: null, e: null, w: null });
   const spots = useMemo(() => roomSpots(plan, keeperName, chest, viewer), [plan, keeperName, chest, viewer]);
@@ -580,7 +581,8 @@ function RoomHero({
     }
     const dt = Math.min(0.05, rawDt);
     const k = keys.current;
-    moveIntent(intent, yawRef.current, k);
+    // With the camera swung round (a left-drag), the keys walk by the hero's own facing. Nobody rides indoors.
+    moveIntent(intent, walkYaw(yawRef.current, facingRef.current, view.current.orbiting, false), k);
     const wanted = intent.moving ? HERO_SPEED * (intent.back ? BACKPEDAL : 1) : 0;
     stepMotion(motion, move, intent.x * wanted, intent.z * wanted, HERO_SPEED, vert.grounded, dt);
     if (move.x !== 0 || move.z !== 0) {

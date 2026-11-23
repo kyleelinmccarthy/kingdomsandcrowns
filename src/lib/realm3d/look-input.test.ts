@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { LOCK_RETRY_MS, LOOK_SPIKE, mouseLook, type LookDoc, type LookEl } from "./look-input";
+import { CLICK_SLOP, LOCK_RETRY_MS, LOOK_SPIKE, mouseLook, type LookDoc, type LookEl, type LookMode } from "./look-input";
 
 /* A document and a canvas, faked down to what the browser gives this module. */
 
@@ -55,39 +55,48 @@ function rig(opts: { refuse?: boolean; doc?: Page; paused?: boolean } = {}) {
   const el = canvas(opts.refuse);
   const doc = opts.doc ?? page();
   const looks: [number, number][] = [];
+  const modes: LookMode[] = [];
   const zooms: number[] = [];
   const state = { paused: opts.paused ?? false };
   const freed = vi.fn();
   const queued: { fn: () => void; ms: number }[] = [];
   const look = mouseLook(el as unknown as LookEl, doc as unknown as LookDoc, {
-    sink: (dx, dy) => looks.push([dx, dy]),
+    sink: (dx, dy, mode) => {
+      looks.push([dx, dy]);
+      modes.push(mode);
+    },
     zoom: (d) => zooms.push(d),
     paused: () => state.paused,
     freed,
     later: (fn, ms) => queued.push({ fn, ms }),
   });
-  return { el, doc, look, looks, zooms, state, freed, queued };
+  return { el, doc, look, looks, modes, zooms, state, freed, queued };
 }
 
 /** Let a promise the module was handed settle. */
 const settle = () => new Promise((r) => setTimeout(r, 0));
 
 describe("capturing the mouse, as in Minecraft", () => {
-  it("captures it when the child clicks the world", () => {
+  it("captures it when the child clicks the world: on the button coming up, not going down", () => {
     const { el } = rig();
-    el.fire("pointerdown", { button: 0, pointerId: 1 });
+    el.fire("pointerdown", { button: 0, pointerId: 1, clientX: 100, clientY: 50 });
+    expect(el.requestPointerLock).not.toHaveBeenCalled();
+    el.fire("pointermove", { pointerId: 1, clientX: 102, clientY: 50 });
+    el.fire("pointerup", { button: 0, pointerId: 1, clientX: 102, clientY: 50 });
     expect(el.requestPointerLock).toHaveBeenCalledTimes(1);
   });
 
   it("captures nothing while a panel is open", () => {
     const { el } = rig({ paused: true });
-    el.fire("pointerdown", { button: 0, pointerId: 1 });
+    el.fire("pointerdown", { button: 0, pointerId: 1, clientX: 0, clientY: 0 });
+    el.fire("pointerup", { button: 0, pointerId: 1, clientX: 0, clientY: 0 });
     expect(el.requestPointerLock).not.toHaveBeenCalled();
   });
 
   it("turns the camera as the captured mouse moves, with no button held", () => {
-    const { el, doc, look, looks } = rig();
-    el.fire("pointerdown", { button: 0, pointerId: 1 });
+    const { el, doc, look, looks, modes } = rig();
+    el.fire("pointerdown", { button: 0, pointerId: 1, clientX: 0, clientY: 0 });
+    el.fire("pointerup", { button: 0, pointerId: 1, clientX: 0, clientY: 0 });
     lockTo(doc, el);
     expect(look.captured).toBe(true);
     doc.fire("mousemove", { movementX: 12, movementY: -4, buttons: 0 });
@@ -96,6 +105,8 @@ describe("capturing the mouse, as in Minecraft", () => {
       [12, -4],
       [-3, 0],
     ]);
+    expect(modes).toEqual(["turn", "turn"]);
+    expect(look.orbiting).toBe(false);
   });
 
   it("turns nothing while the game is paused, captured or not", () => {
@@ -241,7 +252,8 @@ describe("when the browser says no", () => {
 
   it("cancels a pending retry on dispose, so a torn-down canvas is never asked again", async () => {
     const { el, look, queued } = rig({ refuse: true });
-    el.fire("pointerdown", { button: 0, pointerId: 1 });
+    el.fire("pointerdown", { button: 0, pointerId: 1, clientX: 0, clientY: 0 });
+    el.fire("pointerup", { button: 0, pointerId: 1, clientX: 0, clientY: 0 });
     await settle();
     expect(el.requestPointerLock).toHaveBeenCalledTimes(1);
     look.dispose();
@@ -252,7 +264,10 @@ describe("when the browser says no", () => {
   it("plays on without Pointer Lock at all: a click asks nothing and throws nothing, and the right button still looks", () => {
     const { el, doc, looks } = rig();
     delete (el as { requestPointerLock?: unknown }).requestPointerLock;
-    expect(() => el.fire("pointerdown", { button: 0, pointerId: 1, clientX: 0, clientY: 0 })).not.toThrow();
+    expect(() => {
+      el.fire("pointerdown", { button: 0, pointerId: 1, clientX: 0, clientY: 0 });
+      el.fire("pointerup", { button: 0, pointerId: 1, clientX: 0, clientY: 0 });
+    }).not.toThrow();
     expect(doc.pointerLockElement).toBeNull();
     el.fire("pointerdown", { button: 2, pointerId: 2, clientX: 100, clientY: 100 });
     el.fire("pointermove", { pointerId: 2, clientX: 130, clientY: 100 });
@@ -262,7 +277,7 @@ describe("when the browser says no", () => {
 
 describe("looking with the right button while the mouse is free, as in World of Warcraft", () => {
   it("turns the camera while the right button drags, and stops when it comes up", () => {
-    const { el, look, looks } = rig();
+    const { el, look, looks, modes } = rig();
     el.fire("pointerdown", { button: 2, pointerId: 7, clientX: 100, clientY: 50 });
     expect(look.dragging).toBe(true);
     expect(el.setPointerCapture).toHaveBeenCalledWith(7);
@@ -270,7 +285,9 @@ describe("looking with the right button while the mouse is free, as in World of 
     el.fire("pointerup", { pointerId: 7 });
     el.fire("pointermove", { pointerId: 7, clientX: 170, clientY: 45 });
     expect(looks).toEqual([[30, -5]]);
+    expect(modes).toEqual(["turn"]);
     expect(look.dragging).toBe(false);
+    expect(look.orbiting).toBe(false);
     // ...and it never asked for the capture: the HUD stays clickable.
     expect(el.requestPointerLock).not.toHaveBeenCalled();
   });
@@ -284,6 +301,118 @@ describe("looking with the right button while the mouse is free, as in World of 
   it("keeps the right button's menu off the world", () => {
     const { el } = rig();
     expect(el.fire("contextmenu").preventDefault).toHaveBeenCalled();
+  });
+});
+
+describe("swinging the camera round with the left button, as in World of Warcraft", () => {
+  it("orbits, and never captures, when the left button drags further than a click", () => {
+    const { el, look, looks, modes } = rig();
+    el.fire("pointerdown", { button: 0, pointerId: 3, clientX: 100, clientY: 50 });
+    expect(el.setPointerCapture).toHaveBeenCalledWith(3);
+    expect(look.orbiting).toBe(false);
+    el.fire("pointermove", { pointerId: 3, clientX: 110, clientY: 50 });
+    expect(look.orbiting).toBe(true);
+    // It is not a right-drag: the body does not turn to follow it.
+    expect(look.dragging).toBe(false);
+    el.fire("pointermove", { pointerId: 3, clientX: 115, clientY: 48 });
+    el.fire("pointerup", { button: 0, pointerId: 3, clientX: 115, clientY: 48 });
+    // The movement inside the slop is not lost: the first orbit runs from where the press began.
+    expect(looks).toEqual([
+      [10, 0],
+      [5, -2],
+    ]);
+    expect(modes).toEqual(["orbit", "orbit"]);
+    expect(el.requestPointerLock).not.toHaveBeenCalled();
+    expect(look.orbiting).toBe(false);
+  });
+
+  it("calls a press that wobbles no more than CLICK_SLOP a click: it captures once, on up, and looks nowhere", () => {
+    expect(CLICK_SLOP).toBe(4);
+    const { el, looks } = rig();
+    el.fire("pointerdown", { button: 0, pointerId: 3, clientX: 100, clientY: 50 });
+    el.fire("pointermove", { pointerId: 3, clientX: 102, clientY: 50 });
+    expect(el.requestPointerLock).not.toHaveBeenCalled();
+    el.fire("pointerup", { button: 0, pointerId: 3, clientX: 102, clientY: 50 });
+    expect(el.requestPointerLock).toHaveBeenCalledTimes(1);
+    expect(looks).toEqual([]);
+  });
+
+  it("lets a drag released over the HUD go quietly: no capture, no click eaten, nothing still orbiting", () => {
+    const { el, look } = rig();
+    el.fire("pointerdown", { button: 0, pointerId: 3, clientX: 100, clientY: 50 });
+    el.fire("pointermove", { pointerId: 3, clientX: 400, clientY: 600 });
+    // The canvas holds the pointer capture, so the up comes here, wherever the mouse is.
+    el.fire("pointerup", { button: 0, pointerId: 3, clientX: 400, clientY: 600 });
+    // Held through the up, so the browser sends the click after it to the canvas, not the HUD.
+    expect(el.releasePointerCapture).not.toHaveBeenCalled();
+    const click = el.fire("click", { button: 0 });
+    expect(click.preventDefault).not.toHaveBeenCalled();
+    expect(el.requestPointerLock).not.toHaveBeenCalled();
+    expect(look.orbiting).toBe(false);
+  });
+
+  it("ends a drag whose pointer capture the browser took away, with no capture asked for", () => {
+    const { el, look } = rig();
+    el.fire("pointerdown", { button: 0, pointerId: 3, clientX: 100, clientY: 50 });
+    el.fire("pointermove", { pointerId: 3, clientX: 130, clientY: 50 });
+    el.fire("lostpointercapture", { pointerId: 3 });
+    expect(look.orbiting).toBe(false);
+    el.fire("pointerup", { button: 0, pointerId: 3, clientX: 130, clientY: 50 });
+    expect(el.requestPointerLock).not.toHaveBeenCalled();
+  });
+
+  it("orbits while the left button is held with the mouse captured, and turns again once it comes up", () => {
+    const { el, doc, look, modes } = rig();
+    lockTo(doc, el);
+    el.fire("pointerdown", { button: 0, pointerId: 1 });
+    expect(look.orbiting).toBe(true);
+    doc.fire("mousemove", { movementX: 12, movementY: 0 });
+    el.fire("pointerup", { button: 0, pointerId: 1 });
+    expect(look.orbiting).toBe(false);
+    doc.fire("mousemove", { movementX: 12, movementY: 0 });
+    expect(modes).toEqual(["orbit", "turn"]);
+    expect(el.requestPointerLock).not.toHaveBeenCalled();
+  });
+
+  it("stops orbiting when the captured mouse says the left button is no longer down", () => {
+    // An up the canvas never heard (a panel was open when it came) must not leave the camera orbiting.
+    const { el, doc, look, modes } = rig();
+    lockTo(doc, el);
+    el.fire("pointerdown", { button: 0, pointerId: 1 });
+    doc.fire("mousemove", { movementX: 5, movementY: 0, buttons: 0 });
+    expect(look.orbiting).toBe(false);
+    expect(modes).toEqual(["turn"]);
+  });
+
+  it("stops orbiting when the capture is lost", () => {
+    const { el, doc, look } = rig();
+    lockTo(doc, el);
+    el.fire("pointerdown", { button: 0, pointerId: 1 });
+    lockTo(doc, null);
+    expect(look.orbiting).toBe(false);
+  });
+
+  it("still turns with a right-drag, and the left button does nothing in the middle of one", () => {
+    const { el, look, modes } = rig();
+    el.fire("pointerdown", { button: 2, pointerId: 7, clientX: 100, clientY: 50 });
+    el.fire("pointerdown", { button: 0, pointerId: 7, clientX: 100, clientY: 50 });
+    el.fire("pointermove", { pointerId: 7, clientX: 130, clientY: 50 });
+    expect(look.orbiting).toBe(false);
+    el.fire("pointerup", { button: 2, pointerId: 7, clientX: 130, clientY: 50 });
+    expect(modes).toEqual(["turn"]);
+    expect(el.requestPointerLock).not.toHaveBeenCalled();
+  });
+
+  it("drops a left drag when a panel opens in the middle of it, and asks for no capture", () => {
+    const { el, look, looks, state } = rig();
+    el.fire("pointerdown", { button: 0, pointerId: 3, clientX: 100, clientY: 50 });
+    el.fire("pointermove", { pointerId: 3, clientX: 120, clientY: 50 });
+    state.paused = true;
+    el.fire("pointermove", { pointerId: 3, clientX: 140, clientY: 50 });
+    expect(look.orbiting).toBe(false);
+    el.fire("pointerup", { button: 0, pointerId: 3, clientX: 140, clientY: 50 });
+    expect(looks).toEqual([[20, 0]]);
+    expect(el.requestPointerLock).not.toHaveBeenCalled();
   });
 });
 

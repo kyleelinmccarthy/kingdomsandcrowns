@@ -43,7 +43,7 @@ export type LessonId = "walk" | "look" | "jump" | "find" | "talk" | "cast" | "sp
 export type LessonSignal =
   /** `keys` is how many DIFFERENT movement keys the child has pressed; `distance` in world units. */
   | { kind: "walked"; keys: number; distance: number }
-  /** Pixels the mouse moved as the camera: captured, or right-dragged. */
+  /** Pixels the mouse moved as the camera: captured, or dragged with either button. */
   | { kind: "looked"; px: number }
   | { kind: "jumped" }
   /** Something came into E's reach. `waiting` is true when it is the villager the child is sent to. */
@@ -269,7 +269,7 @@ export function tutorialDone(k: Keymap): string {
   return `You know the Realm! Press ${primaryLabel(k, "pause")} or Esc any time to pause.`;
 }
 
-/** A mouse move that turns the camera: the mouse is captured, or the right button is held. */
+/** A mouse move that moves the camera: the mouse is captured, or the left or right button is held. */
 export function countsAsLook(buttons: number, captured: boolean): boolean {
-  return captured || (buttons & 2) !== 0;
+  return (buttons & 3) !== 0 || captured;
 }

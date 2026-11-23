@@ -82,6 +82,7 @@ import {
   makeAim,
   makeMoveIntent,
   moveIntent,
+  walkYaw,
   takeAim,
   turnToward,
   type Aim,
@@ -133,7 +134,7 @@ import { Doorstep } from "./doorstep";
 import { SpellFx } from "./spell-fx";
 import { Troubles } from "./troubles-scene";
 import type { TroubleBus } from "@/lib/realm3d/trouble-bus";
-import { boostJump, CAST_ON_THE_ROAD, holdDrop, jumpSpeed, keepFooting, pace, rideFace, requestCast, rideRadius, wadeLimit, writeAir, type RideBus } from "@/lib/realm3d/riding";
+import { boostJump, CAST_ON_THE_ROAD, holdDrop, isRiding, jumpSpeed, keepFooting, pace, rideFace, requestCast, rideRadius, wadeLimit, writeAir, type RideBus } from "@/lib/realm3d/riding";
 import { RiddenMount, Riding, Saddle, travelGraphFor, useSeatRef } from "./riding-scene";
 import { bodyFor, slideBody, turnBody } from "@/lib/realm3d/mount-body";
 import { RecessScene } from "./recess-scene";
@@ -684,7 +685,8 @@ function Hero({
     }
     const dt = Math.min(0.05, rawDt);
     const k = keys.current;
-    moveIntent(intent, yawRef.current, k);
+    // On foot with the camera swung round (a left-drag), the keys walk by the hero's own facing.
+    moveIntent(intent, walkYaw(yawRef.current, facingRef.current, view.current.orbiting, isRiding(ride)), k);
     // Getting on or off a mount, or a fast-travel ride: the hands are not steering.
     const held = ride?.hold ?? false;
     const p = heroRef.current;
@@ -1126,7 +1128,7 @@ const World = memo(function World({
   const gaitRef = useRef<Gait>({ speed: 0, phase: 0 });
   const aimRef = useRef(Number.NaN);
   const keys = useRef<Keys>({ f: false, b: false, l: false, r: false, jump: false, interact: false });
-  const view = useRef<LookState>({ pitch: DEFAULT_PITCH, dist: DEFAULT_DIST, held: false, lastLookAt: -1e9 });
+  const view = useRef<LookState>({ pitch: DEFAULT_PITCH, dist: DEFAULT_DIST, held: false, lastLookAt: -1e9, orbiting: false });
   const lookPaused = useCallback(() => bus.paused, [bus]);
   const tex = useMemo(() => glowTexture(), []);
 
@@ -1213,7 +1215,7 @@ const World = memo(function World({
       {/* Riding: the mount's moments, where it waits, the hitching posts and fast travel. Before the doorstep (see its note). */}
       {ride && <Riding ride={ride} bus={bus} router={router} heroRef={heroRef} facingRef={facingRef} aimRef={aimRef} keys={keys} solids={solids} world={world} casts={casts} />}
       {/* Going in and coming out of doors, and never being left inside a wall. After the camera: it may set the camera. */}
-      <Doorstep bus={bus} heroRef={heroRef} yawRef={yawRef} aimRef={aimRef} keys={keys} view={view} solids={solids} props={layout.props} sitePlan={SITE_PLAN} castle={castle} castleTier={layout.castleType} castleUnlocked={castleUnlocked} world={world} ride={ride} />
+      <Doorstep bus={bus} heroRef={heroRef} yawRef={yawRef} facingRef={facingRef} aimRef={aimRef} keys={keys} view={view} solids={solids} props={layout.props} sitePlan={SITE_PLAN} castle={castle} castleTier={layout.castleType} castleUnlocked={castleUnlocked} world={world} ride={ride} />
       {/* After the camera (markers project from this frame's camera), before the driver (a new charge locks on before it releases). */}
       {troubles && <Troubles tbus={troubles} bus={bus} pool={fxPool} caster={caster} heroRef={heroRef} aimRef={aimRef} solids={solids} world={world} layout={layout} calm={calm} ride={ride} />}
       {/* Recess: the Ring's arch and posts, and a run's gleams, lit post and pace ghost. */}
