@@ -4,9 +4,9 @@ import { nanoid } from "nanoid";
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
-import { getSession, requireSession } from "@/lib/auth/session";
+import { getSession } from "@/lib/auth/session";
 import { sanitizeText } from "@/lib/utils/sanitize";
-import { isAdminUser } from "@/lib/admin";
+import { requireAdmin } from "@/lib/admin";
 import { sendEmail } from "@/lib/email";
 import { brandedEmail } from "@/lib/email-template";
 
@@ -66,10 +66,7 @@ export async function submitFeedback(input: SubmitFeedbackInput) {
 }
 
 export async function listFeedback() {
-  const session = await requireSession();
-  if (!(await isAdminUser(session.user.id))) {
-    throw new Error("Unauthorized");
-  }
+  await requireAdmin();
   return db
     .select()
     .from(schema.feedback)
@@ -82,10 +79,7 @@ export async function updateFeedbackStatus(
   status: "new" | "triaged" | "resolved" | "archived",
   adminNotes?: string,
 ) {
-  const session = await requireSession();
-  if (!(await isAdminUser(session.user.id))) {
-    throw new Error("Unauthorized");
-  }
+  await requireAdmin();
   await db
     .update(schema.feedback)
     .set({

@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { GameIcon } from "@/components/game-icon";
+import type { JoinLink } from "@/lib/auth/signup-mode";
 import {
   WALKTHROUGH,
   PERSONA_ORDER,
@@ -21,7 +22,8 @@ function personaFromParam(value: string | null): Persona {
   return value === "hero" ? "hero" : "parent";
 }
 
-export function Walkthrough() {
+/** `join` is the closing call to action: request access in the beta, sign up once open. */
+export function Walkthrough({ join }: { join: JoinLink }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const active = personaFromParam(searchParams.get("view"));
@@ -108,10 +110,10 @@ export function Walkthrough() {
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
           <a
-            href="/request-access"
+            href={join.href}
             className="inline-flex h-11 items-center justify-center rounded-md bg-primary px-6 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
-            Request access
+            {join.label}
           </a>
           <a
             href="/login?mode=kid"

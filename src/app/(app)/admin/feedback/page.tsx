@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireSession } from "@/lib/auth/session";
 import { isAdminUser } from "@/lib/admin";
@@ -20,6 +21,11 @@ export default async function AdminFeedbackPage() {
         <h1 className="page-title text-3xl">The Rookery</h1>
         <p className="text-muted-foreground">
           {items.length} {items.length === 1 ? "raven" : "ravens"} received
+        </p>
+        <p className="mt-1 text-sm">
+          <Link href="/admin/access-requests" className="text-primary hover:underline">
+            The Gatehouse (access requests)
+          </Link>
         </p>
       </div>
       <FeedbackList items={items} />

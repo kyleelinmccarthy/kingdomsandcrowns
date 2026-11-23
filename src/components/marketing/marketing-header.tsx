@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { SignInMenu } from "@/components/marketing/sign-in-menu";
+import { joinLink, signupMode } from "@/lib/auth/signup-mode";
 
 /**
  * Shared marketing top bar — used by the landing page and the "How It Works"
@@ -8,8 +9,11 @@ import { SignInMenu } from "@/components/marketing/sign-in-menu";
  * sync across public pages.
  */
 export function MarketingHeader({ active }: { active?: "how-it-works" }) {
+  const mode = signupMode();
+  const join = joinLink(mode);
   return (
     <>
+    {mode === "invite_only" && (
     <div role="note" className="relative z-20 border-b border-[var(--gold-border)] bg-[var(--gold-bright)]/10 px-4 py-2 text-center text-sm text-[var(--gold-bright)]">
       <strong className="font-semibold">Beta:</strong> Kingdoms &amp; Crowns is in beta testing and open by invitation.{" "}
       <Link href="/request-access" className="underline underline-offset-2 hover:text-foreground">
@@ -17,6 +21,7 @@ export function MarketingHeader({ active }: { active?: "how-it-works" }) {
       </Link>{" "}
       to join the beta or hear when accounts open.
     </div>
+    )}
     <header className="relative z-20 border-b border-gold-dim/40 bg-[#080c18]/80 backdrop-blur-md">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
         <Link href="/" className="flex items-center gap-2">
@@ -35,8 +40,8 @@ export function MarketingHeader({ active }: { active?: "how-it-works" }) {
           >
             How It Works
           </Link>
-          <Link href="/request-access">
-            <Button size="sm">Request access</Button>
+          <Link href={join.href}>
+            <Button size="sm">{join.label}</Button>
           </Link>
           <SignInMenu />
         </nav>

@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { Walkthrough } from "@/components/marketing/walkthrough";
+import { joinLink } from "@/lib/auth/signup-mode";
 
 export const metadata: Metadata = {
   title: "How It Works — Kingdoms & Crowns",
@@ -11,7 +12,7 @@ export const metadata: Metadata = {
 export default function HowItWorksPage() {
   return (
     <Suspense fallback={null}>
-      <Walkthrough />
+      <Walkthrough join={joinLink()} />
     </Suspense>
   );
 }

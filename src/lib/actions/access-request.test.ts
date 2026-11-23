@@ -26,7 +26,7 @@ beforeAll(async () => {
     id text PRIMARY KEY, name text NOT NULL, email text NOT NULL, message text,
     wants_beta integer NOT NULL DEFAULT false, notify_free integer NOT NULL DEFAULT false,
     notify_paid integer NOT NULL DEFAULT false, ip_hash text, status text NOT NULL DEFAULT 'new',
-    created_at integer NOT NULL)`);
+    admit_until integer, decided_at integer, decided_by_user_id text, created_at integer NOT NULL)`);
 });
 beforeEach(async () => {
   await client.query("DELETE FROM access_request");

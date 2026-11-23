@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { GameIcon, type GameIconName } from "@/components/game-icon";
 import { MarketingHeader } from "@/components/marketing/marketing-header";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
+import { joinLink } from "@/lib/auth/signup-mode";
 
 const HOW_IT_WORKS: {
   icon: GameIconName;
@@ -68,6 +69,7 @@ function Divider() {
 }
 
 export function Landing() {
+  const join = joinLink();
   return (
     <div className="relative min-h-svh overflow-hidden bg-[linear-gradient(180deg,#060c1a_0%,#090f1f_50%,#0c1525_100%)] text-foreground">
       {/* Hero backdrop — a kingdom at dusk, faded into the page so it reads as
@@ -108,8 +110,8 @@ export function Landing() {
             makes the daily habit fun for students and keeps the paperwork done for you.
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-            <Link href="/request-access">
-              <Button size="lg">Request access</Button>
+            <Link href={join.href}>
+              <Button size="lg">{join.label}</Button>
             </Link>
             <Link href="/login">
               <Button size="lg" variant="secondary" className={CTA_SECONDARY}>
@@ -252,8 +254,8 @@ export function Landing() {
                   .
                 </p>
                 <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row md:items-start">
-                  <Link href="/request-access">
-                    <Button size="lg">Request access</Button>
+                  <Link href={join.href}>
+                    <Button size="lg">{join.label}</Button>
                   </Link>
                   <Link href="/login">
                     <Button size="lg" variant="secondary" className={CTA_SECONDARY}>
