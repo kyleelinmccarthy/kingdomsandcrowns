@@ -1045,11 +1045,13 @@ describe("the tutorial", () => {
     const r = bind(router.keymap, "walkForward", 0, "KeyI");
     if (!r.ok) throw new Error("bind refused");
     act(() => router.setKeymap(r.keymap));
-    act(() => void fireEvent.keyDown(window, { code: "KeyI" }));
-    act(() => void fireEvent.keyDown(window, { code: "ArrowUp" })); // the same direction again
+    // W is no longer a walk key, so W and D are one direction, not two.
+    act(() => void fireEvent.keyDown(window, { code: "KeyW" }));
+    act(() => void fireEvent.keyDown(window, { code: "KeyD" }));
     walk(bus, 8);
     expect(screen.getByText("Walk around.")).toBeInTheDocument();
-    act(() => void fireEvent.keyDown(window, { code: "KeyD" }));
+    // I is: with D that is two directions, and the lesson moves on.
+    act(() => void fireEvent.keyDown(window, { code: "KeyI" }));
     walk(bus, 8);
     expect(screen.getByText("Look around.")).toBeInTheDocument();
   });
