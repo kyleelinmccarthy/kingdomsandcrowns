@@ -61,10 +61,10 @@ export type InteractTarget = {
    * (`lib/realm3d/recess/course.ts`), where a child runs the Ring and a grown-up sees their laps.
    * `riddle` is a riddle stone (`lib/realm/riddle-stones.ts`); its id is the place it stands at.
    * `plans` is the keep yard's plans board (`lib/realm/keep-yard.ts`), where the hero builds.
-   * `chronicle` is the Scribe's lectern (`lib/realm/keep-yard.ts`), where E opens the hero's Chronicle book.
+   * `chronicle` is the Scribe's lectern (`lib/realm/keep-yard.ts`), where the interact key opens the hero's Chronicle book.
    * `plaque` is the plaque of a built plan (`lib/realm3d/improvement-spots.ts`); its id is the improvement's.
    * `lock` is a chest or vault door (`lib/realm/world-objects.ts`); its id is the object's (`chest:west-lane`).
-   * `tower` is the Puzzle Tower (`lib/realm/puzzle-tower.ts`), where E opens its floors; its id is "puzzle-tower".
+   * `tower` is the Puzzle Tower (`lib/realm/puzzle-tower.ts`), where the interact key opens its floors; its id is "puzzle-tower".
    * `anchor` is a reading trail's search stake (`lib/realm/anchors.ts`), there only while a walk is on; its id is the anchor's (`landmark:mill`).
    * `rune` is a rune object (`lib/realm/rune-objects.ts`), broken or fixed; its id is the object's (`rune:west-wagon`). E casts a rune at it, any time.
    */

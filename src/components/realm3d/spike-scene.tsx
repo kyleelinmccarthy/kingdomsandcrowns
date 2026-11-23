@@ -720,7 +720,7 @@ function Hero({
     if (face === face) facing.current = face;
     // The stride runs the way the body goes: backwards for a backpedal, slower in the air.
     bob.current += dt * strideRate(legs, vert.grounded);
-    // Edge-triggered: the keydown handler ignores auto-repeat, and this eats the press.
+    // Edge-triggered: the router drops Jump's auto-repeat, and this eats the press.
     if (takeJump(k) && !held && tryJump(vert)) {
       boostJump(vert, jumpSpeed(ride, vert.vy));
       bus.feet.onJump();

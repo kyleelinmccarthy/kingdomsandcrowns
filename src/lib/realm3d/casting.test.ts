@@ -3,7 +3,6 @@ import { resolveSpell, SPELL_ELEMENTS, SPELL_FORMS, SPELL_MODIFIERS, type SpellD
 import {
   cooldownLeft,
   cooldownMsFor,
-  digitSlot,
   makeCaster,
   makeCastQueue,
   manaFraction,
@@ -251,14 +250,6 @@ describe("the clock is handed in, never read from the machine", () => {
 });
 
 describe("the key queue", () => {
-  it("reads the number row and nothing else", () => {
-    expect(digitSlot("Digit1")).toBe(1);
-    expect(digitSlot("Digit9")).toBe(9);
-    expect(digitSlot("Digit0")).toBe(0);
-    expect(digitSlot("KeyW")).toBe(0);
-    expect(digitSlot("Space")).toBe(0);
-  });
-
   it("holds the presses a frame has not seen yet", () => {
     const q = makeCastQueue();
     pushCast(q, 1);

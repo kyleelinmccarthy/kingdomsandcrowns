@@ -168,7 +168,7 @@ export function escapeFrom(overlay: Overlay | null): Overlay | null {
 /* ------------------------------------------------------------------ interact */
 
 /**
- * What the E prompt says. A person is talked to; everything else is looked at. The label is
+ * What the interact prompt says. A person is talked to; everything else is looked at. The label is
  * the scene's, already phrased for a sentence ("Old Bram", "the Chapel", "Cloudfoot").
  */
 export function interactVerb(target: InteractTarget): string {

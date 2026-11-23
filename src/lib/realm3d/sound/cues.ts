@@ -44,7 +44,7 @@ export function cueInfo(id: SoundId): CueInfo {
   // A mount's feet: under the child's own, and a gallop's beats may overlap the last one's tail.
   if (id.startsWith("hoof-") || id.startsWith("paw-")) return { bus: "sfx", priority: LOW, gap: 0.1, max: 2 };
   if (id.startsWith("gallop-")) return { bus: "sfx", priority: LOW, gap: 0.2, max: 2 };
-  // A mount's hello: once, however often M is pressed.
+  // A mount's hello: once, however often the mount key is pressed.
   if (id.startsWith("call-")) return { bus: "sfx", priority: ANSWER, gap: 1.2, max: 1 };
   switch (id as EffectId) {
     case "wingbeat":

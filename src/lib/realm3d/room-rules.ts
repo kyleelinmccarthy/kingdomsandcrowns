@@ -72,7 +72,7 @@ export function leavingRoom(plan: Pick<RoomPlan, "D" | "door">, x: number, z: nu
 export type RoomSpots = { spots: InteractSpot[]; floors: number[] };
 
 /**
- * Three things to press E at in a room: whoever keeps it, the one thing in it to use, and the way
+ * Three things to use the interact key on in a room: whoever keeps it, the one thing in it to use, and the way
  * out; and a fourth in a room with a chest (`roomChestFor`), on the floor, before the door. Built
  * once per room; each spot carries its own prebuilt target, as the island's do.
  */

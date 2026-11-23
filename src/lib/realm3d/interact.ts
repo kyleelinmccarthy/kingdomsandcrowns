@@ -152,9 +152,9 @@ export type SpotInput = {
   arch?: { x: number; z: number; halfSpan: number } | null;
   /** The riddle stones (`lib/realm/riddle-stones.ts`), by the place each stands at. Absent, there are none. */
   stones?: readonly { placeId: string; x: number; z: number }[];
-  /** The keep yard's plans board (`KEEP_YARD.plansBoard`), where E opens the kingdom's plans. Absent, there is none. */
+  /** The keep yard's plans board (`KEEP_YARD.plansBoard`), where the interact key opens the kingdom's plans. Absent, there is none. */
   plans?: { x: number; z: number } | null;
-  /** The Scribe's lectern (`KEEP_YARD.lectern`), where E opens the hero's Chronicle. Absent, there is none. */
+  /** The Scribe's lectern (`KEEP_YARD.lectern`), where the interact key opens the hero's Chronicle. Absent, there is none. */
   chronicle?: { x: number; z: number } | null;
   /** The plaques of what the hero has built (`improvement-spots.ts`), where E reads who built it. `label` is the plan's own ("Well House"). Absent, there are none. */
   plaques?: readonly { id: string; label: string; x: number; z: number }[];

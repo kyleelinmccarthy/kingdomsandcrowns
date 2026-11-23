@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * EVERYTHING THAT PAUSES THE GAME WITHOUT A PANEL ASKING: the pause key (P), and the four pauses a child
+ * EVERYTHING THAT PAUSES THE GAME WITHOUT A PANEL ASKING: the pause key (P by default), and the four pauses a child
  * never asks for — the tab hidden, the window left, the captured mouse let go, and two minutes
  * with nobody touching anything. Each one opens the pause menu through the frame's `go`, so the
  * play clock stops the way it stops for any panel (`usePlayClock` does not tick while paused).

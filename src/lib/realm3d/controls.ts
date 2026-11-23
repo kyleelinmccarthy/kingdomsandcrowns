@@ -33,7 +33,10 @@
  *     with the mouse free and no drag, or while it orbits, a standing body keeps its facing
  *     (`bodyFacing`, `looking`). A cast
  *     turns a standing body to what it is aimed at for a moment (`AIM_HOLD`), mouse or not.
- *   - Space jumps, E interacts, 1–9 cast. Esc is the frame's.
+ *   - The keys are not this module's. Space jumps, E interacts and 1–9 cast BY DEFAULT: every key
+ *     is the input router's (`input-router.ts`), read through the child's keymap (`keymap.ts`),
+ *     and a child can move any of them in the Controls panel. The mouse above (the capture, the
+ *     left drag's orbit, the right drag, the wheel) is fixed. Esc is the frame's.
  *
  * ## Why facing the heading cannot flip
  *

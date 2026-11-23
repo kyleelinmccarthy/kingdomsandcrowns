@@ -508,7 +508,7 @@ export function RealmGame({
   const nearOutside = useRef<InteractTarget | null>(null);
 
   /* ---- riding ------------------------------------------------------------ */
-  // The mount key (Z), the Ride slot, the words, and fast travel's sheet (`riding-hud.tsx`); the canvas gets the bus.
+  // The mount key (Z by default), the Ride slot, the words, and fast travel's sheet (`riding-hud.tsx`); the canvas gets the bus.
   const travelGraph = useMemo(() => travelGraphFor(world), [world]);
   // The one record of the places found: the HUD's count, the map's marks and fast travel all read it.
   const places = usePlacesFound({ childId, writer: isChild && viewer === "child", initial: realm.placesFound });
@@ -923,7 +923,7 @@ export function RealmGame({
       onInteract: (t) => openTarget(t),
       onCast: () => signal({ kind: "cast" }),
       onWalked: (distance) => signal({ kind: "walked", keys: hands.current.keys.size, distance }),
-      // Walking into a doorway: the same door E opens, if it has an inside.
+      // Walking into a doorway: the same door the interact key opens, if it has an inside.
       onDoor: (site) => {
         const visit = roomFor(site === "castle" ? { kind: "castle", id: site } : { kind: "site", id: site }, kingdomRef.current.buildings, castleUnlocked);
         if (visit) enter(visit);

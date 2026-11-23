@@ -164,7 +164,7 @@ export function shakingSlot(c: Caster): number {
  * against a mana total and a clock the frame loop owns — so it writes the slot here and the
  * driver drains it.
  *
- * Four deep, and a fixed array so a child leaning on the number row allocates nothing. Past
+ * Four deep, and a fixed array so a child leaning on the cast keys allocates nothing. Past
  * four in one frame the extras are dropped, which at sixteen milliseconds a frame is a press
  * rate no hand produces.
  */
@@ -181,13 +181,6 @@ export function pushCast(q: CastQueue, slot: number): void {
 /** Empties the queue once a frame has acted on it. */
 export function drainCasts(q: CastQueue): void {
   q.n = 0;
-}
-
-/** "Digit3" -> 3, and 0 for anything that is not a number-row key. */
-export function digitSlot(code: string): number {
-  if (!code.startsWith("Digit")) return 0;
-  const n = code.charCodeAt(5) - 48;
-  return n >= 1 && n <= 9 ? n : 0;
 }
 
 /** Mana as a 0..1 fraction, for a bar's width. */
