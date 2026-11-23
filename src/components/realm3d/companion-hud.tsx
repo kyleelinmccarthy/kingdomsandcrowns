@@ -15,7 +15,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { InputRouter } from "@/lib/realm3d/input-router";
 import { useAction, useKeymap } from "./realm-input";
-import { primaryLabel } from "@/lib/realm3d/keymap";
+import { boundLabel, keyLine, primaryLabel } from "@/lib/realm3d/keymap";
 import type { HudBus } from "@/lib/realm3d/hud-bus";
 import type { Goal } from "@/lib/realm3d/guide";
 import { isPlanId, PLANS_BOARD_NAME } from "@/lib/realm3d/plan-goal";
@@ -47,7 +47,8 @@ export function petLabel(avatar: Pick<AvatarConfig, "companion"> | null | undefi
 /**
  * Every line the pet's leading says, in one place, so the tests and the game read the same words.
  * A line that names a key is handed its label, as the child has bound it: `talk` is the interact
- * key's (E until it is moved), `follow` the follow key's (F until it is moved).
+ * key's (E until it is moved), `follow` the follow key's (F until it is moved). Null is a key the
+ * child took away, and the line says where to set one (`keyLine`), never "Press —".
  */
 export const leadWords = {
   start(pet: string, t: LeadTarget): string {
@@ -55,25 +56,28 @@ export const leadWords = {
     if (t.kind === "place") return `Your ${pet} has sniffed out somewhere new. Follow!`;
     return `Your ${pet} knows the way home. Follow!`;
   },
-  arrive(pet: string, t: LeadTarget, talk: string): string {
-    // The gold ! on a ready plan (`plan-goal.ts`) is the plans board: E reads it, nobody is talked to.
-    if (t.kind === "villager" && isPlanId(t.id)) return `Here's ${PLANS_BOARD_NAME}! Press ${talk} to read it.`;
-    if (t.kind === "villager") return `Here's ${t.name}! Press ${talk} to talk.`;
+  arrive(pet: string, t: LeadTarget, talk: string | null): string {
+    // The gold ! on a ready plan (`plan-goal.ts`) is the plans board: the interact key reads it, nobody is talked to.
+    if (t.kind === "villager" && isPlanId(t.id)) return `Here's ${PLANS_BOARD_NAME}! ${keyLine(talk, "interact", (e) => `Press ${e} to read it.`)}`;
+    if (t.kind === "villager") return `Here's ${t.name}! ${keyLine(talk, "interact", (e) => `Press ${e} to talk.`)}`;
     if (t.kind === "place") return `Your ${pet} found it: ${t.name}!`;
     return `Home again! Your ${pet} knew the way.`;
   },
   stopped: (pet: string) => `Your ${pet} comes back to you.`,
-  lost: (pet: string, follow: string) => `Your ${pet} lost you, so it came back. Press ${follow} to ask again.`,
+  lost: (pet: string, follow: string | null) => `Your ${pet} lost you, so it came back. ${keyLine(follow, "follow", (f) => `Press ${f} to ask again.`)}`,
   noway: (pet: string) => `Your ${pet} can't find a way from here. Try from a road.`,
-  here: (t: Pick<LeadTarget, "id" | "name">, talk: string) => (isPlanId(t.id) ? `The plans board is right here! Press ${talk} to read it.` : `${t.name} is right here! Press ${talk} to talk.`),
+  here: (t: Pick<LeadTarget, "id" | "name">, talk: string | null) =>
+    isPlanId(t.id)
+      ? `The plans board is right here! ${keyLine(talk, "interact", (e) => `Press ${e} to read it.`)}`
+      : `${t.name} is right here! ${keyLine(talk, "interact", (e) => `Press ${e} to talk.`)}`,
   nothing: (pet: string) => `You've found every place, and nobody is waiting. Your ${pet} is happy just to walk with you.`,
   indoors: (pet: string) => `Outside, your ${pet} will show you the way.`,
   /** The pet's own small jobs, said once a visit (sit, sniff) or each time (a trouble): never the only marker. */
   sniff: (pet: string) => `Your ${pet} can smell gleams! Follow its nose.`,
-  sit: (pet: string, talk: string) => `Your ${pet} is waiting at the door. Walk in, or press ${talk}.`,
+  sit: (pet: string, talk: string | null) => `Your ${pet} is waiting at the door. ${keyLine(talk, "interact", (e) => `Walk in, or press ${e}.`, "Walk in.")}`,
   trouble: (pet: string) => `Your ${pet} spotted a trouble near the road!`,
   /** Added to the objective as it is read aloud (the spec's objective announcement, §3.7). */
-  objective: (pet: string, follow: string) => `Your ${pet} will show you the way: press ${follow}.`,
+  objective: (pet: string, follow: string | null) => keyLine(follow, "follow", (f) => `Your ${pet} will show you the way: press ${f}.`),
   none: "You don't have a companion yet. In the Tavern, open your hero's look and pick one on the Companion tab. The Cat and the Dog are free.",
 };
 
@@ -139,7 +143,7 @@ export function useCompanionLead({
   // The slot draws the follow key and re-draws on a rebind; the words read `router.keymap` when
   // they are said, so they always name the key in force.
   const keymap = useKeymap(router);
-  const keyOf = useCallback((action: "interact" | "follow") => primaryLabel(router.keymap, action), [router]);
+  const keyOf = useCallback((action: "interact" | "follow") => boundLabel(router.keymap, action), [router]);
   // Built once for the visit: the canvas is memoised on it.
   const [lead] = useState<LeadBus>(() => makeLeadBus(calm));
   const [leading, setLeading] = useState(false);

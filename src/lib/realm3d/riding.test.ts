@@ -95,11 +95,14 @@ describe("the words that name a key", () => {
   it("names the mount key the child has, at a hitching post on foot", () => {
     expect(mountFirstLine("Pony", "Z")).toBe("Get on your Pony first. Press Z.");
     expect(mountFirstLine("Pony", "G")).toBe("Get on your Pony first. Press G.");
+    expect(mountFirstLine("Pony", null)).toBe("Get on your Pony first. Set a key for Get on or off your mount in Controls.");
   });
 
   it("names the walk keys the child has as a ride sets off", () => {
     expect(pullUpLine("the Mill", ["W", "A", "S", "D"])).toBe("Riding to the Mill. Press W, A, S or D to pull up.");
     expect(pullUpLine("the Mill", ["I", "J", "K", "L"])).toBe("Riding to the Mill. Press I, J, K or L to pull up.");
+    expect(pullUpLine("the Mill", ["W", null, "S", "D"])).toBe("Riding to the Mill. Press W, S or D to pull up.");
+    expect(pullUpLine("the Mill", [null, null, null, null])).toBe("Riding to the Mill.");
   });
 });
 

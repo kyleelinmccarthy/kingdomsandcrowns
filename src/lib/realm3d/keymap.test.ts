@@ -11,6 +11,10 @@ import {
   keymapFrom,
   keymapToStored,
   primaryLabel,
+  boundLabel,
+  keyLine,
+  pressLine,
+  setKeyLine,
 } from "./keymap";
 
 describe("keymap", () => {
@@ -53,6 +57,17 @@ describe("keymap", () => {
     expect(k.jump).toEqual(["KeyQ"]);
     expect(k.interact).toEqual([]);
     expect(primaryLabel(k, "interact")).toBe("—");
+  });
+
+  it("copy that names a key never says \"Press —\": an action with no key says where to set one", () => {
+    const k = keymapFrom({ jump: ["KeyQ"], interact: ["KeyQ"] });
+    expect(boundLabel(k, "jump")).toBe("Q");
+    expect(boundLabel(k, "interact")).toBeNull();
+    expect(pressLine(k, "jump", (key) => `Press ${key}.`)).toBe("Press Q.");
+    expect(pressLine(k, "interact", (key) => `Press ${key}.`)).toBe("Set a key for Talk or look in Controls.");
+    expect(setKeyLine("mount")).toBe("Set a key for Get on or off your mount in Controls.");
+    // A sentence with another way to do it says that instead.
+    expect(keyLine(null, "pause", (key) => `Press ${key} or Esc.`, "Press Esc.")).toBe("Press Esc.");
   });
 
   it("stores only the diff, and round-trips", () => {

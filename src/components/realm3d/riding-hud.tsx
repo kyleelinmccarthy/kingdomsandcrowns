@@ -13,7 +13,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { InputRouter } from "@/lib/realm3d/input-router";
 import { useAction, useKeymap } from "./realm-input";
-import { defaultKeymap, primaryLabel, type ActionId } from "@/lib/realm3d/keymap";
+import { boundLabel, defaultKeymap, primaryLabel, type ActionId } from "@/lib/realm3d/keymap";
 import type { InteractTarget } from "@/lib/realm3d/hud-bus";
 import {
   askStop,
@@ -182,7 +182,7 @@ export function useRiding({
         if (state === "start") {
           // The banner says where to, with its Stop; read aloud, it is said as well.
           setTravelling(where);
-          if (readAloud) speak(pullUpLine(where, PULL_UP.map((a) => primaryLabel(router.keymap, a))));
+          if (readAloud) speak(pullUpLine(where, PULL_UP.map((a) => boundLabel(router.keymap, a))));
         } else {
           setTravelling(null);
           say(state === "arrive" ? `You're at ${where}.` : "You pulled up on the road.");
@@ -260,7 +260,7 @@ export function useRiding({
         return false;
       }
       if (!isRiding(ride) || ride.phase !== "on") {
-        say(mountFirstLine(access.mount.label, primaryLabel(router.keymap, "mount")));
+        say(mountFirstLine(access.mount.label, boundLabel(router.keymap, "mount")));
         ride.sound.onRefuse();
         return false;
       }

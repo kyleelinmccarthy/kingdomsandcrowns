@@ -148,6 +148,14 @@ describe("the keys the card names", () => {
     const lead = screen.getByText(/Follow the gold ! and press/);
     expect(lead).toHaveTextContent("Follow the gold ! and press R to talk. Or press G, and your Fox will show you the way.");
   });
+
+  it("never says \"press —\": a talk or follow key taken away says where to set one", () => {
+    const k = { ...defaultKeymap(), interact: [], follow: [] };
+    render(<ObjectiveCard objective={objectiveState(fresh, 3)} heroName="Emma" visiting={false} numerals pet="Fox" keymap={k} />);
+    const lead = screen.getByText(/Follow the gold !/);
+    expect(lead).toHaveTextContent("Follow the gold ! Set a key for Talk or look in Controls. Set a key for Follow your companion in Controls.");
+    expect(lead).not.toHaveTextContent("—");
+  });
 });
 
 describe("the clock corner", () => {
@@ -221,6 +229,13 @@ describe("the E prompt", () => {
   it("draws the interact key the child has bound", () => {
     render(<InteractPrompt target={{ kind: "villager", id: "bram", label: "Old Bram" }} onPress={() => {}} keymap={rebound("interact", "KeyR")} />);
     expect(screen.getByRole("button", { name: /Talk to Old Bram/ }).querySelector(".r3-prompt-key")).toHaveTextContent("R");
+  });
+
+  it("draws no keycap for an interact key taken away: the click still works", () => {
+    render(<InteractPrompt target={{ kind: "villager", id: "bram", label: "Old Bram" }} onPress={() => {}} keymap={{ ...defaultKeymap(), interact: [] }} />);
+    const prompt = screen.getByRole("button", { name: /Talk to Old Bram/ });
+    expect(prompt.querySelector(".r3-prompt-key")).toBeNull();
+    expect(prompt).not.toHaveTextContent("—");
   });
 
   it("is not there when nothing is in reach", () => {

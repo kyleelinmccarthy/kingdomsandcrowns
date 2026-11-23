@@ -32,7 +32,7 @@ import type { GateCopy } from "@/lib/realm/play-clock";
 import { controlRows, emptyPageCopy, interactVerb, type Viewer } from "@/lib/realm3d/frame";
 import { listWords, type SpellHelp } from "@/lib/realm3d/guide";
 import type { InteractTarget } from "@/lib/realm3d/hud-bus";
-import { defaultKeymap, primaryLabel, type Keymap } from "@/lib/realm3d/keymap";
+import { boundLabel, defaultKeymap, primaryLabel, setKeyLine, type Keymap } from "@/lib/realm3d/keymap";
 import { pauseCopy, type PauseWhy } from "@/lib/realm3d/pause";
 import { KeybindList } from "./keybind-list";
 import type { RealmWorld } from "@/lib/realm3d/worldgen";
@@ -70,13 +70,29 @@ export function Progress({ done, total, numerals, text, label }: { done: number;
 
 /* ------------------------------------------------------------------ objectives */
 
-/** "Or press F, and your Fox will show you the way." — the companion's offer, said where the ! is. */
+/**
+ * "Or press F, and your Fox will show you the way." — the companion's offer, said where the ! is.
+ * With the follow key taken away it says where to set one (`setKeyLine`), never "press —".
+ */
 function PetOffer({ pet, keymap }: { pet: string | null; keymap: Keymap }) {
   if (!pet) return null;
+  const follow = boundLabel(keymap, "follow");
+  if (follow === null) return <> {setKeyLine("follow")}</>;
   return (
     <>
       {" "}
-      Or press <b>{primaryLabel(keymap, "follow")}</b>, and your {pet} will show you the way.
+      Or press <b>{follow}</b>, and your {pet} will show you the way.
+    </>
+  );
+}
+
+/** "Follow the gold ! and press E to talk.", or where to set the talk key when it has none. */
+function TalkLead({ keymap }: { keymap: Keymap }) {
+  const talk = boundLabel(keymap, "interact");
+  if (talk === null) return <>Follow the gold ! {setKeyLine("interact")}</>;
+  return (
+    <>
+      Follow the gold ! and press <b>{talk}</b> to talk.
     </>
   );
 }
@@ -140,7 +156,7 @@ function ObjectiveRows({
             !
           </span>
           <span>
-            Follow the gold ! and press <b>{primaryLabel(keymap, "interact")}</b> to talk.
+            <TalkLead keymap={keymap} />
             {/* The companion leads (`companion-hud.tsx`): the other way to find them, said where the ! is. */}
             <PetOffer pet={pet} keymap={keymap} />
           </span>
@@ -317,7 +333,7 @@ export function ClockCorner({
           ?
         </button>
         {/* A plain Pause a child can find: the glyph every player knows, the word, and its key. */}
-        <button type="button" className="r3-button" title={`Pause (${primaryLabel(keymap, "pause")} or Esc)`} onMouseDown={keepFocusInWorld} onClick={onMenu}>
+        <button type="button" className="r3-button" title={boundLabel(keymap, "pause") === null ? "Pause (Esc)" : `Pause (${primaryLabel(keymap, "pause")} or Esc)`} onMouseDown={keepFocusInWorld} onClick={onMenu}>
           <GameIcon name="pause" className="r3-button-icon" /> Pause <span className="r3-button-key">{primaryLabel(keymap, "pause")}</span>
         </button>
         {/* A link, so every way out is the ordinary way out: the unmount flushes the clock. */}
@@ -360,9 +376,12 @@ export function LastMinute({ text = "One minute left in the Realm today." }: { t
  */
 export function InteractPrompt({ target, onPress, keymap = defaultKeymap() }: { target: InteractTarget | null; onPress: (t: InteractTarget) => void; keymap?: Keymap }) {
   if (!target) return null;
+  // An interact key taken away draws no keycap: a dash beside "Talk to Old Bram" says nothing,
+  // and the prompt is a button, so a click still does it.
+  const key = boundLabel(keymap, "interact");
   return (
     <button type="button" className="r3-prompt" onMouseDown={keepFocusInWorld} onClick={() => onPress(target)}>
-      <span className="r3-prompt-key">{primaryLabel(keymap, "interact")}</span>
+      {key !== null && <span className="r3-prompt-key">{key}</span>}
       <span className="r3-prompt-text">{interactVerb(target)}</span>
     </button>
   );
@@ -585,12 +604,13 @@ export function HowToPlay({
       <KeybindList rows={controlRows(keymap, slots, { mount, pet })} keymap={keymap} onChange={onKeymap ?? (() => {})} editable={onKeymap !== null} note={keysNote} />
       <p className="r3-board-sub">
         Follow the gold <b>!</b> — over a villager&rsquo;s head, at the edge of the screen, and on your map. That is who is waiting for you.
-        {pet && (
+        {pet && boundLabel(keymap, "follow") !== null && (
           <>
             {" "}
             Or press <b>{primaryLabel(keymap, "follow")}</b>: your {pet} runs ahead to show you the way, and waits for you. Already there? It finds you somewhere new.
           </>
         )}
+        {pet && boundLabel(keymap, "follow") === null && <> {setKeyLine("follow")}</>}
       </p>
       {ring && <p className="r3-board-sub">{ring}</p>}
       {earning && earning.length > 0 && (

@@ -14,7 +14,7 @@
 import { gateCopy, type GateCopy } from "@/lib/realm/play-clock";
 import { isQuiet, type AccessDenied, type AccessResult, type AccessSource } from "@/lib/utils/realm-access";
 import type { InteractTarget } from "./hud-bus";
-import { castAction, primaryLabel, WALK_ACTIONS, type ActionId, type Keymap } from "./keymap";
+import { castAction, pressLine, primaryLabel, WALK_ACTIONS, type ActionId, type Keymap } from "./keymap";
 import type { PauseWhy } from "./pause";
 
 // Declared once, in realm-access.ts; re-exported for the frame's own importers.
@@ -244,7 +244,7 @@ export function controlRows(k: Keymap, slots: number, opts: { mount?: boolean; p
         opts.mount === undefined
           ? "Your hero gets on or off their mount."
           : opts.mount
-            ? `Get on or off your mount. On it, ${interact} at a hitching post rides you anywhere you've been.`
+            ? `Get on or off your mount. ${pressLine(k, "interact", (e) => `On it, ${e} at a hitching post rides you anywhere you've been.`, "On it, a hitching post rides you anywhere you've been.")}`
             : "Ride your mount, once you've picked one in the Tavern.",
       actions: ["mount"],
     },
@@ -255,7 +255,7 @@ export function controlRows(k: Keymap, slots: number, opts: { mount?: boolean; p
         opts.pet === undefined
           ? "Your hero's companion shows the way."
           : opts.pet
-            ? `Ask your ${opts.pet} to show you the way: to whoever is waiting, or somewhere you haven't found yet. ${follow} again to stop.`
+            ? `Ask your ${opts.pet} to show you the way: to whoever is waiting, or somewhere you haven't found yet.${pressLine(k, "follow", (f) => ` ${f} again to stop.`, "")}`
             : "Your companion shows you the way, once you've picked one in the Tavern.",
       actions: ["follow"],
     },

@@ -259,6 +259,34 @@ export function primaryLabel(k: Keymap, action: ActionId): string {
   return first === undefined ? "—" : keyLabel(first);
 }
 
+/** The label of an action's first key, or null when it has none: for copy, which must not say "Press —". */
+export function boundLabel(k: Keymap, action: ActionId): string | null {
+  const first = k[action][0];
+  return first === undefined ? null : keyLabel(first);
+}
+
+/** What copy says instead of naming a key an action does not have: where to give it one. */
+export function setKeyLine(action: ActionId): string {
+  return `Set a key for ${ACTIONS.find((a) => a.id === action)?.label ?? action} in Controls.`;
+}
+
+/**
+ * A sentence that names an action's key. `key` is its label (`boundLabel`), and `line` is the
+ * sentence built round it. An action can be left with no key (a swap took it, or a list lost a
+ * clash), and a keycap may show a dash for that, but a sentence that read "Press —." would tell
+ * an eight-year-old nothing; so with no key the sentence is `none`, which by default says where
+ * the key is set. A sentence with another way to do the thing (Esc pauses too, the door can be
+ * walked into) passes that way as `none` instead.
+ */
+export function keyLine(key: string | null, action: ActionId, line: (key: string) => string, none: string = setKeyLine(action)): string {
+  return key === null ? none : line(key);
+}
+
+/** `keyLine` with the label read from the keymap. */
+export function pressLine(k: Keymap, action: ActionId, line: (key: string) => string, none?: string): string {
+  return keyLine(boundLabel(k, action), action, line, none);
+}
+
 /** The labels of all of an action's keys, in slot order. */
 export function keysLabels(k: Keymap, action: ActionId): string[] {
   return k[action].map(keyLabel);

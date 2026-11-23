@@ -31,6 +31,7 @@
  */
 
 import { pushCast, type CastQueue } from "./casting";
+import { keyLine } from "./keymap";
 import { findMount, getUnlockDescription, type AvatarConfig, type MountItem } from "@/lib/utils/avatar-catalog";
 import type { Collider, Pt } from "./collision";
 import { buried, freeSpot } from "./doorways";
@@ -146,15 +147,22 @@ export function waitingOutside(label: string): string {
   return `Your ${label} is waiting outside.`;
 }
 /**
- * E at a hitching post on foot: fast travel is a ride, so get on first. `key` is the label of the
- * mount key the child has bound ("Z").
+ * The interact key at a hitching post on foot: fast travel is a ride, so get on first. `key` is
+ * the label of the mount key the child has bound ("Z"), or null when they have taken it away,
+ * and then the line says where to set one rather than "Press —".
  */
-export function mountFirstLine(label: string, key: string): string {
-  return `Get on your ${label} first. Press ${key}.`;
+export function mountFirstLine(label: string, key: string | null): string {
+  return `Get on your ${label} first. ${keyLine(key, "mount", (z) => `Press ${z}.`)}`;
 }
-/** A fast-travel ride setting off, read aloud: any walk key pulls up. `keys` are the walk keys' labels, forward first. */
-export function pullUpLine(where: string, keys: readonly string[]): string {
-  const said = keys.length > 1 ? `${keys.slice(0, -1).join(", ")} or ${keys[keys.length - 1]}` : (keys[0] ?? "");
+/**
+ * A fast-travel ride setting off, read aloud: any walk key pulls up. `keys` are the walk keys'
+ * labels, forward first, null for one with no key: those are left out, and with none at all
+ * the line just says where the ride is going.
+ */
+export function pullUpLine(where: string, keys: readonly (string | null)[]): string {
+  const bound = keys.filter((k): k is string => k !== null);
+  if (bound.length === 0) return `Riding to ${where}.`;
+  const said = bound.length > 1 ? `${bound.slice(0, -1).join(", ")} or ${bound[bound.length - 1]}` : bound[0];
   return `Riding to ${where}. Press ${said} to pull up.`;
 }
 export const TOO_DEEP_TO_GET_DOWN = "Too deep to get down here. Ride to the shallows first.";

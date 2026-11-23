@@ -12,6 +12,7 @@
  */
 
 import type { MergeOutcome, RecessRecord } from "./record";
+import { keyLine, setKeyLine } from "@/lib/realm3d/keymap";
 
 export type RecessDepth = "simple" | "full";
 /** What is shown, and what read-aloud says (written for the ear, no em dashes, "seconds" not "s"). */
@@ -126,10 +127,12 @@ export function parentArchLine(heroName: string): string {
 /**
  * The how-to-play line (§3.3's help correction, moved to the island). There is no control called
  * Ride. `key` is the label of the interact key the child has bound in the 3D Realm; E, the key the
- * game ships with, when none is given.
+ * game ships with, when none is given; null when the child took it away, and then the line says
+ * where to set one rather than "press —".
  */
-export function ringHelp(input: "keyboard" | "touch", key = "E"): string {
-  return input === "touch" ? "At the arch in the village, tap to run the Ring." : `At the arch in the village, press ${key} to run the Ring.`;
+export function ringHelp(input: "keyboard" | "touch", key: string | null = "E"): string {
+  if (input === "touch") return "At the arch in the village, tap to run the Ring.";
+  return keyLine(key, "interact", (e) => `At the arch in the village, press ${e} to run the Ring.`, `The Ring is run at the arch in the village. ${setKeyLine("interact")}`);
 }
 
 /* ------------------------------------------------------------------ the board */

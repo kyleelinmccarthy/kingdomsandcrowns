@@ -188,6 +188,15 @@ describe("the controls", () => {
     expect(rows[0].what).toBe("Walk. A and D step sideways, S backs up.");
   });
 
+  it("never says \"— again to stop\" or \"— at a hitching post\" for a key taken away", () => {
+    const k = { ...defaultKeymap(), interact: [], follow: [] };
+    const rows = controlRows(k, 4, { mount: true, pet: "Fox" });
+    const what = rows.map((r) => r.what).join(" ");
+    expect(what).not.toContain("—");
+    expect(what).toContain("Get on or off your mount. On it, a hitching post rides you anywhere you've been.");
+    expect(what).toContain("Ask your Fox to show you the way: to whoever is waiting, or somewhere you haven't found yet.");
+  });
+
   it("says which actions each keyboard row covers, and none for the mouse", () => {
     const rows = controlRows(K, 4, { mount: true, pet: "Fox" });
     const by = (key: string) => rows.find((r) => r.keys.includes(key))!;

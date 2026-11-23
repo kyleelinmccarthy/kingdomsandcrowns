@@ -151,6 +151,16 @@ describe("the words", () => {
     expect(lessonCopy(at("ride"), { ...ctx, spell: null, emptyPage: false, mount: "Pony" }, rebound("mount", "KeyG"))?.how).toBe("Press G to get on, and G again to get off.");
   });
 
+  it("never says \"Press —\" for an action left with no key: it says where to set one", () => {
+    const none = (action: ActionId) => ({ ...defaultKeymap(), [action]: [] }) as Keymap;
+    expect(lessonCopy(at("jump"), ctx, none("jump"))?.how).toBe("Set a key for Jump in Controls.");
+    expect(lessonCopy(at("talk"), ctx, none("interact"))?.how).toBe("Set a key for Talk or look in Controls.");
+    expect(lessonCopy(at("cast"), { ...ctx, spell: { name: "Tide Orb", key: 2 } }, none("cast2"))?.how).toBe("Click the spell.");
+    expect(lessonCopy(at("ride"), { ...ctx, spell: null, emptyPage: false, mount: "Pony" }, none("mount"))?.how).toBe("Set a key for Get on or off your mount in Controls.");
+    expect(lessonCopy(0, ctx, none("walkBack"))?.how).toBe("Set a key for Walk back in Controls.");
+    expect(tutorialDone(none("pause"))).toBe("You know the Realm! Press Esc any time to pause.");
+  });
+
   it("draws the keycaps from the keymap: the walk keys as they sit under the fingers, and the first spell's own key", () => {
     const lesson = (id: string) => LESSONS.find((l) => l.id === id)!;
     expect(lessonKeys(lesson("walk"), K)).toEqual(["W", "A", "S", "D"]);

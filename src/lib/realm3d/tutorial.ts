@@ -33,7 +33,7 @@
  */
 
 import { TUTORIAL_STEPS } from "@/lib/realm/tutorial";
-import { castAction, primaryLabel, type ActionId, type Keymap } from "./keymap";
+import { boundLabel, castAction, pressLine, primaryLabel, setKeyLine, WALK_ACTIONS, type Keymap } from "./keymap";
 
 /** The flat Realm's ladder length: stored values up to here are its, not ours. */
 export const LEGACY_STEPS = TUTORIAL_STEPS.length;
@@ -79,11 +79,12 @@ export const LESSONS: readonly Lesson[] = [
 
 /**
  * The label of the key that casts the first written page: what the cast lesson asks for. Null for
- * a page no key casts (10 to 12: there are nine cast actions), which is clicked instead.
+ * a page no key casts (10 to 12: there are nine cast actions, or its cast key was taken away),
+ * which is clicked instead.
  */
 function castLabel(k: Keymap, ctx?: Pick<LessonContext, "spell">): string | null {
   const action = castAction(ctx?.spell?.key ?? 1);
-  return action ? primaryLabel(k, action) : null;
+  return action ? boundLabel(k, action) : null;
 }
 
 /**
@@ -234,14 +235,17 @@ export function lessonCopy(done: number, ctx: LessonContext, k: Keymap): LessonC
   const lesson = currentLesson(done, ctx);
   if (!lesson) return null;
   const say = (title: string, how: string): LessonCopy => ({ title, how, spoken: `${title} ${how}` });
-  const key = (action: ActionId) => primaryLabel(k, action);
+  // No sentence names a key the child has taken away ("Press —."): `pressLine` says where to set it.
+  const key = (action: (typeof WALK_ACTIONS)[number]) => primaryLabel(k, action);
+  const unwalked = WALK_ACTIONS.find((a) => boundLabel(k, a) === null);
   switch (lesson.id) {
     case "walk":
+      if (unwalked) return say("Walk around.", setKeyLine(unwalked));
       return say("Walk around.", `${key("walkForward")} walks forward and ${key("walkBack")} walks back. ${key("strafeLeft")} and ${key("strafeRight")} step to the side.`);
     case "look":
       return say("Look around.", "Click the world, then move the mouse. Esc lets the mouse go. Roll the wheel to zoom.");
     case "jump":
-      return say("Jump!", `Press ${key("jump")}.`);
+      return say("Jump!", pressLine(k, "jump", (j) => `Press ${j}.`));
     case "find":
       if (!ctx.villagers) return null;
       return ctx.waiting
@@ -249,7 +253,7 @@ export function lessonCopy(done: number, ctx: LessonContext, k: Keymap): LessonC
         : say("Find a villager.", ctx.planBeacon ? "Anyone with a name over their head. The gold ! is on the plans board for now." : "Anyone with a name over their head.");
     case "talk":
       if (!ctx.villagers) return null;
-      return say(ctx.waiting ? `Talk to ${ctx.waiting}.` : "Talk to a villager.", `Stand close and press ${key("interact")}.`);
+      return say(ctx.waiting ? `Talk to ${ctx.waiting}.` : "Talk to a villager.", pressLine(k, "interact", (e) => `Stand close and press ${e}.`));
     case "cast": {
       const label = castLabel(k, ctx);
       return say(`Cast ${ctx.spell!.name}.`, label === null ? "Click the spell." : `Press ${label}, or click the spell.`);
@@ -257,7 +261,7 @@ export function lessonCopy(done: number, ctx: LessonContext, k: Keymap): LessonC
     case "spells":
       return say("Get more spells.", "Click a + page to see how.");
     case "ride":
-      return say(`Ride your ${ctx.mount}!`, `Press ${key("mount")} to get on, and ${key("mount")} again to get off.`);
+      return say(`Ride your ${ctx.mount}!`, pressLine(k, "mount", (z) => `Press ${z} to get on, and ${z} again to get off.`));
   }
 }
 
@@ -266,7 +270,8 @@ export function lessonCopy(done: number, ctx: LessonContext, k: Keymap): LessonC
  * doing: the pause key the child has bound, and Esc, which is never in the keymap and never moves.
  */
 export function tutorialDone(k: Keymap): string {
-  return `You know the Realm! Press ${primaryLabel(k, "pause")} or Esc any time to pause.`;
+  // Esc always pauses, so a pause key taken away just leaves Esc.
+  return `You know the Realm! ${pressLine(k, "pause", (p) => `Press ${p} or Esc any time to pause.`, "Press Esc any time to pause.")}`;
 }
 
 /** A mouse move that moves the camera: the mouse is captured, or the left or right button is held. */

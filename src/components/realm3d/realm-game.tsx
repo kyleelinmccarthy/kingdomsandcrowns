@@ -36,7 +36,7 @@ import { clockLine, escapeFrom, spellbookHref, visitClockLine, type AccessSource
 import { goalFor, spellHelp, type SpellbookFacts } from "@/lib/realm3d/guide";
 import { makeHudBus, type InteractTarget, type MapMark } from "@/lib/realm3d/hud-bus";
 import { blockedTarget, createInputRouter, type InputRouter } from "@/lib/realm3d/input-router";
-import { keymapFrom, primaryLabel, WALK_ACTIONS, type Keymap } from "@/lib/realm3d/keymap";
+import { boundLabel, keymapFrom, WALK_ACTIONS, type Keymap } from "@/lib/realm3d/keymap";
 import { saveRealmKeybinds } from "@/lib/actions/realm-keybinds";
 import { debounceSave } from "@/lib/realm3d/sound/store";
 import { deedToast, type DeedToast } from "@/lib/realm3d/talk";
@@ -980,7 +980,7 @@ export function RealmGame({
     if (!line) return;
     spokenObjective.current = true;
     // With a pet: the spec's "Your {companion} will show you the way.", and the key that asks it.
-    speak(companion.pet && goal.on ? `${line} ${leadWords.objective(companion.pet, primaryLabel(router.keymap, "follow"))}` : line);
+    speak(companion.pet && goal.on ? `${line} ${leadWords.objective(companion.pet, boundLabel(router.keymap, "follow"))}` : line);
   }, [readAloud, paused, coachCopy, objective, companion.pet, goal, router]);
 
   /* ---- the play clock ------------------------------------------------- */
@@ -1390,7 +1390,7 @@ export function RealmGame({
               mount={viewer === "child" ? riding.access.ok : undefined}
               pet={viewer === "child" ? (companion.pet ?? false) : undefined}
               earning={earning}
-              ring={viewer === "child" ? ringHelp("keyboard", primaryLabel(keymap, "interact")) : undefined}
+              ring={viewer === "child" ? ringHelp("keyboard", boundLabel(keymap, "interact")) : undefined}
               keymap={keymap}
               onKeymap={realm.childId ? keybinds.change : null}
               keysNote={keybinds.note}
