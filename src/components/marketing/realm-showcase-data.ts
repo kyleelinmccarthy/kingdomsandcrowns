@@ -47,8 +47,17 @@ export const REALM_SHOWCASE: RealmShowcaseContent = {
     },
   ],
   shots: [
-    screenshot("realm-village", "The hero's village in the Realm"),
-    screenshot("realm-learning", "Side quests matched to the student's grade"),
-    screenshot("realm-earned-time", "The Realm with the student's earned play time"),
+    screenshot(
+      "realm-village",
+      "A student's hero standing in a 3D village, with villagers waiting at building plots, the next side quest, a spell bar and the play time left today",
+    ),
+    screenshot(
+      "realm-learning",
+      "Old Bram, keeper of the Village Well, offering math, reading and science side quests that each build the well a little more",
+    ),
+    screenshot(
+      "realm-quest-giver",
+      "A parent visiting their student's Realm as the Quest Giver, which spends none of the student's minutes",
+    ),
   ],
 };

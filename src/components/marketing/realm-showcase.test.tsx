@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { RealmShowcase } from "./realm-showcase";
@@ -33,7 +35,11 @@ describe("RealmShowcase", () => {
     expect(new Set(alts).size).toBe(3);
   });
 
-  it.todo("every configured shot exists in public/");
+  it("every configured shot exists in public/", () => {
+    for (const shot of REALM_SHOWCASE.shots) {
+      expect(fs.existsSync(path.join(process.cwd(), "public", shot.src)), shot.src).toBe(true);
+    }
+  });
 });
 
 describe("Landing", () => {
