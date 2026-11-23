@@ -156,7 +156,8 @@ export function KeybindList({
     <>
       <ul className="r3-controls">
         {rows.map((row) => {
-          const actions = editable ? (row.actions ?? []) : [];
+          // Changing keys, a row may open out wider than it reads (`editActions`: every spell key).
+          const actions = editable ? (row.editActions ?? row.actions ?? []) : [];
           if (actions.length === 0) {
             return (
               <li key={row.what} className="r3-control">

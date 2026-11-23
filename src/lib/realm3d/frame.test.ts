@@ -195,6 +195,10 @@ describe("the controls", () => {
     expect(by("Space").actions).toEqual(["jump"]);
     expect(by("E").actions).toEqual(["interact"]);
     expect(by("1–4").actions).toEqual(["cast1", "cast2", "cast3", "cast4"]);
+    // Changing keys, the cast row opens out to all nine, so a key swapped onto a spell past the
+    // bar is still on the list to see and take back.
+    expect(by("1–4").editActions).toEqual(["cast1", "cast2", "cast3", "cast4", "cast5", "cast6", "cast7", "cast8", "cast9"]);
+    expect(by("W").editActions).toBeUndefined();
     expect(by("M").actions).toEqual(["map"]);
     expect(by("Z").actions).toEqual(["mount"]);
     expect(by("F").actions).toEqual(["follow"]);

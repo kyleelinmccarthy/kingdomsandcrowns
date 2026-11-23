@@ -184,8 +184,13 @@ export function interactVerb(target: InteractTarget): string {
  * the walk row covers the four walk actions (in `WALK_ACTIONS` order, while its keys are drawn
  * W A S D, as they sit under the fingers), the cast row every page on the bar, the rest one each.
  * A mouse row has none, and the pause row's Esc is not in it: Esc is never in the keymap.
+ *
+ * `editActions`, when a row has it, is what the row opens out to while its keys can be changed,
+ * in place of `actions`. Only the cast row has one: all nine spell keys, not just the bar's. A
+ * swap can move a key onto any cast action (Jump taken onto 6 on a four-page bar sends Space to
+ * Cast spell 6), and a key the list doesn't show is a key a child can't see or take back.
  */
-export type ControlRow = { keys: string[]; what: string; actions?: readonly ActionId[] };
+export type ControlRow = { keys: string[]; what: string; actions?: readonly ActionId[]; editActions?: readonly ActionId[] };
 
 /** The walk keys as they sit under the fingers: forward over left, back and right. */
 function walkLabels(k: Keymap): { forward: string; left: string; back: string; right: string } {
@@ -230,7 +235,7 @@ export function controlRows(k: Keymap, slots: number, opts: { mount?: boolean; p
     { keys: ["Right drag"], what: "Look around without catching the mouse." },
     { keys: ["Wheel"], what: "Zoom in and out." },
     { keys: [interact], what: "Talk to someone, or look at something, when you are close.", actions: ["interact"] },
-    { keys: castLabels(k, slots), what: "Cast a spell. You can click a spell too.", actions: castActions(slots) },
+    { keys: castLabels(k, slots), what: "Cast a spell. You can click a spell too.", actions: castActions(slots), editActions: castActions(9) },
     { keys: [primaryLabel(k, "map")], what: "Open the map of the island.", actions: ["map"] },
     // Riding (`riding.ts`).
     {

@@ -186,6 +186,15 @@ describe("the rows", () => {
     cleanupRouter();
   });
 
+  it("lists all nine spell keys while changing keys, so a key swapped past the bar is still there to take back", () => {
+    // Jump moved to 6 on a four-page bar: Space went to Cast spell 6, which the bar doesn't show.
+    const keymap = { ...defaultKeymap(), jump: ["Digit6"], cast6: ["Space"] };
+    const { cleanupRouter } = setup({ keymap });
+    expect(screen.getByRole("button", { name: "Cast spell 6: Space. Press to change." })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cast spell 9: 9. Press to change." })).toBeInTheDocument();
+    cleanupRouter();
+  });
+
   it("is plain keycaps, with no Reset, where there is nowhere to save", () => {
     const { cleanupRouter } = setup({ editable: false });
     expect(screen.queryByRole("button", { name: MOUNT })).toBeNull();
