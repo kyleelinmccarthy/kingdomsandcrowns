@@ -50,6 +50,7 @@ export function Coach({
   onSkipStep,
 }: {
   copy: LessonCopy | null;
+  /** The lesson's keycaps, from the child's keymap (`lessonKeys`). */
   keys: string[];
   step: number;
   steps: number;
@@ -68,10 +69,11 @@ export function Coach({
           </span>
           <div className="r3-coach-main">
             {keys.length > 0 && (
-              // W, A, S and D drawn the way they sit under a child's fingers: W over the other three.
-              <span className={`r3-coach-keys${keys.join("") === "WASD" ? " r3-coach-keys--wasd" : ""}`} aria-hidden="true">
-                {keys.map((k) => (
-                  <kbd key={k} className="r3-kbd r3-kbd--big">
+              // The walk lesson's four keys (`lessonKeys`: forward, left, back, right, whatever they are
+              // bound to) drawn the way W, A, S and D sit under a child's fingers: forward over the other three.
+              <span className={`r3-coach-keys${keys.length === 4 ? " r3-coach-keys--wasd" : ""}`} aria-hidden="true">
+                {keys.map((k, i) => (
+                  <kbd key={i} className="r3-kbd r3-kbd--big">
                     {k}
                   </kbd>
                 ))}

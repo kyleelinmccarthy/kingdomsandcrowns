@@ -147,7 +147,8 @@ describe("riding, the frame's half", () => {
   it("Z gets on an earned mount; the slot and the key strip say so", () => {
     mount({ avatar: pony, mounts: ["pony"] });
     expect(ride().mount).toMatchObject({ id: "pony", label: "Pony" });
-    expect(screen.getByText(/M/, { selector: ".r3-keys b" })).toBeInTheDocument();
+    expect(screen.getByText("Z", { selector: ".r3-keys b" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ride your Pony, key Z" }).querySelector(".r3-slot-key")).toHaveTextContent("Z");
     pressMount();
     expect(ride().want).toBe(true);
     settleRide();
@@ -222,6 +223,16 @@ describe("riding, the frame's half", () => {
     expect(ride().want).toBe(true);
   });
 
+  it("the Ride slot, the strip and the words name a remapped mount key", () => {
+    const { bus } = mount({ avatar: pony, mounts: ["pony"] });
+    const router = handed.props!.router as InputRouter;
+    act(() => router.setKeymap(rebound("mount", "KeyG")));
+    expect(screen.getByRole("button", { name: "Ride your Pony, key G" }).querySelector(".r3-slot-key")).toHaveTextContent("G");
+    expect(screen.getByText("G", { selector: ".r3-keys b" })).toBeInTheDocument();
+    act(() => bus.onInteract({ kind: "post" as const, id: "village", label: "the hitching post", verb: "Ride from" }));
+    expect(screen.getByRole("status")).toHaveTextContent("Get on your Pony first. Press G.");
+  });
+
   it("a visiting grown-up has no saddle and walks", () => {
     mount({ avatar: pony, mounts: ["pony"], viewer: "parent" });
     expect(screen.queryByRole("button", { name: /Ride your/ })).toBeNull();
@@ -234,7 +245,7 @@ describe("riding, the frame's half", () => {
     const post = { kind: "post" as const, id: "village", label: "the hitching post", verb: "Ride from" };
     act(() => bus.onInteract(post));
     expect(screen.queryByRole("dialog", { name: "Fast travel" })).toBeNull();
-    expect(screen.getByRole("status")).toHaveTextContent("Get on your Pony first. Press M.");
+    expect(screen.getByRole("status")).toHaveTextContent("Get on your Pony first. Press Z.");
     pressMount();
     settleRide();
     act(() => bus.onInteract(post));

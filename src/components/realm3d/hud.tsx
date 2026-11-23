@@ -20,6 +20,7 @@ import { Avatar } from "@/components/avatar";
 import { GameIcon } from "@/components/game-icon";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
 import { keyHints } from "@/lib/realm3d/frame";
+import { castAction, defaultKeymap, primaryLabel, type Keymap } from "@/lib/realm3d/keymap";
 import { keepFocusInWorld } from "./frame-hud";
 import type { SpellPageView } from "@/lib/realm/spells/pages";
 import { MANA_MAX, REFUSAL_MS } from "@/lib/realm3d/casting";
@@ -134,7 +135,8 @@ function Minimap({
  * The bar, and the keys it binds. Four pages for a new hero, five from level 10 —
  * `withEmptyPages` has already padded the book to the child's real slot count, so the number
  * of keycaps drawn is the number of keys the scene listens for, and neither can drift from the
- * other.
+ * other. Each keycap is the key the child has bound to that page (`keymap`), 1 to 9 until they
+ * move one.
  *
  * An empty page is drawn, not hidden. A bar with one tile on it says "this game has one
  * spell"; a bar with one tile and three waiting pages says "there are more, go and earn them",
@@ -147,9 +149,11 @@ function SpellBar({
   onCast,
   onEmptyPage,
   extra,
+  keymap,
 }: {
   bus: HudBus;
   pages: SpellPageView[];
+  keymap: Keymap;
   shake: number;
   onCast: (slot: number) => void;
   onEmptyPage: (slot: number) => void;
@@ -160,6 +164,8 @@ function SpellBar({
     <div className="r3-bar" role="toolbar" aria-label="Spells" style={{ ["--r3-slots" as string]: String(pages.length) }}>
       {pages.map((page, i) => {
         const key = i + 1;
+        // The page's own key, as the child has bound it ("1", or "Q" if they moved it).
+        const cap = primaryLabel(keymap, castAction(key) ?? "cast1");
         if (!page.spell) {
           /*
             A button, not a picture of one. "The other spells having a plus icon on them but
@@ -177,7 +183,7 @@ function SpellBar({
               onMouseDown={keepFocusInWorld}
               onClick={() => onEmptyPage(page.slot)}
             >
-              <span className="r3-slot-key">{key}</span>
+              <span className="r3-slot-key">{cap}</span>
               <span className="r3-slot-seal">+</span>
               <span className="r3-slot-name">{page.empty ? "Get a spell" : "Faded"}</span>
             </button>
@@ -190,13 +196,13 @@ function SpellBar({
             ref={(el) => bus.setSlot(i, "root", el)}
             className={`r3-slot${shake === key ? " r3-slot--refused" : ""}`}
             style={{ ["--r3-ink" as string]: page.color }}
-            aria-label={`${page.name}, ${page.spell.manaCost} mana, key ${key}`}
+            aria-label={`${page.name}, ${page.spell.manaCost} mana, key ${cap}`}
             // A click casts, exactly as the number key does: the same queue, the same frame,
             // the same refusal if the page is resting or the mana is short.
             onMouseDown={keepFocusInWorld}
             onClick={() => onCast(key)}
           >
-            <span className="r3-slot-key">{key}</span>
+            <span className="r3-slot-key">{cap}</span>
             {page.icon && <GameIcon name={page.icon} className="r3-slot-icon" />}
             <span className="r3-slot-name">{page.name}</span>
             <span className="r3-slot-cost">{page.spell.manaCost}</span>
@@ -306,6 +312,7 @@ export function RealmHud({
   found: foundKept,
   onFound,
   numerals = false,
+  keymap = defaultKeymap(),
 }: {
   bus: HudBus;
   world: RealmWorld;
@@ -332,7 +339,7 @@ export function RealmHud({
   mapExtras?: ReactNode;
   /** Extra slots at the end of the spell bar: the Ride slot. */
   barExtra?: ReactNode;
-  /** Whether M rides: the key strip names it. */
+  /** Whether the mount key rides: the key strip names it. */
   mountKey?: boolean;
   /** The strip shows F (follow your pet) for a child with a companion. */
   petKey?: boolean;
@@ -346,6 +353,8 @@ export function RealmHud({
   onFound?: (id: string) => void;
   /** Full depth: the plates' stars say "7 of 9"; simple depth draws the marks alone. */
   numerals?: boolean;
+  /** The keys the child has bound: the spell keycaps and the key strip name them. */
+  keymap?: Keymap;
 }) {
   const [foundHere, setFound] = useState<ReadonlySet<string>>(() => new Set<string>());
   const found = foundKept ?? foundHere;
@@ -430,10 +439,10 @@ export function RealmHud({
               {MANA_MAX} / {MANA_MAX}
             </span>
           </div>
-          <SpellBar bus={bus} pages={pages} shake={shake} onCast={onCast} onEmptyPage={onEmptyPage} extra={barExtra} />
+          <SpellBar bus={bus} pages={pages} shake={shake} onCast={onCast} onEmptyPage={onEmptyPage} extra={barExtra} keymap={keymap} />
           <p className="r3-keys">
-            {keyHints(pages.length, { mount: mountKey, pet: petKey }).map((h, i) => (
-              <span key={h.key}>
+            {keyHints(keymap, pages.length, { mount: mountKey, pet: petKey }).map((h, i) => (
+              <span key={h.what}>
                 {i > 0 && " · "}
                 <b>{h.key}</b> {h.what}
               </span>

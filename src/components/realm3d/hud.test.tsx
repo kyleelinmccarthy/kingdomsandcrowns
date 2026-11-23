@@ -7,6 +7,7 @@ import { makeHudBus } from "@/lib/realm3d/hud-bus";
 import { buildAnchors } from "@/lib/realm3d/plate-anchors";
 import type { Landmark, RealmWorld } from "@/lib/realm3d/worldgen";
 import { DEFAULT_AVATAR } from "@/lib/utils/avatar-catalog";
+import { bind, defaultKeymap, primaryLabel } from "@/lib/realm3d/keymap";
 import { RealmHud } from "./hud";
 
 /**
@@ -136,6 +137,17 @@ describe("the spell bar", () => {
     const { screen } = mount();
     for (const key of ["1", "2", "3", "4"]) expect(screen.getByText(key)).toBeInTheDocument();
     expect(screen.getByText(/cast$/)).toHaveTextContent("1–4 cast");
+  });
+
+  it("draws each spell's keycap from the keymap, so a moved spell key is the one on the page", () => {
+    const r = bind(defaultKeymap(), "cast2", 0, "KeyQ");
+    if (!r.ok) throw new Error("not bindable");
+    const { view } = mount("Emma", { keymap: r.keymap });
+    const caps = [...view.container.querySelectorAll(".r3-bar .r3-slot-key")].map((el) => el.textContent);
+    expect(caps).toEqual([1, 2, 3, 4].map((n) => primaryLabel(r.keymap, `cast${n}` as "cast1")));
+    expect(caps).toEqual(["1", "Q", "3", "4"]);
+    expect(view.container.querySelector(".r3-bar")!.querySelector('[aria-label*="key 1"]')).not.toBeNull();
+    expect(view.container.querySelector(".r3-keys")).toHaveTextContent("1 Q 3 4 cast");
   });
 
   it("names the control scheme the scene binds: E talks, P pauses, Q is gone", () => {

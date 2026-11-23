@@ -35,7 +35,7 @@ import { hoofTick, makeHoofClock, mountVoice, wingsOpen, wingTick } from "@/lib/
 const RIDER_HIP = 0.95;
 /** Where a child steps to on getting down: this far to their right of the mount. */
 const STEP_OFF = 1.15;
-/** Beyond this, pressing M brings the mount to you; within it, it walks in from where it waits. */
+/** Beyond this, the mount key brings the mount to you; within it, it walks in from where it waits. */
 const CALL_NEAR = 5;
 
 /* ------------------------------------------------------------------ shared per ride */

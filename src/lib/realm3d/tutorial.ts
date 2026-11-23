@@ -6,6 +6,9 @@
  * names a key, gone the moment the child has done the thing — rewritten for the controls the 3D
  * world really binds: WASD with A and D stepping sideways, a click to look with the mouse, Space to jump,
  * E to talk, the number row (or a click) to cast, and a `+` page that says how spells are earned.
+ * Those are the keys the game ships with: every key a lesson names, on its keycaps and in its
+ * words, is read from the child's keymap (`keymap.ts`), so a child who moved Jump to J is told to
+ * press J.
  *
  * The rules that made the old ladder safe carry over, and each one is here for the same reason:
  *
@@ -30,6 +33,7 @@
  */
 
 import { TUTORIAL_STEPS } from "@/lib/realm/tutorial";
+import { castAction, primaryLabel, type ActionId, type Keymap } from "./keymap";
 
 /** The flat Realm's ladder length: stored values up to here are its, not ours. */
 export const LEGACY_STEPS = TUTORIAL_STEPS.length;
@@ -50,29 +54,60 @@ export type LessonSignal =
   | { kind: "cast" }
   /** The "how do I get spells?" card was opened from an empty page. */
   | { kind: "page" }
-  /** The child got on their mount (M, or the Ride slot). */
+  /** The child got on their mount (the mount key, or the Ride slot). */
   | { kind: "rode" };
 
+/** One lesson. Its keycaps come from the keymap (`lessonKeys`), never from here. */
 export type Lesson = {
   id: LessonId;
   signal: LessonSignal["kind"];
-  /** The keycaps drawn beside the prompt. */
-  keys: string[];
 };
 
 /** The ladder, in the order a child meets it. */
 export const LESSONS: readonly Lesson[] = [
-  { id: "walk", signal: "walked", keys: ["W", "A", "S", "D"] },
-  { id: "look", signal: "looked", keys: ["Click"] },
-  { id: "jump", signal: "jumped", keys: ["Space"] },
-  { id: "find", signal: "near", keys: [] },
-  { id: "talk", signal: "talked", keys: ["E"] },
-  { id: "cast", signal: "cast", keys: ["1"] },
-  { id: "spells", signal: "page", keys: ["+"] },
+  { id: "walk", signal: "walked" },
+  { id: "look", signal: "looked" },
+  { id: "jump", signal: "jumped" },
+  { id: "find", signal: "near" },
+  { id: "talk", signal: "talked" },
+  { id: "cast", signal: "cast" },
+  { id: "spells", signal: "page" },
   // Last, and only for a child who has a mount to ride (`impossible` steps over it otherwise).
   // Appended rather than inserted, so every stored count above means what it meant before.
-  { id: "ride", signal: "rode", keys: ["M"] },
+  { id: "ride", signal: "rode" },
 ];
+
+/** The label of the key that casts the first written page: what the cast lesson asks for. */
+function castLabel(k: Keymap, ctx?: Pick<LessonContext, "spell">): string {
+  return primaryLabel(k, castAction(ctx?.spell?.key ?? 1) ?? "cast1");
+}
+
+/**
+ * The keycaps drawn beside a lesson, from the keys the child has bound. The walk keys come in
+ * the order they sit under the fingers (forward, then left, back and right), which is how the
+ * coach lays them out. The look lesson's is the mouse, and the spells lesson's the `+` page.
+ * With `ctx`, the cast lesson shows the key of the page it names.
+ */
+export function lessonKeys(lesson: Lesson, k: Keymap, ctx?: Pick<LessonContext, "spell">): string[] {
+  switch (lesson.id) {
+    case "walk":
+      return [primaryLabel(k, "walkForward"), primaryLabel(k, "strafeLeft"), primaryLabel(k, "walkBack"), primaryLabel(k, "strafeRight")];
+    case "look":
+      return ["Click"];
+    case "jump":
+      return [primaryLabel(k, "jump")];
+    case "find":
+      return [];
+    case "talk":
+      return [primaryLabel(k, "interact")];
+    case "cast":
+      return [castLabel(k, ctx)];
+    case "spells":
+      return ["+"];
+    case "ride":
+      return [primaryLabel(k, "mount")];
+  }
+}
 
 /**
  * The lessons every child has, before the mount's. `tutorialLearned` counts these, so a child
@@ -184,21 +219,23 @@ export function skipLesson(done: number, ctx: LessonContext): number {
 export type LessonCopy = { title: string; how: string; spoken: string };
 
 /**
- * The words. Written for an eight-year-old reading from a metre back, naming keys and never the
- * complexity axis. Null when there is nothing to say — no lesson left, or a villager lesson in
- * a village whose villagers did not load (the objective card already explains that).
+ * The words. Written for an eight-year-old reading from a metre back, naming the keys the child
+ * has bound (`k`) and never the complexity axis. Null when there is nothing to say — no lesson
+ * left, or a villager lesson in a village whose villagers did not load (the objective card
+ * already explains that).
  */
-export function lessonCopy(done: number, ctx: LessonContext): LessonCopy | null {
+export function lessonCopy(done: number, ctx: LessonContext, k: Keymap): LessonCopy | null {
   const lesson = currentLesson(done, ctx);
   if (!lesson) return null;
   const say = (title: string, how: string): LessonCopy => ({ title, how, spoken: `${title} ${how}` });
+  const key = (action: ActionId) => primaryLabel(k, action);
   switch (lesson.id) {
     case "walk":
-      return say("Walk around.", "W walks forward and S walks back. A and D step to the side.");
+      return say("Walk around.", `${key("walkForward")} walks forward and ${key("walkBack")} walks back. ${key("strafeLeft")} and ${key("strafeRight")} step to the side.`);
     case "look":
       return say("Look around.", "Click the world, then move the mouse. Esc lets the mouse go. Roll the wheel to zoom.");
     case "jump":
-      return say("Jump!", "Press Space.");
+      return say("Jump!", `Press ${key("jump")}.`);
     case "find":
       if (!ctx.villagers) return null;
       return ctx.waiting
@@ -206,18 +243,23 @@ export function lessonCopy(done: number, ctx: LessonContext): LessonCopy | null 
         : say("Find a villager.", ctx.planBeacon ? "Anyone with a name over their head. The gold ! is on the plans board for now." : "Anyone with a name over their head.");
     case "talk":
       if (!ctx.villagers) return null;
-      return ctx.waiting ? say(`Talk to ${ctx.waiting}.`, "Stand close and press E.") : say("Talk to a villager.", "Stand close and press E.");
+      return say(ctx.waiting ? `Talk to ${ctx.waiting}.` : "Talk to a villager.", `Stand close and press ${key("interact")}.`);
     case "cast":
-      return say(`Cast ${ctx.spell!.name}.`, `Press ${ctx.spell!.key}, or click the spell.`);
+      return say(`Cast ${ctx.spell!.name}.`, `Press ${castLabel(k, ctx)}, or click the spell.`);
     case "spells":
       return say("Get more spells.", "Click a + page to see how.");
     case "ride":
-      return say(`Ride your ${ctx.mount}!`, "Press M to get on, and M again to get off.");
+      return say(`Ride your ${ctx.mount}!`, `Press ${key("mount")} to get on, and ${key("mount")} again to get off.`);
   }
 }
 
-/** The line that says the tutorial is over, and the two keys (P and Esc) that pause, which it has not taught by doing. */
-export const TUTORIAL_DONE = "You know the Realm! Press P or Esc any time to pause.";
+/**
+ * The line that says the tutorial is over, and the two keys that pause, which it has not taught by
+ * doing: the pause key the child has bound, and Esc, which is never in the keymap and never moves.
+ */
+export function tutorialDone(k: Keymap): string {
+  return `You know the Realm! Press ${primaryLabel(k, "pause")} or Esc any time to pause.`;
+}
 
 /** A mouse move that turns the camera: the mouse is captured, or the right button is held. */
 export function countsAsLook(buttons: number, captured: boolean): boolean {

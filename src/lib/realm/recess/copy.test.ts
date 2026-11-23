@@ -121,6 +121,7 @@ describe("the arch", () => {
     expect(ringHelp("keyboard")).toBe("At the arch in the village, press E to run the Ring.");
     expect(ringHelp("touch")).toBe("At the arch in the village, tap to run the Ring.");
     expect(ringHelp("keyboard")).not.toMatch(/\bRide\b/);
+    expect(ringHelp("keyboard", "R")).toBe("At the arch in the village, press R to run the Ring.");
   });
 });
 

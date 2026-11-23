@@ -16,8 +16,15 @@ import {
   VisitorRibbon,
   type PauseSettings,
 } from "./frame-hud";
+import { bind, defaultKeymap, type ActionId, type Keymap } from "@/lib/realm3d/keymap";
 
 afterEach(cleanup);
+
+function rebound(action: ActionId, code: string, k: Keymap = defaultKeymap()): Keymap {
+  const r = bind(k, action, 0, code);
+  if (!r.ok) throw new Error("not bindable");
+  return r.keymap;
+}
 
 const fresh = ["well", "mill", "bridge", "chapel", "market", "library", "watchtower", "garden"].map((id) => ({ id, done: 0, total: 5, complete: false }));
 
@@ -134,6 +141,15 @@ describe("the village plank", () => {
   });
 });
 
+describe("the keys the card names", () => {
+  it("says the talk key and the follow key the child has bound", () => {
+    const k = rebound("follow", "KeyG", rebound("interact", "KeyR"));
+    render(<ObjectiveCard objective={objectiveState(fresh, 3)} heroName="Emma" visiting={false} numerals pet="Fox" keymap={k} />);
+    const lead = screen.getByText(/Follow the gold ! and press/);
+    expect(lead).toHaveTextContent("Follow the gold ! and press R to talk. Or press G, and your Fox will show you the way.");
+  });
+});
+
 describe("the clock corner", () => {
   const corner = (over: Partial<React.ComponentProps<typeof ClockCorner>> = {}) =>
     render(<ClockCorner line="240 min left" warning={false} error="" onRetry={() => {}} onHelp={() => {}} onMenu={() => {}} leaveHref="/tavern" {...over} />);
@@ -147,6 +163,13 @@ describe("the clock corner", () => {
     expect(pause.querySelector(".r3-button-key")).toHaveTextContent("P");
     expect(screen.queryByRole("button", { name: /Menu/ })).toBeNull();
     expect(screen.getByRole("link", { name: /Leave/ })).toHaveAttribute("href", "/tavern");
+  });
+
+  it("names the pause key the child has bound", () => {
+    corner({ keymap: rebound("pause", "KeyO") });
+    const pause = screen.getByRole("button", { name: /^Pause/ });
+    expect(pause.querySelector(".r3-button-key")).toHaveTextContent("O");
+    expect(pause).toHaveAttribute("title", "Pause (O or Esc)");
   });
 
   it("opens help, and pauses", () => {
@@ -193,6 +216,11 @@ describe("the E prompt", () => {
     expect(prompt).toHaveTextContent("E");
     fireEvent.click(prompt);
     expect(onPress).toHaveBeenCalledWith({ kind: "villager", id: "bram", label: "Old Bram" });
+  });
+
+  it("draws the interact key the child has bound", () => {
+    render(<InteractPrompt target={{ kind: "villager", id: "bram", label: "Old Bram" }} onPress={() => {}} keymap={rebound("interact", "KeyR")} />);
+    expect(screen.getByRole("button", { name: /Talk to Old Bram/ }).querySelector(".r3-prompt-key")).toHaveTextContent("R");
   });
 
   it("is not there when nothing is in reach", () => {
@@ -281,6 +309,23 @@ describe("how to play", () => {
     expect(screen.getByText(/Talk to someone/)).toBeInTheDocument();
     expect(screen.getByText("1–4")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Back" })).toBeInTheDocument();
+  });
+});
+
+describe("how to play, with the keys the child has", () => {
+  it("names a moved Jump, and shows the map, mount and follow rows to everyone", () => {
+    const { container } = render(<HowToPlay slots={4} back onClose={() => {}} keymap={rebound("jump", "KeyJ")} />);
+    const row = (what: RegExp) => screen.getByText(what).closest("li")!;
+    expect(row(/^Jump\.$/)).toHaveTextContent("J");
+    expect(row(/Open the map of the island/).querySelector("kbd")).toHaveTextContent("M");
+    expect(row(/gets on or off their mount/).querySelector("kbd")).toHaveTextContent("Z");
+    expect(row(/companion shows the way/).querySelector("kbd")).toHaveTextContent("F");
+    expect(container.querySelectorAll(".r3-control kbd").length).toBeGreaterThan(0);
+  });
+
+  it("says the follow key the child has in the line about the pet", () => {
+    render(<HowToPlay slots={4} back onClose={() => {}} pet="Fox" mount keymap={rebound("follow", "KeyG")} />);
+    expect(screen.getByText(/your Fox runs ahead/)).toHaveTextContent("Or press G: your Fox runs ahead");
   });
 });
 

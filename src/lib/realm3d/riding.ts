@@ -24,8 +24,8 @@
  *   - **Doors.** Riding into a building sets the child down at the door; the mount waits outside
  *     where they left it (`parkAt`). Every dismount parks: the mount stands where you got off.
  *
- * `RideBus` is the one mutable object the frame (`realm-game.tsx`, which owns the M key and the
- * words) and the canvas (`riding-scene.tsx`, which owns the hero's position and the frame loop)
+ * `RideBus` is the one mutable object the frame (`realm-game.tsx`, which owns the mount key and
+ * the words) and the canvas (`riding-scene.tsx`, which owns the hero's position and the frame loop)
  * share, exactly as `HudBus` and `TroubleBus` are shared: built once, never React state, written
  * through the free functions below so no component ever assigns through a prop.
  */
@@ -124,7 +124,7 @@ export function rideAccess(avatar: Pick<AvatarConfig, "mount" | "mountColor"> | 
 }
 
 /**
- * What pressing M says when there is nothing to ride. Kind, and it says how a mount is EARNED —
+ * What the mount key says when there is nothing to ride. Kind, and it says how a mount is EARNED —
  * which is the real rule: the Pony and the Donkey are free to everyone and are chosen on the
  * Mount tab of the hero's look in the Tavern; the rest come from levels, a streak badge and
  * quest rewards (`MOUNTS` in the avatar catalog).
@@ -141,9 +141,21 @@ export function rideRefusal(access: Exclude<RideAccess, { ok: true }>, heroName:
 
 /** A spell asked for on a fast-travel ride: the road is the one place it waits for. */
 export const CAST_ON_THE_ROAD = "Spells wait until the ride is over.";
-/** Pressing M indoors. */
+/** The mount key, indoors. */
 export function waitingOutside(label: string): string {
   return `Your ${label} is waiting outside.`;
+}
+/**
+ * E at a hitching post on foot: fast travel is a ride, so get on first. `key` is the label of the
+ * mount key the child has bound ("Z").
+ */
+export function mountFirstLine(label: string, key: string): string {
+  return `Get on your ${label} first. Press ${key}.`;
+}
+/** A fast-travel ride setting off, read aloud: any walk key pulls up. `keys` are the walk keys' labels, forward first. */
+export function pullUpLine(where: string, keys: readonly string[]): string {
+  const said = keys.length > 1 ? `${keys.slice(0, -1).join(", ")} or ${keys[keys.length - 1]}` : (keys[0] ?? "");
+  return `Riding to ${where}. Press ${said} to pull up.`;
 }
 export const TOO_DEEP_TO_GET_DOWN = "Too deep to get down here. Ride to the shallows first.";
 
@@ -331,7 +343,7 @@ export function dropCastAfter(ride: RideBus): void {
   ride.castAfter = 0;
 }
 
-/** M, from the frame: get on if walking, off if riding. Ignored mid-moment and mid-ride. */
+/** The mount key, from the frame: get on if walking, off if riding. Ignored mid-moment and mid-ride. */
 export function toggleRide(ride: RideBus): void {
   if (!ride.mount || ride.travelling) return;
   if (ride.phase === "off") ride.want = true;

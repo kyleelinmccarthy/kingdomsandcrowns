@@ -10,7 +10,9 @@
  * It is presentational. Every word it says comes from a pure rule — `frame.ts` for what is new
  * here, `objective.ts`, `depth.ts` and the play clock for what the flat Realm already decided —
  * and every panel is told what to show and what to call when a button is pressed. The state
- * lives in `realm-game.tsx`, which owns the overlay and writes `bus.setPaused` from it.
+ * lives in `realm-game.tsx`, which owns the overlay and writes `bus.setPaused` from it. Every key
+ * it names is the one the child has bound: a panel that names keys takes the `keymap` the frame
+ * reads from the input router (the keys the game ships with, when none is handed).
  *
  * The look is the HUD's: timber planks with a dark edge and a lit top, parchment type, lantern
  * gold. Nothing grey, no hairlines, nothing smaller than a child can read from a metre back.
@@ -30,6 +32,7 @@ import type { GateCopy } from "@/lib/realm/play-clock";
 import { controlRows, emptyPageCopy, interactVerb, type Viewer } from "@/lib/realm3d/frame";
 import { listWords, type SpellHelp } from "@/lib/realm3d/guide";
 import type { InteractTarget } from "@/lib/realm3d/hud-bus";
+import { defaultKeymap, primaryLabel, type Keymap } from "@/lib/realm3d/keymap";
 import { pauseCopy, type PauseWhy } from "@/lib/realm3d/pause";
 import type { RealmWorld } from "@/lib/realm3d/worldgen";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
@@ -67,12 +70,12 @@ export function Progress({ done, total, numerals, text, label }: { done: number;
 /* ------------------------------------------------------------------ objectives */
 
 /** "Or press F, and your Fox will show you the way." — the companion's offer, said where the ! is. */
-function PetOffer({ pet }: { pet: string | null }) {
+function PetOffer({ pet, keymap }: { pet: string | null; keymap: Keymap }) {
   if (!pet) return null;
   return (
     <>
       {" "}
-      Or press <b>F</b>, and your {pet} will show you the way.
+      Or press <b>{primaryLabel(keymap, "follow")}</b>, and your {pet} will show you the way.
     </>
   );
 }
@@ -82,7 +85,7 @@ function PetOffer({ pet }: { pet: string | null }) {
  * "is/are", like `planGoalSpeech`, since many plans are plural ("Banners", "Stone Arches"). A visitor
  * is told whose it is, with no directions to follow, as the villager line does.
  */
-function PlanReady({ plan, heroName, visiting, pet }: { plan: string; heroName: string; visiting: boolean; pet: string | null }) {
+function PlanReady({ plan, heroName, visiting, pet, keymap }: { plan: string; heroName: string; visiting: boolean; pet: string | null; keymap: Keymap }) {
   if (visiting) return <p className="r3-quest-line">{`Everything for ${heroName}'s ${plan} is ready.`}</p>;
   return (
     <p className="r3-quest-lead">
@@ -91,20 +94,38 @@ function PlanReady({ plan, heroName, visiting, pet }: { plan: string; heroName: 
       </span>
       <span>
         Everything for the {plan} is ready. Follow the gold ! to the plans board.
-        <PetOffer pet={pet} />
+        <PetOffer pet={pet} keymap={keymap} />
       </span>
     </p>
   );
 }
 
-function ObjectiveRows({ objectives, heroName, visiting, numerals, pet = null, stars = false, plan = null }: { objectives: Objective[]; heroName: string; visiting: boolean; numerals: boolean; pet?: string | null; stars?: boolean; plan?: string | null }) {
+function ObjectiveRows({
+  objectives,
+  heroName,
+  visiting,
+  numerals,
+  keymap,
+  pet = null,
+  stars = false,
+  plan = null,
+}: {
+  objectives: Objective[];
+  heroName: string;
+  visiting: boolean;
+  numerals: boolean;
+  keymap: Keymap;
+  pet?: string | null;
+  stars?: boolean;
+  plan?: string | null;
+}) {
   const [first, ...rest] = objectives;
   if (!first) return null;
   return (
     <>
       {/* The gold ! is on the plans board (`plan-goal.ts`): say so, not who is waiting. It leads the
           card, so its ! never sits on the villager's row; the header below stays, bare. */}
-      {plan && <PlanReady plan={plan} heroName={heroName} visiting={visiting} pet={pet} />}
+      {plan && <PlanReady plan={plan} heroName={heroName} visiting={visiting} pet={pet} keymap={keymap} />}
       <p className="r3-quest-title">
         <GameIcon name={findBuilding(first.buildingId)?.icon ?? "box"} className="r3-quest-icon" />
         {first.label}
@@ -118,9 +139,9 @@ function ObjectiveRows({ objectives, heroName, visiting, numerals, pet = null, s
             !
           </span>
           <span>
-            Follow the gold ! and press <b>E</b> to talk.
+            Follow the gold ! and press <b>{primaryLabel(keymap, "interact")}</b> to talk.
             {/* The companion leads (`companion-hud.tsx`): the other way to find them, said where the ! is. */}
-            <PetOffer pet={pet} />
+            <PetOffer pet={pet} keymap={keymap} />
           </span>
         </p>
       )}
@@ -156,6 +177,7 @@ export function ObjectiveCard({
   onRetry,
   pet = null,
   plan = null,
+  keymap = defaultKeymap(),
 }: {
   objective: ObjectiveState;
   heroName: string;
@@ -164,8 +186,10 @@ export function ObjectiveCard({
   kingdomError?: string;
   /** Ask for the kingdom again, after a load that failed. */
   onRetry?: () => void;
-  /** The child's companion ("Fox"), which can lead them to whoever is waiting (F). */
+  /** The child's companion ("Fox"), which can lead them to whoever is waiting (the follow key). */
   pet?: string | null;
+  /** The keys the child has bound: the card names the talk key and the follow key. */
+  keymap?: Keymap;
   /**
    * The pinned plan's name while the gold ! is on the plans board (a plan goal, `plan-goal.ts`):
    * the card says it is ready to build in place of who is waiting. Its progress rows stay.
@@ -192,10 +216,10 @@ export function ObjectiveCard({
       {!hasObjectives(objective) ? (
         <>
           <p className="r3-quest-title">Every building is built.</p>
-          {plan ? <PlanReady plan={plan} heroName={heroName} visiting={visiting} pet={pet} /> : <p className="r3-quest-line">Nothing is waiting. Walk where you like.</p>}
+          {plan ? <PlanReady plan={plan} heroName={heroName} visiting={visiting} pet={pet} keymap={keymap} /> : <p className="r3-quest-line">Nothing is waiting. Walk where you like.</p>}
         </>
       ) : (
-        <ObjectiveRows objectives={objective.objectives} heroName={heroName} visiting={visiting} numerals={numerals} pet={pet} stars={objective.kind === "stars"} plan={plan} />
+        <ObjectiveRows objectives={objective.objectives} heroName={heroName} visiting={visiting} numerals={numerals} keymap={keymap} pet={pet} stars={objective.kind === "stars"} plan={plan} />
       )}
     </section>
   );
@@ -249,6 +273,7 @@ export function ClockCorner({
   onMenu,
   leaveHref,
   quiet = false,
+  keymap = defaultKeymap(),
 }: {
   line: string;
   /** The last minute: the plank turns ember red, and says so. */
@@ -265,6 +290,8 @@ export function ClockCorner({
    * steps back to a small chip. A grown-up's visit line keeps its size. The pulse stays.
    */
   quiet?: boolean;
+  /** The keys the child has bound: the Pause button names the pause key. */
+  keymap?: Keymap;
 }) {
   return (
     <div className="r3-corner">
@@ -289,8 +316,8 @@ export function ClockCorner({
           ?
         </button>
         {/* A plain Pause a child can find: the glyph every player knows, the word, and its key. */}
-        <button type="button" className="r3-button" title="Pause (P or Esc)" onMouseDown={keepFocusInWorld} onClick={onMenu}>
-          <GameIcon name="pause" className="r3-button-icon" /> Pause <span className="r3-button-key">P</span>
+        <button type="button" className="r3-button" title={`Pause (${primaryLabel(keymap, "pause")} or Esc)`} onMouseDown={keepFocusInWorld} onClick={onMenu}>
+          <GameIcon name="pause" className="r3-button-icon" /> Pause <span className="r3-button-key">{primaryLabel(keymap, "pause")}</span>
         </button>
         {/* A link, so every way out is the ordinary way out: the unmount flushes the clock. */}
         <Link href={leaveHref} className="r3-button r3-button--leave">
@@ -330,11 +357,11 @@ export function LastMinute({ text = "One minute left in the Realm today." }: { t
  * already is. A button as well as a hint: a child who reaches for the mouse gets the same
  * thing the key gives.
  */
-export function InteractPrompt({ target, onPress }: { target: InteractTarget | null; onPress: (t: InteractTarget) => void }) {
+export function InteractPrompt({ target, onPress, keymap = defaultKeymap() }: { target: InteractTarget | null; onPress: (t: InteractTarget) => void; keymap?: Keymap }) {
   if (!target) return null;
   return (
     <button type="button" className="r3-prompt" onMouseDown={keepFocusInWorld} onClick={() => onPress(target)}>
-      <span className="r3-prompt-key">E</span>
+      <span className="r3-prompt-key">{primaryLabel(keymap, "interact")}</span>
       <span className="r3-prompt-text">{interactVerb(target)}</span>
     </button>
   );
@@ -519,8 +546,11 @@ export function HowToPlay({
   earning,
   pet,
   ring,
+  keymap = defaultKeymap(),
 }: {
   slots: number;
+  /** The keys the child has bound: every row names them. */
+  keymap?: Keymap;
   /** A child's F row: their pet's name ("Fox"), or false without one; absent for a visitor. */
   pet?: string | false;
   /** Where the Ring is run, for a child (`recess/copy.ts`'s `ringHelp`); absent for a visitor. */
@@ -530,7 +560,7 @@ export function HowToPlay({
    * the one source every surface reads. Absent for a visitor, who earns nothing.
    */
   earning?: readonly string[];
-  /** A child's M row: true with a mount to ride, false without one; absent for a visitor. */
+  /** A child's mount row: true with a mount to ride, false without one; absent for a visitor, who is told what it does for the hero. */
   mount?: boolean;
   back: boolean;
   onClose: () => void;
@@ -540,11 +570,11 @@ export function HowToPlay({
   return (
     <Panel title="How to play" label="How to play" wide icon={<GameIcon name="scroll" className="r3-board-icon" />} onClose={onClose}>
       <ul className="r3-controls">
-        {controlRows(slots, { mount, pet }).map((row) => (
+        {controlRows(keymap, slots, { mount, pet }).map((row) => (
           <li key={row.what} className="r3-control">
             <span className="r3-control-keys">
-              {row.keys.map((k) => (
-                <kbd key={k} className="r3-kbd">
+              {row.keys.map((k, i) => (
+                <kbd key={i} className="r3-kbd">
                   {k}
                 </kbd>
               ))}
@@ -558,7 +588,7 @@ export function HowToPlay({
         {pet && (
           <>
             {" "}
-            Or press <b>F</b>: your {pet} runs ahead to show you the way, and waits for you. Already there? It finds you somewhere new.
+            Or press <b>{primaryLabel(keymap, "follow")}</b>: your {pet} runs ahead to show you the way, and waits for you. Already there? It finds you somewhere new.
           </>
         )}
       </p>

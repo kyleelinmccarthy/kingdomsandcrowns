@@ -16,6 +16,8 @@ import {
   isRiding,
   jumpSpeed,
   makeRideBus,
+  mountFirstLine,
+  pullUpLine,
   MOUNT_AIR_CARRY,
   MOUNT_JUMP_SPEED,
   MOUNT_UP_S,
@@ -86,6 +88,18 @@ describe("who rides", () => {
     const visitor = rideAccess({ mount: "pony", mountColor: "#fff" }, ["pony"], "parent");
     if (visitor.ok) throw new Error("expected a refusal");
     expect(rideRefusal(visitor, "Emma")).toMatch(/Emma's to ride/);
+  });
+});
+
+describe("the words that name a key", () => {
+  it("names the mount key the child has, at a hitching post on foot", () => {
+    expect(mountFirstLine("Pony", "Z")).toBe("Get on your Pony first. Press Z.");
+    expect(mountFirstLine("Pony", "G")).toBe("Get on your Pony first. Press G.");
+  });
+
+  it("names the walk keys the child has as a ride sets off", () => {
+    expect(pullUpLine("the Mill", ["W", "A", "S", "D"])).toBe("Riding to the Mill. Press W, A, S or D to pull up.");
+    expect(pullUpLine("the Mill", ["I", "J", "K", "L"])).toBe("Riding to the Mill. Press I, J, K or L to pull up.");
   });
 });
 

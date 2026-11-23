@@ -1103,6 +1103,18 @@ describe("the tutorial", () => {
     expect(screen.getByText("Look around.")).toBeInTheDocument();
   });
 
+  it("tells a child who moved Jump to J to press J, on the keycap and in the words", () => {
+    const { view } = mount({ realm: { ...fresh, tutorialStep: LEGACY_STEPS + 2 } });
+    expect(screen.getByText("Jump!")).toBeInTheDocument();
+    expect(screen.getByText("Press Space.")).toBeInTheDocument();
+    const router = handed.props!.router as InputRouter;
+    const r = bind(router.keymap, "jump", 0, "KeyJ");
+    if (!r.ok) throw new Error("bind refused");
+    act(() => router.setKeymap(r.keymap));
+    expect(screen.getByText("Press J.")).toBeInTheDocument();
+    expect(view.container.querySelector(".r3-coach-keys kbd")).toHaveTextContent("J");
+  });
+
   it("finds Old Bram only when he is the one in reach, and talking to him is the next lesson", () => {
     const { bus } = mount({ realm: { ...fresh, tutorialStep: LEGACY_STEPS + 3 } });
     expect(screen.getByText("Find Old Bram.")).toBeInTheDocument();
