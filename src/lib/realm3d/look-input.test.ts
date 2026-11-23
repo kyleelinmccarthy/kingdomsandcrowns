@@ -99,8 +99,8 @@ describe("capturing the mouse, as in Minecraft", () => {
     el.fire("pointerup", { button: 0, pointerId: 1, clientX: 0, clientY: 0 });
     lockTo(doc, el);
     expect(look.captured).toBe(true);
-    doc.fire("mousemove", { movementX: 12, movementY: -4, buttons: 0 });
-    doc.fire("mousemove", { movementX: -3, movementY: 0, buttons: 0 });
+    doc.fire("pointermove", { movementX: 12, movementY: -4, buttons: 0 });
+    doc.fire("pointermove", { movementX: -3, movementY: 0, buttons: 0 });
     expect(looks).toEqual([
       [12, -4],
       [-3, 0],
@@ -113,13 +113,13 @@ describe("capturing the mouse, as in Minecraft", () => {
     const { el, doc, looks, state } = rig();
     lockTo(doc, el);
     state.paused = true;
-    doc.fire("mousemove", { movementX: 12, movementY: 3 });
+    doc.fire("pointermove", { movementX: 12, movementY: 3 });
     expect(looks).toEqual([]);
   });
 
   it("ignores the mouse moving over a page it has not captured", () => {
     const { doc, looks } = rig();
-    doc.fire("mousemove", { movementX: 12, movementY: 3 });
+    doc.fire("pointermove", { movementX: 12, movementY: 3 });
     expect(looks).toEqual([]);
   });
 });
@@ -366,12 +366,43 @@ describe("swinging the camera round with the left button, as in World of Warcraf
     lockTo(doc, el);
     el.fire("pointerdown", { button: 0, pointerId: 1 });
     expect(look.orbiting).toBe(true);
-    doc.fire("mousemove", { movementX: 12, movementY: 0 });
+    doc.fire("pointermove", { movementX: 12, movementY: 0 });
     el.fire("pointerup", { button: 0, pointerId: 1 });
     expect(look.orbiting).toBe(false);
-    doc.fire("mousemove", { movementX: 12, movementY: 0 });
+    doc.fire("pointermove", { movementX: 12, movementY: 0 });
     expect(modes).toEqual(["orbit", "turn"]);
     expect(el.requestPointerLock).not.toHaveBeenCalled();
+  });
+
+  it("orbits through pointermove while captured, though the left pointerdown was prevented", () => {
+    // A cancelled pointerdown stops the browser firing mousemove until pointerup (Pointer Events'
+    // compatibility rules), so only pointermoves arrive: they alone must carry the orbit.
+    const { el, doc, look, looks, modes } = rig();
+    lockTo(doc, el);
+    const press = el.fire("pointerdown", { button: 0, pointerId: 1 });
+    expect(press.preventDefault).toHaveBeenCalled();
+    doc.fire("pointermove", { pointerId: 1, movementX: 7, movementY: 1, buttons: 1 });
+    expect(looks).toEqual([[7, 1]]);
+    expect(modes).toEqual(["orbit"]);
+    expect(look.orbiting).toBe(true);
+  });
+
+  it("hears one captured move once, though the browser sends it as a pointermove and a mousemove", () => {
+    const { el, doc, looks } = rig();
+    lockTo(doc, el);
+    doc.fire("pointermove", { pointerId: 1, movementX: 7, movementY: 1, buttons: 0 });
+    doc.fire("mousemove", { movementX: 7, movementY: 1, buttons: 0 });
+    expect(looks).toEqual([[7, 1]]);
+  });
+
+  it("does not turn the camera from the canvas's own pointermoves while the mouse is free", () => {
+    // The canvas's pointermoves bubble to the document: free, only a drag on the canvas looks.
+    const { el, doc, looks, modes } = rig();
+    el.fire("pointerdown", { button: 2, pointerId: 7, clientX: 100, clientY: 50 });
+    el.fire("pointermove", { pointerId: 7, clientX: 110, clientY: 50, movementX: 10, movementY: 0, buttons: 2 });
+    doc.fire("pointermove", { pointerId: 7, clientX: 110, clientY: 50, movementX: 10, movementY: 0, buttons: 2 });
+    expect(looks).toEqual([[10, 0]]);
+    expect(modes).toEqual(["turn"]);
   });
 
   it("stops orbiting when the captured mouse says the left button is no longer down", () => {
@@ -379,7 +410,7 @@ describe("swinging the camera round with the left button, as in World of Warcraf
     const { el, doc, look, modes } = rig();
     lockTo(doc, el);
     el.fire("pointerdown", { button: 0, pointerId: 1 });
-    doc.fire("mousemove", { movementX: 5, movementY: 0, buttons: 0 });
+    doc.fire("pointermove", { movementX: 5, movementY: 0, buttons: 0 });
     expect(look.orbiting).toBe(false);
     expect(modes).toEqual(["turn"]);
   });
@@ -420,10 +451,10 @@ describe("a pointer-lock spike", () => {
   it("drops a single huge captured move and keeps ordinary ones, fast flicks included", () => {
     const { el, doc, looks } = rig();
     lockTo(doc, el);
-    doc.fire("mousemove", { movementX: 900, movementY: 2 });
-    doc.fire("mousemove", { movementX: 3, movementY: -900 });
-    doc.fire("mousemove", { movementX: 120, movementY: 0 });
-    doc.fire("mousemove", { movementX: -250, movementY: 10 });
+    doc.fire("pointermove", { movementX: 900, movementY: 2 });
+    doc.fire("pointermove", { movementX: 3, movementY: -900 });
+    doc.fire("pointermove", { movementX: 120, movementY: 0 });
+    doc.fire("pointermove", { movementX: -250, movementY: 10 });
     expect(looks).toEqual([
       [120, 0],
       [-250, 10],
@@ -434,16 +465,16 @@ describe("a pointer-lock spike", () => {
     expect(LOOK_SPIKE).toBe(500);
     const { el, doc, looks } = rig();
     lockTo(doc, el);
-    doc.fire("mousemove", { movementX: LOOK_SPIKE, movementY: 0 });
-    doc.fire("mousemove", { movementX: 0, movementY: -LOOK_SPIKE });
+    doc.fire("pointermove", { movementX: LOOK_SPIKE, movementY: 0 });
+    doc.fire("pointermove", { movementX: 0, movementY: -LOOK_SPIKE });
     expect(looks).toEqual([
       [LOOK_SPIKE, 0],
       [0, -LOOK_SPIKE],
     ]);
-    doc.fire("mousemove", { movementX: LOOK_SPIKE + 1, movementY: 0 });
-    doc.fire("mousemove", { movementX: -(LOOK_SPIKE + 1), movementY: 0 });
-    doc.fire("mousemove", { movementX: 0, movementY: LOOK_SPIKE + 1 });
-    doc.fire("mousemove", { movementX: 0, movementY: -(LOOK_SPIKE + 1) });
+    doc.fire("pointermove", { movementX: LOOK_SPIKE + 1, movementY: 0 });
+    doc.fire("pointermove", { movementX: -(LOOK_SPIKE + 1), movementY: 0 });
+    doc.fire("pointermove", { movementX: 0, movementY: LOOK_SPIKE + 1 });
+    doc.fire("pointermove", { movementX: 0, movementY: -(LOOK_SPIKE + 1) });
     expect(looks).toHaveLength(2);
   });
 });

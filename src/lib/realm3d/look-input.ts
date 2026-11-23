@@ -106,7 +106,7 @@ export const LOCK_RETRY_MS = 1100;
 /**
  * Some Windows and Chrome setups now and then report a huge `movementX`/`movementY` in one captured
  * move (a known Chromium bug), which whips the camera round. Past this many px in one event it is
- * dropped. Chrome coalesces mousemove to one per animation frame, so on a 30 fps PC a brisk flick
+ * dropped. Chrome coalesces pointermove to one per animation frame, so on a 30 fps PC a brisk flick
  * is a few hundred px in one event; the bug's jumps are typically half a screen or more, so 500
  * keeps every real flick and still catches the jumps.
  */
@@ -245,7 +245,7 @@ export function mouseLook(el: LookEl, doc: LookDoc, o: MouseLookOptions): MouseL
       el.removeEventListener("contextmenu", menu);
       doc.removeEventListener("pointerlockchange", change);
       doc.removeEventListener("pointerlockerror", refused);
-      doc.removeEventListener("mousemove", lockedMove);
+      doc.removeEventListener("pointermove", lockedMove);
     },
   };
 
@@ -368,7 +368,11 @@ export function mouseLook(el: LookEl, doc: LookDoc, o: MouseLookOptions): MouseL
   el.addEventListener("contextmenu", menu);
   doc.addEventListener("pointerlockchange", change);
   doc.addEventListener("pointerlockerror", refused);
-  doc.addEventListener("mousemove", lockedMove);
+  // Captured moves come as pointermove, never mousemove: the left press that starts a captured orbit
+  // is prevented, and a prevented pointerdown stops the browser sending mousemove until pointerup
+  // (Pointer Events' compatibility rules). The canvas's own pointermoves bubble up here too, but
+  // only count while captured, when the canvas has no press or drag of its own.
+  doc.addEventListener("pointermove", lockedMove);
 
   // Opening while another canvas in this document holds the capture (walking into a room with the
   // mouse captured): take it over. A captured document may move its capture without a click.
