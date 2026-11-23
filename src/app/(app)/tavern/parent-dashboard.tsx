@@ -125,8 +125,10 @@ export async function ParentDashboard({ allChildren }: { allChildren: ChildRow[]
         ))}
       </div>
 
-      {/* Days that didn't go to plan, per hero. Only a grown-up ever reaches
-          this screen, so there is no child-view branch here. */}
+      {/* Days that didn't go to plan, per hero, folded shut to a count so
+          several heroes' ledgers don't bury the rest of the dashboard. Only a
+          grown-up ever reaches this screen, so there is no child-view branch
+          here. */}
       {perChild.map(({ child, missedDays }) => (
         <MissedDays
           key={child.id}
@@ -136,6 +138,7 @@ export async function ParentDashboard({ allChildren }: { allChildren: ChildRow[]
           missed={missedDays.missed}
           canEdit={missedDays.canEdit}
           writableChildCount={allChildren.length}
+          defaultOpen={false}
         />
       ))}
 

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { GameFrame } from "@/components/game-frame";
 import { GameIcon } from "@/components/game-icon";
@@ -35,6 +36,9 @@ import {
  * one that was missed — science on a field-trip day — rather than the whole
  * day. Excusing every quest on a day excuses the day too (see
  * `excuseAssignment`).
+ *
+ * The panel folds shut to a one-line count, so a dashboard showing several
+ * heroes' ledgers stays readable; the count still says when a streak broke.
  */
 export function MissedDays({
   childId,
@@ -43,6 +47,7 @@ export function MissedDays({
   missed,
   canEdit,
   writableChildCount,
+  defaultOpen = true,
 }: {
   childId: string;
   childName: string;
@@ -53,30 +58,59 @@ export function MissedDays({
   canEdit: boolean;
   /** Heroes this actor may write to. Drives the "apply to all" checkbox. */
   writableChildCount: number;
+  /** Whether the panel starts unfolded. */
+  defaultOpen?: boolean;
 }) {
+  const [open, setOpen] = useState(defaultOpen);
+  const bodyId = useId();
   if (missed.length === 0) return null;
+
+  const title = `Missed Days${childName ? ` — ${childName}` : ""}`;
+  const brokeStreak = missed.some((day) => day.brokeStreak);
 
   return (
     <GameFrame
-      title={`Missed Days${childName ? ` — ${childName}` : ""}`}
+      title={title}
       icon={<GameIcon name="calendar" className="size-5 text-[var(--gold-bright)]" />}
-    >
-      <p className="mb-3 text-xs text-muted-foreground">
-        {canEdit
-          ? "Days that didn't go to plan. Excuse a whole day — a sick day, an appointment — and it stops counting against their streak, or excuse just the quests that were missed. Or move the work to a day that suits."
-          : "Days that didn't go to plan. A grown-up with edit access can excuse a day or a quest, or move its work."}
-      </p>
-      <div className="min-w-0 space-y-2">
-        {missed.map((day) => (
-          <MissedDayRow
-            key={day.date}
-            childId={childId}
-            day={day}
-            today={today}
-            canEdit={canEdit}
-            writableChildCount={writableChildCount}
+      action={
+        <Button
+          size="sm"
+          variant="ghost"
+          aria-expanded={open}
+          aria-controls={bodyId}
+          aria-label={`${open ? "Hide" : "Show"} ${title}`}
+          onClick={() => setOpen((o) => !o)}
+        >
+          {open ? "Hide" : "Show"}
+          <ChevronDown
+            aria-hidden="true"
+            className={`size-4 transition-transform ${open ? "rotate-180" : ""}`}
           />
-        ))}
+        </Button>
+      }
+    >
+      <p className="text-xs text-muted-foreground">
+        {missed.length === 1 ? "1 day" : `${missed.length} days`} didn&apos;t go to plan
+        {brokeStreak && <span style={{ color: "var(--streak)" }}> · one broke the streak</span>}
+      </p>
+      <div id={bodyId} hidden={!open} className="mt-3">
+        <p className="mb-3 text-xs text-muted-foreground">
+          {canEdit
+            ? "Excuse a whole day — a sick day, an appointment — and it stops counting against their streak, or excuse just the quests that were missed. Or move the work to a day that suits."
+            : "A grown-up with edit access can excuse a day or a quest, or move its work."}
+        </p>
+        <div className="min-w-0 space-y-2">
+          {missed.map((day) => (
+            <MissedDayRow
+              key={day.date}
+              childId={childId}
+              day={day}
+              today={today}
+              canEdit={canEdit}
+              writableChildCount={writableChildCount}
+            />
+          ))}
+        </div>
       </div>
     </GameFrame>
   );

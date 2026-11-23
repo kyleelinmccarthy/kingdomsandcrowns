@@ -171,6 +171,44 @@ describe("MissedDays", () => {
     );
   });
 
+  // Several heroes' ledgers stacked on the parent dashboard would bury it, so
+  // the panel folds shut to a count that still flags a broken streak.
+  it("starts folded when asked, showing only the count, and unfolds on demand", () => {
+    render(
+      <MissedDays
+        childId="c1"
+        childName="Lily"
+        today="2026-09-07"
+        missed={missed}
+        canEdit
+        writableChildCount={2}
+        defaultOpen={false}
+      />
+    );
+    expect(screen.getByText(/2 days didn.t go to plan/i)).toBeInTheDocument();
+    expect(screen.getByText(/one broke the streak/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /excuse day/i })).toBeNull();
+    expect(screen.getByText("Science")).not.toBeVisible();
+
+    const toggle = screen.getByRole("button", { name: "Show Missed Days — Lily" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(toggle);
+
+    expect(screen.getByRole("button", { name: "Hide Missed Days — Lily" })).toHaveAttribute(
+      "aria-expanded",
+      "true"
+    );
+    expect(screen.getAllByRole("button", { name: /excuse day/i })).toHaveLength(2);
+    expect(screen.getByText("Science")).toBeVisible();
+  });
+
+  it("folds shut again from the open state", () => {
+    renderPanel();
+    fireEvent.click(screen.getByRole("button", { name: "Hide Missed Days — Lily" }));
+    expect(screen.queryByRole("button", { name: /excuse day/i })).toBeNull();
+    expect(screen.getByRole("button", { name: "Show Missed Days — Lily" })).toBeInTheDocument();
+  });
+
   it("names the quests but offers no per-quest controls to a read-only guardian", () => {
     renderPanel(false);
     expect(screen.getByText("Science")).toBeInTheDocument();
