@@ -1057,8 +1057,8 @@ export function RealmGame({
     if (insideRef.current) return;
     // From the saddle the hero gets down and the spell follows; a fast-travel ride refuses.
     const bus = riding.bus;
-    if (requestCast(bus, casts, slot) === "travelling") bus.onSay(CAST_ON_THE_ROAD);
-  }, [casts, riding.bus]);
+    if (requestCast(bus, casts, slot, !!pages[slot - 1]?.spell) === "travelling") bus.onSay(CAST_ON_THE_ROAD);
+  }, [casts, riding.bus, pages]);
   const onEmptyPage = useCallback(
     (slot: number) => {
       go({ kind: "page", slot });

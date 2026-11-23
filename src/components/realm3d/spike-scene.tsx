@@ -1159,7 +1159,8 @@ const World = memo(function World({
       if (n === 0 || !e.down) return;
       // From the saddle the hero gets down and the spell goes off once they are on foot
       // (`Riding` hands it on); only a fast-travel ride refuses, and says so.
-      if (requestCast(ride, casts, n) === "travelling") ride?.onSay(CAST_ON_THE_ROAD);
+      // An empty page's key does nothing, and above all does not get the hero down.
+      if (requestCast(ride, casts, n, !!pages[n - 1]?.spell) === "travelling") ride?.onSay(CAST_ON_THE_ROAD);
     },
     "island",
   );

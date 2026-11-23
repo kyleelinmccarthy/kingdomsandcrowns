@@ -354,15 +354,15 @@ describe("a spell asked for in the saddle", () => {
 
   it("on foot, or with no ride at all, goes straight into the queue", () => {
     const q = makeCastQueue();
-    expect(requestCast(makeRideBus(pony), q, 3)).toBe("cast");
-    expect(requestCast(null, q, 4)).toBe("cast");
+    expect(requestCast(makeRideBus(pony), q, 3, true)).toBe("cast");
+    expect(requestCast(null, q, 4, true)).toBe("cast");
     expect(q.slots.slice(0, q.n)).toEqual([3, 4]);
   });
 
   it("in the saddle, waits for the ground: gets down, and hands the slot back once", () => {
     const ride = mounted();
     const q = makeCastQueue();
-    expect(requestCast(ride, q, 2)).toBe("dismounting");
+    expect(requestCast(ride, q, 2, true)).toBe("dismounting");
     expect(ride.castAfter).toBe(2);
     expect(ride.want).toBe(false);
     expect(q.n).toBe(0);
@@ -377,7 +377,7 @@ describe("a spell asked for in the saddle", () => {
     stepRide(ride, 0.05, 0);
     expect(ride.phase).toBe("down");
     const q = makeCastQueue();
-    expect(requestCast(ride, q, 5)).toBe("dismounting");
+    expect(requestCast(ride, q, 5, true)).toBe("dismounting");
     expect(ride.want).toBe(null);
     expect(ride.castAfter).toBe(5);
     expect(q.n).toBe(0);
@@ -392,7 +392,7 @@ describe("a spell asked for in the saddle", () => {
     stepRide(ride, 0.05, 0);
     expect(ride.phase).toBe("up");
     const q = makeCastQueue();
-    expect(requestCast(ride, q, 7)).toBe("dismounting");
+    expect(requestCast(ride, q, 7, true)).toBe("dismounting");
     expect(ride.castAfter).toBe(7);
     expect(ride.want).toBe(null);
     const events = run(ride, MOUNT_UP_S + DISMOUNT_S + 0.3);
@@ -403,18 +403,30 @@ describe("a spell asked for in the saddle", () => {
 
   it("in water too deep to get down in: refused, and the slot is forgotten", () => {
     const ride = mounted();
-    requestCast(ride, makeCastQueue(), 1);
+    requestCast(ride, makeCastQueue(), 1, true);
     const events = run(ride, 0.2, RIDE_WADE_DEPTH);
     expect(events).toContain("refused-deep");
     expect(ride.phase).toBe("on");
     expect(ride.castAfter).toBe(0);
   });
 
+  it("an empty page's key does nothing, in the saddle or on foot: no dismount, nothing queued", () => {
+    const ride = mounted();
+    const q = makeCastQueue();
+    expect(requestCast(ride, q, 4, false)).toBe("empty");
+    expect(ride.want).toBe(null);
+    expect(ride.castAfter).toBe(0);
+    expect(run(ride, DISMOUNT_S + 0.1)).not.toContain("dismounted");
+    expect(ride.phase).toBe("on");
+    expect(requestCast(null, q, 4, false)).toBe("empty");
+    expect(q.n).toBe(0);
+  });
+
   it("a newer ask replaces the older one", () => {
     const ride = mounted();
     const q = makeCastQueue();
-    requestCast(ride, q, 1);
-    requestCast(ride, q, 6);
+    requestCast(ride, q, 1, true);
+    requestCast(ride, q, 6, true);
     expect(ride.castAfter).toBe(6);
   });
 
@@ -422,7 +434,7 @@ describe("a spell asked for in the saddle", () => {
     const ride = mounted();
     ride.travelling = true;
     const q = makeCastQueue();
-    expect(requestCast(ride, q, 4)).toBe("travelling");
+    expect(requestCast(ride, q, 4, true)).toBe("travelling");
     expect(q.n).toBe(0);
     expect(ride.castAfter).toBe(0);
     expect(ride.want).toBe(null);
@@ -431,7 +443,7 @@ describe("a spell asked for in the saddle", () => {
 
   it("going through a door (parkNow) forgets the waiting spell, and so does dropCastAfter", () => {
     const ride = mounted();
-    requestCast(ride, makeCastQueue(), 8);
+    requestCast(ride, makeCastQueue(), 8, true);
     parkNow(ride, 2, 1);
     expect(ride.castAfter).toBe(0);
     ride.castAfter = 3;

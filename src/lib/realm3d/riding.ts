@@ -311,15 +311,21 @@ export function castBlocked(ride: RideBus | null | undefined): boolean {
 }
 
 /** What `requestCast` did with a spell key. */
-export type CastAsk = "cast" | "dismounting" | "travelling";
+export type CastAsk = "cast" | "dismounting" | "travelling" | "empty";
 
 /**
  * A spell key or click. On foot (or with no mount) it goes straight into the queue. In the
  * saddle, or on the way into or out of it, the slot waits in `castAfter` and the hero gets down;
  * the scene casts it when the dismount ends (`takeCastAfter`). A newer ask replaces an older one.
  * On a fast-travel ride it is refused: the caller says why.
+ *
+ * `hasSpell` is whether that page holds a spell, which only the caller knows (it has the pages;
+ * this module stays free of them). A key for an empty page does nothing at all ("empty"): on
+ * foot the queue would skip it anyway, and in the saddle it must not put the hero on the ground
+ * for a spell that is never going to go off.
  */
-export function requestCast(ride: RideBus | null | undefined, q: CastQueue, slot: number): CastAsk {
+export function requestCast(ride: RideBus | null | undefined, q: CastQueue, slot: number, hasSpell: boolean): CastAsk {
+  if (!hasSpell) return "empty";
   if (castBlocked(ride)) return "travelling";
   if (!ride || ride.phase === "off") {
     pushCast(q, slot);
