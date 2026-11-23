@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { HudBus } from "@/lib/realm3d/hud-bus";
 import type { CastQueue } from "@/lib/realm3d/casting";
+import type { InputRouter } from "@/lib/realm3d/input-router";
 import { DEFAULT_LEARNING_PROFILE } from "@/lib/utils/learning-profile";
 
 /**
@@ -149,6 +150,32 @@ describe("going in", () => {
     const { bus } = mount({ castleUnlocked: true, avatar: { ...DEFAULT_AVATAR, backgroundColor: "#123456", accessoryColor: "#abcdef" } });
     act(() => bus.onDoor("castle"));
     expect(handed.room!.colors).toEqual({ field: "#123456", charge: "#abcdef" });
+  });
+});
+
+describe("the keys indoors", () => {
+  it("both scenes get the one router, and its scopes follow the door and the panels", () => {
+    const { bus } = mount();
+    const router = handed.island!.router as InputRouter;
+    const island = vi.fn();
+    const room = vi.fn();
+    router.on("walkForward", island, "island");
+    router.on("walkForward", room, "room");
+    const pressW = () => act(() => void fireEvent.keyDown(window, { code: "KeyW" }));
+    pressW();
+    expect(island).toHaveBeenCalledTimes(1);
+    act(() => bus.onInteract(chapel));
+    expect(handed.room!.router).toBe(router);
+    pressW();
+    expect(island).toHaveBeenCalledTimes(1); // the island is shut while the child is in
+    expect(room).toHaveBeenCalledTimes(1);
+    // A panel over the room shuts the room's keys too, until it closes.
+    act(() => bus.onInteract({ kind: "villager", id: "wren", label: "Sister Wren" }));
+    pressW();
+    expect(room).toHaveBeenCalledTimes(1);
+    act(() => void fireEvent.keyDown(window, { key: "Escape" }));
+    pressW();
+    expect(room).toHaveBeenCalledTimes(2);
   });
 });
 

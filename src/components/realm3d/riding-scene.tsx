@@ -22,7 +22,7 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { slideMove, HERO_RADIUS, type Collider, type Pt } from "@/lib/realm3d/collision";
 import type { HudBus } from "@/lib/realm3d/hud-bus";
-import { holdKeys, seedMoves } from "@/lib/realm3d/held-keys";
+import { seedMoves, type InputRouter } from "@/lib/realm3d/input-router";
 import { camGoal, clearPark, isRiding, offTheGround, parkNow, rideRadius, settleRider, stepRide, TOO_DEEP_TO_GET_DOWN, type RideBus } from "@/lib/realm3d/riding";
 import { postAt, requestStop, startTravel, stepTravel, travelGraphFor, travelRoute, VILLAGE_ID, type TravelGraph, type TravelRun } from "@/lib/realm3d/travel";
 import type { RealmWorld } from "@/lib/realm3d/worldgen";
@@ -225,6 +225,7 @@ function driveGait(g: MountGait, moved: number, dt: number, stride: number, top:
 export function Riding({
   ride,
   bus,
+  router,
   heroRef,
   facingRef,
   aimRef,
@@ -234,6 +235,8 @@ export function Riding({
 }: {
   ride: RideBus;
   bus: HudBus;
+  /** The one keyboard listener (`input-router.ts`): it knows which keys are held, whoever heard them go down. */
+  router: InputRouter;
   heroRef: React.RefObject<THREE.Vector3>;
   /** The way the hero's body faces (the mover writes it every frame). */
   facingRef: React.RefObject<number>;
@@ -250,15 +253,12 @@ export function Riding({
   const side = useMemo<Pt>(() => ({ x: 0, z: 0 }), []);
   const settled = useMemo<Pt>(() => ({ x: 0, z: 0 }), []);
   const lookClock = useRef(0);
-  // The keys a child is physically holding, whoever was listening when they went down.
-  useEffect(() => holdKeys(), []);
-
   useFrame((_, rawDt) => {
     if (bus.paused) return;
     const dt = Math.min(0.05, rawDt);
     // A key held through a doorway (or out of a menu) walks at once, rather than after the
     // browser's half-second auto-repeat: the island ignored its key-down while it was paused.
-    seedMoves(keys.current);
+    seedMoves(router, keys.current);
     const p = heroRef.current;
     const depth = Math.max(0, world.waterLevelAt(p.x, p.z) - world.heightAt(p.x, p.z));
     const yaw = facingRef.current;

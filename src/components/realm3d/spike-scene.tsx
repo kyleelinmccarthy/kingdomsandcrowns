@@ -120,8 +120,11 @@ import type { LeadBus } from "@/lib/realm3d/lead";
 import { WizardFigure } from "./wizard-figure";
 import { Villagers } from "./villagers";
 import type { SpellPageView } from "@/lib/realm/spells/pages";
-import { digitSlot, pushCast, type Caster, type CastQueue } from "@/lib/realm3d/casting";
+import { pushCast, type Caster, type CastQueue } from "@/lib/realm3d/casting";
 import type { HudBus } from "@/lib/realm3d/hud-bus";
+import type { ActionEvent, InputRouter } from "@/lib/realm3d/input-router";
+import { castSlotOf, WALK_ACTIONS, type ActionId } from "@/lib/realm3d/keymap";
+import { useAction } from "./realm-input";
 import type { PlateAnchor } from "@/lib/realm3d/plate-anchors";
 import type { FxSlot } from "@/lib/realm3d/spell-fx";
 import { DevDraws } from "./dev-draws";
@@ -138,7 +141,6 @@ import { GROUND_TINT, LIT_WINDOW, paintColor, useDayLight } from "./day-light";
 import type { DayLight } from "@/lib/realm3d/day-cycle";
 import type { RecessBus } from "@/lib/realm3d/recess/bus";
 import { ARCH_HALF_SPAN } from "@/lib/realm3d/recess/course";
-import { typingInto } from "@/lib/realm3d/typing";
 import { ANCHOR_SPOTS, type AnchorId } from "@/lib/realm/anchors";
 import { TrailObjects } from "./trail-objects";
 import { TrailStakes } from "./trail-stakes";
@@ -601,10 +603,8 @@ function takeJump(k: Keys): boolean {
   return true;
 }
 
-/** Let go of everything: on pause, and when the window loses focus mid-stride. */
-function releaseKeys(k: Keys): void {
-  k.f = k.b = k.l = k.r = k.jump = k.interact = false;
-}
+/** Every key the island hears: walking, the jump, E, and the nine spell slots. */
+const ISLAND_ACTIONS: readonly ActionId[] = [...WALK_ACTIONS, "jump", "interact", "cast1", "cast2", "cast3", "cast4", "cast5", "cast6", "cast7", "cast8", "cast9"];
 
 function nowS(): number {
   return performance.now() / 1000;
@@ -973,6 +973,7 @@ const World = memo(function World({
   anchors,
   pages,
   bus,
+  router,
   caster,
   fxPool,
   casts,
@@ -995,6 +996,8 @@ const World = memo(function World({
   anchors: readonly PlateAnchor[];
   pages: SpellPageView[];
   bus: HudBus;
+  /** The one keyboard listener (`input-router.ts`); context does not reach inside the canvas. */
+  router: InputRouter;
   caster: Caster;
   fxPool: FxSlot[];
   casts: CastQueue;
@@ -1127,52 +1130,37 @@ const World = memo(function World({
   const lookPaused = useCallback(() => bus.paused, [bus]);
   const tex = useMemo(() => glowTexture(), []);
 
-  useEffect(() => {
-    const set = (e: KeyboardEvent, down: boolean) => {
+  // The island's keys, as actions (`input-router.ts`). Its `island` scope is the frame's
+  // `bus.paused` turned round: a key going down reaches the hero only out in the world with no
+  // menu up, while a key going UP always arrives, so nothing sticks held across a pause. The
+  // router drops typing, Ctrl/Alt/Meta, auto-repeat on the one-press actions, and lets go of
+  // every held key when the window loses focus. It also stops Space scrolling the page.
+  useAction(
+    router,
+    ISLAND_ACTIONS,
+    (e: ActionEvent) => {
       const k = keys.current;
-      // A key going UP is always honoured, so nothing sticks held across a pause. A key going
-      // down is the child's only while the game has their attention: not under a menu, and not
-      // while they are typing into something the HUD put on screen.
-      if (down && (bus.paused || typingInto(e.target))) return;
-      switch (e.code) {
-        case "KeyW": case "ArrowUp": k.f = down; break;
-        case "KeyS": case "ArrowDown": k.b = down; break;
-        case "KeyA": case "ArrowLeft": k.l = down; break;
-        case "KeyD": case "ArrowRight": k.r = down; break;
-        // Edge-triggered, and auto-repeat is dropped: holding space is one jump, not flight.
-        case "Space": if (down && !e.repeat) k.jump = true; break;
+      switch (e.action) {
+        case "walkForward": k.f = e.down; return;
+        case "walkBack": k.b = e.down; return;
+        case "strafeLeft": k.l = e.down; return;
+        case "strafeRight": k.r = e.down; return;
+        // Edge-triggered: holding space is one jump, not flight.
+        case "jump": if (e.down) k.jump = true; return;
         // Interact. What it does is the HUD's business; `Interaction` decides what it is AT.
-        case "KeyE": if (down && !e.repeat) k.interact = true; break;
-        default: {
-          // 1 through 9 cast. Queued rather than acted on here, because a cast has to be
-          // decided against a mana total the frame loop owns, and auto-repeat is dropped for
-          // the same reason as the jump: holding 1 is one spell, and the cooldown is what says
-          // when the next one may go.
-          const n = digitSlot(e.code);
-          if (n === 0 || !down || e.repeat) return;
-          // No spells from the saddle: the flat Realm's rule, said out loud.
-          if (castBlocked(ride)) ride?.onSay(CAST_FROM_SADDLE);
-          else pushCast(casts, n);
-          break;
-        }
+        case "interact": if (e.down) k.interact = true; return;
       }
-      // Space scrolls the page and re-presses whatever button the child last touched. Neither
-      // belongs in a game, and the canvas is not focusable, so the window handler says no here.
-      if (!bus.paused) e.preventDefault();
-    };
-    const dn = (e: KeyboardEvent) => set(e, true);
-    const up = (e: KeyboardEvent) => set(e, false);
-    // Alt-tab mid-stride would otherwise leave W held down for ever.
-    const blur = () => releaseKeys(keys.current);
-    window.addEventListener("keydown", dn);
-    window.addEventListener("keyup", up);
-    window.addEventListener("blur", blur);
-    return () => {
-      window.removeEventListener("keydown", dn);
-      window.removeEventListener("keyup", up);
-      window.removeEventListener("blur", blur);
-    };
-  }, [casts, bus, ride]);
+      // A spell slot. Queued rather than acted on here, because a cast has to be decided against
+      // a mana total the frame loop owns; holding 1 is one spell, and the cooldown is what says
+      // when the next one may go.
+      const n = castSlotOf(e.action);
+      if (n === 0 || !e.down) return;
+      // No spells from the saddle: the flat Realm's rule, said out loud.
+      if (castBlocked(ride)) ride?.onSay(CAST_FROM_SADDLE);
+      else pushCast(casts, n);
+    },
+    "island",
+  );
 
   return (
     <>
@@ -1223,7 +1211,7 @@ const World = memo(function World({
       <ChaseCamera heroRef={heroRef} yawRef={yawRef} view={view} bus={bus} close={close} solids={solids} world={world} ride={ride} />
       <MouseLook bus={bus} yawRef={yawRef} view={view} paused={lookPaused} />
       {/* Riding: the mount's moments, where it waits, the hitching posts and fast travel. Before the doorstep (see its note). */}
-      {ride && <Riding ride={ride} bus={bus} heroRef={heroRef} facingRef={facingRef} aimRef={aimRef} keys={keys} solids={solids} world={world} />}
+      {ride && <Riding ride={ride} bus={bus} router={router} heroRef={heroRef} facingRef={facingRef} aimRef={aimRef} keys={keys} solids={solids} world={world} />}
       {/* Going in and coming out of doors, and never being left inside a wall. After the camera: it may set the camera. */}
       <Doorstep bus={bus} heroRef={heroRef} yawRef={yawRef} aimRef={aimRef} keys={keys} view={view} solids={solids} props={layout.props} sitePlan={SITE_PLAN} castle={castle} castleTier={layout.castleType} castleUnlocked={castleUnlocked} world={world} ride={ride} />
       {/* After the camera (markers project from this frame's camera), before the driver (a new charge locks on before it releases). */}
@@ -1271,6 +1259,8 @@ export type RealmCanvasProps = {
   anchors: readonly PlateAnchor[];
   pages: SpellPageView[];
   bus: HudBus;
+  /** The one keyboard listener the frame made (`input-router.ts`), handed in as `bus` is. */
+  router: InputRouter;
   caster: Caster;
   fxPool: FxSlot[];
   casts: CastQueue;
@@ -1310,7 +1300,7 @@ export type RealmCanvasProps = {
   runeWalk?: { named: readonly string[]; mended: readonly string[] } | null;
 };
 
-export default function SpikeScene({ avatar, close, world, layout, anchors, pages, bus, caster, fxPool, casts, viewer, castleUnlocked, frozen = false, calm = false, troubles, ride, lead, recess, timeZone, gilded, reviewDue = false, stockpile, built, hallDrawings, worldLocks, trailOn = false, trailRevealed = null, runeWalk = null }: RealmCanvasProps) {
+export default function SpikeScene({ avatar, close, world, layout, anchors, pages, bus, router, caster, fxPool, casts, viewer, castleUnlocked, frozen = false, calm = false, troubles, ride, lead, recess, timeZone, gilded, reviewDue = false, stockpile, built, hallDrawings, worldLocks, trailOn = false, trailRevealed = null, runeWalk = null }: RealmCanvasProps) {
   return (
     <Canvas
       frameloop={frozen ? "never" : "always"}
@@ -1331,6 +1321,7 @@ export default function SpikeScene({ avatar, close, world, layout, anchors, page
         anchors={anchors}
         pages={pages}
         bus={bus}
+        router={router}
         caster={caster}
         fxPool={fxPool}
         casts={casts}

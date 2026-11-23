@@ -58,7 +58,6 @@ import {
   type MoveIntent,
 } from "@/lib/realm3d/controls";
 import { hipTurn, keepMotion, makeMotion, makeStride as makeLegs, readStride, stepMotion, stopMotion, strideRate, type Motion } from "@/lib/realm3d/locomotion";
-import { typingInto } from "@/lib/realm3d/typing";
 import { roomPlan, type RoomColors, type RoomPart, type RoomPlan, type WallSide } from "@/lib/realm3d/interiors";
 import { hiddenWalls, leavingRoom, makeHidden, pickRoomSpot, roomSlide, roomSpots, ROOM_LOOK, type RoomSpots } from "@/lib/realm3d/room-rules";
 import { makeNearMemo, nearChanged, type NearMemo } from "@/lib/realm3d/interact";
@@ -69,7 +68,9 @@ import { villagerLook } from "@/lib/realm3d/villager-look";
 import { noticeFacing } from "@/lib/realm3d/attention";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
 import { Companion, HeroFigure, makePetTrail, type Gait } from "./hero-figure";
-import { holdKeys, seedMoves } from "@/lib/realm3d/held-keys";
+import { seedMoves, type ActionEvent, type InputRouter } from "@/lib/realm3d/input-router";
+import { WALK_ACTIONS, type ActionId } from "@/lib/realm3d/keymap";
+import { useAction } from "./realm-input";
 import { WizardFigure } from "./wizard-figure";
 import { MouseLook } from "./mouse-look";
 import { merge, paint } from "./geo-kit";
@@ -91,6 +92,8 @@ export type RoomViewProps = {
   avatar: AvatarConfig;
   viewer: "child" | "parent";
   bus: HudBus;
+  /** The one keyboard listener the frame made (`input-router.ts`); handed down, as context does not cross into the canvas. */
+  router: InputRouter;
   /** A panel is open over the room (a conversation, the pause menu): nothing moves. */
   paused: boolean;
   colors: RoomColors;
@@ -103,8 +106,10 @@ export type RoomViewProps = {
 };
 
 type Keys = { f: boolean; b: boolean; l: boolean; r: boolean; jump: boolean; interact: boolean };
+/** Every key a room hears: walking, the jump and E. No casting indoors. */
+const ROOM_ACTIONS: readonly ActionId[] = [...WALK_ACTIONS, "jump", "interact"];
 
-export default function RoomView({ visit, avatar, viewer, bus, paused, colors, used, onLeave, chest = null }: RoomViewProps) {
+export default function RoomView({ visit, avatar, viewer, bus, router, paused, colors, used, onLeave, chest = null }: RoomViewProps) {
   const plan = useMemo(() => roomPlan(visit.room, colors), [visit.room, colors]);
   const keeper = plan.keeper ? villagerById(plan.keeper.villager) : null;
   const plateRef = useRef<HTMLDivElement>(null);
@@ -132,7 +137,7 @@ export default function RoomView({ visit, avatar, viewer, bus, paused, colors, u
           gl.toneMappingExposure = 1.05;
         }}
       >
-        <RoomWorld plan={plan} avatar={avatar} viewer={viewer} bus={bus} live={live} plateRef={plateRef} keeperName={keeper?.name ?? null} chest={chest} />
+        <RoomWorld plan={plan} avatar={avatar} viewer={viewer} bus={bus} router={router} live={live} plateRef={plateRef} keeperName={keeper?.name ?? null} chest={chest} />
       </Canvas>
       {keeper && (
         <div className="r3-plates r3-room-plates" aria-hidden="true">
@@ -156,6 +161,7 @@ const RoomWorld = memo(function RoomWorld({
   avatar,
   viewer,
   bus,
+  router,
   live,
   plateRef,
   keeperName,
@@ -165,6 +171,7 @@ const RoomWorld = memo(function RoomWorld({
   avatar: AvatarConfig;
   viewer: "child" | "parent";
   bus: HudBus;
+  router: InputRouter;
   live: Live;
   plateRef: React.RefObject<HTMLDivElement | null>;
   keeperName: string | null;
@@ -190,39 +197,29 @@ const RoomWorld = memo(function RoomWorld({
     [plan, oy],
   );
 
-  // Keys. The island ignores them while the child is indoors (the frame holds its `paused`), so
-  // this is the only listener that acts on them.
-  useEffect(() => {
-    const set = (e: KeyboardEvent, down: boolean) => {
+  // Keys, as actions (`input-router.ts`). The `room` scope is "indoors with no panel up": the
+  // island's `island` scope is shut while the child is in here, so this is the only one that
+  // acts on them. A key UP always arrives; the router drops typing and lets go on blur.
+  useAction(
+    router,
+    ROOM_ACTIONS,
+    (e: ActionEvent) => {
       const k = keys.current;
-      if (down && (live.current.paused || typingInto(e.target))) return;
-      switch (e.code) {
-        case "KeyW": case "ArrowUp": k.f = down; break;
-        case "KeyS": case "ArrowDown": k.b = down; break;
-        case "KeyA": case "ArrowLeft": k.l = down; break;
-        case "KeyD": case "ArrowRight": k.r = down; break;
-        case "Space": if (down && !e.repeat) k.jump = true; break;
-        case "KeyE": if (down && !e.repeat) k.interact = true; break;
-        default: return;
+      switch (e.action) {
+        case "walkForward": k.f = e.down; break;
+        case "walkBack": k.b = e.down; break;
+        case "strafeLeft": k.l = e.down; break;
+        case "strafeRight": k.r = e.down; break;
+        case "jump": if (e.down) k.jump = true; break;
+        case "interact": if (e.down) k.interact = true; break;
       }
-      if (!live.current.paused) e.preventDefault();
-    };
-    const dn = (e: KeyboardEvent) => set(e, true);
-    const up = (e: KeyboardEvent) => set(e, false);
-    const blur = () => releaseKeys(keys.current);
-    // A key held through the door is walking already: no wait for the browser's auto-repeat.
-    const unhold = holdKeys();
-    seedMoves(keys.current);
-    window.addEventListener("keydown", dn);
-    window.addEventListener("keyup", up);
-    window.addEventListener("blur", blur);
-    return () => {
-      unhold();
-      window.removeEventListener("keydown", dn);
-      window.removeEventListener("keyup", up);
-      window.removeEventListener("blur", blur);
-    };
-  }, [live]);
+    },
+    "room",
+  );
+  // A key held through the door is walking already: no wait for the browser's auto-repeat.
+  useEffect(() => {
+    seedMoves(router, keys.current);
+  }, [router]);
 
   return (
     <>
@@ -248,10 +245,6 @@ const RoomWorld = memo(function RoomWorld({
     </>
   );
 });
-
-function releaseKeys(k: Keys): void {
-  k.f = k.b = k.l = k.r = k.jump = k.interact = false;
-}
 
 /** Whether a panel is open over the room, read through the ref when asked. A free function, so the
  *  compiler keeps `MouseLook`'s `paused` stable on `live` rather than on a value read at render. */

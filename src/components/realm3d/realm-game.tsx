@@ -34,6 +34,8 @@ import { makeCaster, makeCastQueue, pushCast } from "@/lib/realm3d/casting";
 import { clockLine, escapeFrom, spellbookHref, visitClockLine, type AccessSource, type Overlay } from "@/lib/realm3d/frame";
 import { goalFor, spellHelp, type SpellbookFacts } from "@/lib/realm3d/guide";
 import { makeHudBus, type InteractTarget } from "@/lib/realm3d/hud-bus";
+import { blockedTarget, createInputRouter } from "@/lib/realm3d/input-router";
+import { defaultKeymap, WALK_ACTIONS } from "@/lib/realm3d/keymap";
 import { deedToast, type DeedToast } from "@/lib/realm3d/talk";
 import { roomFor, type RoomVisit } from "@/lib/realm3d/doorways";
 import { fixtureLine, roomPlan } from "@/lib/realm3d/interiors";
@@ -97,6 +99,7 @@ import {
   type PauseSettings,
 } from "./frame-hud";
 import { RealmHud } from "./hud";
+import { RealmInputProvider, useAction } from "./realm-input";
 import { RoomLine } from "./room-hud";
 import { RideLine, RideSlot, TravelBanner, TravelSheet, useRiding } from "./riding-hud";
 import { CompanionSlot, LeadLine, LeadMapMarks, leadWords, useCompanionLead } from "./companion-hud";
@@ -238,7 +241,10 @@ const CEREMONY_FAILED = "The crown could not be recorded.";
  * own nameplate is at 2.9, so this keeps the two from sitting on one another.
  */
 const GOAL_Y = 5.6;
-const MOVE_KEYS: Record<string, string> = { KeyW: "w", ArrowUp: "w", KeyA: "a", ArrowLeft: "a", KeyS: "s", ArrowDown: "s", KeyD: "d", ArrowRight: "d" };
+/** The tutorial's count of walk directions tried: one letter per walk action, whatever key it is bound to. */
+const MOVE_KEYS: Record<(typeof WALK_ACTIONS)[number], string> = { walkForward: "w", walkBack: "s", strafeLeft: "a", strafeRight: "d" };
+/** What the tutorial's hands listen for: the walk directions and the jump. */
+const HAND_ACTIONS = [...WALK_ACTIONS, "jump"] as const;
 
 /** A finished side quest's result; a screenshot's `__realmRaise` may leave the stars out. */
 type RaiseResult = Omit<DeedResult, "stars" | "maxStars"> & Partial<Pick<DeedResult, "stars" | "maxStars">>;
@@ -377,6 +383,20 @@ export function RealmGame({
   const caster = useMemo(() => makeCaster(pages.length), [pages.length]);
   const fxPool = useMemo(() => makeFxPool(FX_POOL), []);
   const casts = useMemo(() => makeCastQueue(), []);
+  // The one keyboard listener (`input-router.ts`): keys become actions for the scenes, the tutorial
+  // and the HUD. Made once, on the client only (the frame mounts this after hydration).
+  const [router] = useState(() => createInputRouter(window, defaultKeymap(), blockedTarget));
+  const routerMounted = useRef(false);
+  useEffect(() => {
+    routerMounted.current = true;
+    return () => {
+      routerMounted.current = false;
+      // Strict Mode's rehearsal unmounts and remounts at once: dispose only if nothing came back.
+      queueMicrotask(() => {
+        if (!routerMounted.current) router.dispose();
+      });
+    };
+  }, [router]);
   // With the clears a reload would forget, held with when they arrived, for the scene to seed its field.
   const [troubleBus] = useState(() => makeTroubleBus(undefined, heldClearsFor(realm.childId, realm.troubleClears, realm.isChildView)));
   // What the hero is wearing: the page's look, until the wardrobe saves a new one.
@@ -460,9 +480,11 @@ export function RealmGame({
   // The ONE writer of `bus.paused`. Every panel is an overlay, so every panel pauses the
   // scene, and nothing can open a panel that forgets to. Indoors pauses the ISLAND too (its keys,
   // its casting, its E), because the child's hands belong to the room; the room reads `paused`.
+  // The router hears the same two facts: its `island` scope is exactly "not paused" here.
   useEffect(() => {
     bus.setPaused(paused || inside !== null);
-  }, [bus, paused, inside]);
+    router.setState({ overlay: paused, inside: inside !== null });
+  }, [bus, router, paused, inside]);
 
   // Where the gold ! points, for the driver. Written when the objective moves — a handful of
   // times a visit — and read every frame.
@@ -564,23 +586,26 @@ export function RealmGame({
   // the scene: the scene's input is the scene's, and these only ever feed `signal`, which does
   // nothing unless the lesson on screen is waiting for exactly this.
   const hands = useRef({ keys: new Set<string>(), drag: 0 });
+  useAction(
+    router,
+    HAND_ACTIONS,
+    (e) => {
+      if (!e.down || e.repeat) return;
+      if (e.action === "jump") signal({ kind: "jumped" });
+      else hands.current.keys.add(MOVE_KEYS[e.action as (typeof WALK_ACTIONS)[number]]);
+    },
+    "island",
+    tutorialOn,
+  );
   useEffect(() => {
     if (!tutorialOn) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (bus.paused || e.repeat) return;
-      const k = MOVE_KEYS[e.code];
-      if (k) hands.current.keys.add(k);
-      else if (e.code === "Space") signal({ kind: "jumped" });
-    };
     const onMove = (e: PointerEvent) => {
       if (bus.paused || !(e.target instanceof HTMLCanvasElement) || !countsAsLook(e.buttons, document.pointerLockElement != null)) return;
       hands.current.drag += Math.abs(e.movementX) + Math.abs(e.movementY);
       signal({ kind: "looked", px: hands.current.drag });
     };
-    window.addEventListener("keydown", onKey);
     window.addEventListener("pointermove", onMove);
     return () => {
-      window.removeEventListener("keydown", onKey);
       window.removeEventListener("pointermove", onMove);
     };
   }, [tutorialOn, bus, signal]);
@@ -1094,7 +1119,7 @@ export function RealmGame({
   const worldLocks = useMemo(() => withRuneWalk(lockState.canvas, runeWalk.canvas), [lockState.canvas, runeWalk.canvas]);
   const roomColors = useMemo(() => ({ field: hero.backgroundColor || hero.outfitColor, charge: hero.accessoryColor || "#f4d27a" }), [hero]);
 
-  return (
+  const game = (
     <div className={`r3-game${inside ? " r3-game--indoors" : ""}`}>
       <RealmCanvas
         timeZone={realm.timezone ?? null}
@@ -1106,6 +1131,7 @@ export function RealmGame({
         anchors={anchors}
         pages={pages}
         bus={bus}
+        router={router}
         caster={caster}
         fxPool={fxPool}
         casts={casts}
@@ -1128,7 +1154,7 @@ export function RealmGame({
       />
       {outCount > 0 && !inside && <div key={outCount} className="r3-fade" aria-hidden="true" />}
       {inside && (
-        <RoomCanvas visit={inside} avatar={hero} viewer={viewer} bus={bus} paused={paused} colors={roomColors} used={roomUses} onLeave={leave} chest={roomChest} />
+        <RoomCanvas visit={inside} avatar={hero} viewer={viewer} bus={bus} router={router} paused={paused} colors={roomColors} used={roomUses} onLeave={leave} chest={roomChest} />
       )}
       {!close && (
         <>
@@ -1457,4 +1483,6 @@ export function RealmGame({
       )}
     </div>
   );
+  // DOM-side components reach the router through context (`useRealmInput`); the canvases are handed it.
+  return <RealmInputProvider router={router}>{game}</RealmInputProvider>;
 }

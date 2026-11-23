@@ -4,6 +4,8 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import type { HudBus } from "@/lib/realm3d/hud-bus";
 import type { TroubleBus } from "@/lib/realm3d/trouble-bus";
 import type { CastQueue } from "@/lib/realm3d/casting";
+import type { InputRouter } from "@/lib/realm3d/input-router";
+import { bind } from "@/lib/realm3d/keymap";
 import { DEFAULT_AVATAR, type AvatarConfig } from "@/lib/utils/avatar-catalog";
 import { DEFAULT_LEARNING_PROFILE } from "@/lib/utils/learning-profile";
 
@@ -1035,6 +1037,21 @@ describe("the tutorial", () => {
     expect(setTutorialStep).toHaveBeenLastCalledWith("demo-child-1", LEGACY_STEPS + 1);
     // The world never paused for any of it.
     expect(bus.paused).toBe(false);
+  });
+
+  it("counts the walk keys the child bound, not the letters", () => {
+    const { bus } = mount({ realm: fresh });
+    const router = handed.props!.router as InputRouter;
+    const r = bind(router.keymap, "walkForward", 0, "KeyI");
+    if (!r.ok) throw new Error("bind refused");
+    act(() => router.setKeymap(r.keymap));
+    act(() => void fireEvent.keyDown(window, { code: "KeyI" }));
+    act(() => void fireEvent.keyDown(window, { code: "ArrowUp" })); // the same direction again
+    walk(bus, 8);
+    expect(screen.getByText("Walk around.")).toBeInTheDocument();
+    act(() => void fireEvent.keyDown(window, { code: "KeyD" }));
+    walk(bus, 8);
+    expect(screen.getByText("Look around.")).toBeInTheDocument();
   });
 
   it("finds Old Bram only when he is the one in reach, and talking to him is the next lesson", () => {
