@@ -148,7 +148,9 @@ export type Overlay =
   /** A hitching post's fast-travel sheet, from the post (a destination id) the child stands at. */
   | { kind: "travel"; from: string }
   /** The Ring's board at the arch: the child's record and a way to run it (a grown-up only looks). */
-  | { kind: "ring" };
+  | { kind: "ring" }
+  /** The big map of the whole island (`world-map.tsx`), opened with the map key from play. */
+  | { kind: "map" };
 
 /**
  * Esc. With nothing open it opens the pause menu; with a panel open it closes it — back to the

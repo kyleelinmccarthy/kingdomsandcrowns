@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { makeHudBus, paintGoal } from "./hud-bus";
+import { makeHudBus, paintGoal, type MapMark } from "./hud-bus";
 
 describe("the gold !", () => {
   it("is written only when something changed, and hidden without touching its position", () => {
@@ -76,5 +76,42 @@ describe("looking with the mouse", () => {
     bus.setLookRequester(capture);
     bus.requestLook();
     expect(capture).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("the big map's marks", () => {
+  const trouble: MapMark = { id: "t0", x: 10, z: -20, kind: "trouble", label: "Fog" };
+  const arch: MapMark = { id: "ring-arch", x: 4, z: 8, kind: "ring", label: "The Ring" };
+
+  it("reads nothing until a feature registers a source", () => {
+    expect(makeHudBus(1, 1).mapMarks()).toEqual([]);
+  });
+
+  it("puts every source's marks together", () => {
+    const bus = makeHudBus(1, 1);
+    bus.addMapMarks(() => [trouble]);
+    bus.addMapMarks(() => [arch]);
+    expect(bus.mapMarks()).toEqual([trouble, arch]);
+  });
+
+  it("drops a source when its remover is called, and leaves the others", () => {
+    const bus = makeHudBus(1, 1);
+    const remove = bus.addMapMarks(() => [trouble]);
+    bus.addMapMarks(() => [arch]);
+    remove();
+    expect(bus.mapMarks()).toEqual([arch]);
+  });
+
+  it("asks each source at the moment it is read, not when it was registered", () => {
+    const bus = makeHudBus(1, 1);
+    let now: MapMark[] = [];
+    const source = vi.fn(() => now);
+    bus.addMapMarks(source);
+    expect(source).not.toHaveBeenCalled();
+    now = [trouble];
+    expect(bus.mapMarks()).toEqual([trouble]);
+    now = [];
+    expect(bus.mapMarks()).toEqual([]);
+    expect(source).toHaveBeenCalledTimes(2);
   });
 });

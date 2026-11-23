@@ -209,6 +209,53 @@ describe("the real village", () => {
   });
 });
 
+describe("the big map", () => {
+  const pressMap = () => act(() => void fireEvent.keyDown(window, { code: "KeyM", key: "m" }));
+
+  it("opens on M from play, and pauses the world while it is open", () => {
+    const { bus } = mount();
+    pressMap();
+    expect(screen.getByRole("dialog", { name: "Map of the island" })).toBeInTheDocument();
+    expect(bus.paused).toBe(true);
+  });
+
+  it("closes on M again, and the world plays on", () => {
+    const { bus } = mount();
+    pressMap();
+    pressMap();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(bus.paused).toBe(false);
+  });
+
+  it("closes on Esc, straight back to the world", () => {
+    const { bus } = mount();
+    pressMap();
+    esc();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(bus.paused).toBe(false);
+  });
+
+  it("does nothing under the pause menu", () => {
+    mount();
+    esc();
+    pressMap();
+    expect(screen.getByRole("dialog", { name: "Paused" })).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Map of the island" })).toBeNull();
+  });
+
+  it("draws the marks the features registered, read as it opens", () => {
+    const { bus, view } = mount();
+    let marks = [{ id: "t-late", x: 1, z: 2, kind: "trouble" as const, label: "Fog" }];
+    act(() => void bus.addMapMarks(() => marks));
+    pressMap();
+    expect(view.container.querySelector('.r3-worldmap [data-mark="t-late"]')).not.toBeNull();
+    marks = [];
+    pressMap();
+    pressMap();
+    expect(view.container.querySelector('.r3-worldmap [data-mark="t-late"]')).toBeNull();
+  });
+});
+
 describe("pausing", () => {
   it("pauses the scene on Esc, and resumes on Esc", () => {
     const { bus } = mount();

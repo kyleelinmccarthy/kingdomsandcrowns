@@ -14,8 +14,9 @@ import type { TroubleSkin } from "@/lib/realm/spells/troubles";
 import type { SpellPageView } from "@/lib/realm/spells/pages";
 import { TROUBLE_POOL, troubleNotice, type ClearReward, type TroubleEventKind } from "@/lib/realm3d/troubles3d";
 import type { TroubleBounty } from "./use-trouble-bounty";
-import type { TroubleBus } from "@/lib/realm3d/trouble-bus";
-import { MAP_WINDOW } from "@/lib/realm3d/minimap";
+import { troubleMapMarks, type TroubleBus } from "@/lib/realm3d/trouble-bus";
+import type { HudBus } from "@/lib/realm3d/hud-bus";
+import { glyphScaleFor, MAP_WINDOW } from "@/lib/realm3d/minimap";
 import "./troubles.css";
 
 /** How long a notice holds the lane. Long enough to read twice at eight. */
@@ -50,9 +51,15 @@ export function TroublePlates({ tbus }: { tbus: TroubleBus }) {
  * the land for free; the scene writes each one's `translate(x z)`. Violet with a white edge:
  * nothing else on the map is that colour, so a child reads "trouble" without a legend.
  */
-export function TroubleMapMarks({ tbus }: { tbus: TroubleBus }) {
+export function TroubleMapMarks({ tbus, hud }: { tbus: TroubleBus; /** The HUD's bus: the big map reads the troubles from here. */ hud?: HudBus }) {
+  // The big map can't borrow these dots (they are placed each frame and hidden while paused), so
+  // it asks the same field the scene places them from, once, as it opens.
+  useEffect(() => {
+    if (!hud) return;
+    return hud.addMapMarks(() => troubleMapMarks(tbus));
+  }, [hud, tbus]);
   // The map's viewBox is 100 across and shows MAP_WINDOW world units: counter-scale to a fixed glyph.
-  const glyphScale = MAP_WINDOW / 100;
+  const glyphScale = glyphScaleFor(MAP_WINDOW);
   return (
     <g className="r3t-map">
       {Array.from({ length: TROUBLE_POOL }, (_, i) => (

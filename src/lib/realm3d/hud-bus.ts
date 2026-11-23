@@ -41,6 +41,12 @@ export type LookSettings = { sensitivity: number; invertY: boolean };
 export type HudGoal = { on: boolean; x: number; y: number; z: number };
 
 /**
+ * One mark on the big map (`world-map.tsx`): a trouble's dot, the Ring's arch or its lit post.
+ * In world units. `label` is what the mark is, for a screen reader.
+ */
+export type MapMark = { id: string; x: number; z: number; kind: "trouble" | "ring"; label: string };
+
+/**
  * Something the child can press the interact key at. The scene decides what is in reach (it
  * owns positions and the frame loop); the HUD decides what pressing it means (it owns the
  * dialogue, the deed flow and every other panel). `id` is the layout's own id for that kind —
@@ -141,6 +147,14 @@ export type HudBus = {
   ear: { x: number; z: number; yaw: number };
 
   /**
+   * Where the hero stands on the island and which way they face (`atan2(dx, dz)`), written in
+   * place by the HUD driver each frame. Read by the frame once, when the big map opens. The
+   * island's frame loop stops while the child is indoors, so there it still holds the spot by
+   * the door they went in at.
+   */
+  you: { x: number; z: number; facing: number };
+
+  /**
    * How far the child is lifted off their feet — into a mount's saddle — written in place by the
    * riding each frame, so the child's own nameplate rides over their head, not across it.
    */
@@ -184,6 +198,17 @@ export type HudBus = {
   setLeaving(site: string | null): void;
   setFeet(handlers: Partial<FeetHandlers>): void;
 
+  /**
+   * THE BIG MAP'S MARKS, pulled rather than pushed. The minimap's marks are placed each frame
+   * through single node slots and start hidden, so a second copy drawn on the big map would stay
+   * hidden while the world is paused, or steal the minimap's slot. Instead a feature registers a
+   * function returning its marks as they are now, and the big map reads them all once, as it
+   * opens. `addMapMarks` returns the remover, for an effect's cleanup.
+   */
+  addMapMarks(source: () => readonly MapMark[]): () => void;
+  /** Every registered source's marks, in the order they were registered, read now. */
+  mapMarks(): MapMark[];
+
   /** @internal — the write cache the `paint*` functions below keep. */
   last: HudLast;
 };
@@ -203,6 +228,7 @@ const noop = () => {};
 export const WALK_REPORT = 2;
 
 export function makeHudBus(slots: number, plates: number): HudBus {
+  const markSources = new Set<() => readonly MapMark[]>();
   const bus: HudBus = {
     manaFill: null,
     manaText: null,
@@ -232,6 +258,7 @@ export function makeHudBus(slots: number, plates: number): HudBus {
     feet: { onStep: noop, onJump: noop, onLand: noop },
     ear: { x: 0, z: 0, yaw: 0 },
     heroLift: { y: 0 },
+    you: { x: 0, z: 0, facing: 0 },
     paused: false,
     setNode(key, el) {
       // One assignment, one narrow cast. Every key above is either an HTMLElement slot or an
@@ -280,6 +307,19 @@ export function makeHudBus(slots: number, plates: number): HudBus {
       if (handlers.onStep) bus.feet.onStep = handlers.onStep;
       if (handlers.onJump) bus.feet.onJump = handlers.onJump;
       if (handlers.onLand) bus.feet.onLand = handlers.onLand;
+    },
+    addMapMarks(source) {
+      // Wrapped, so the same function registered twice is two sources and each remover drops one.
+      const entry = () => source();
+      markSources.add(entry);
+      return () => {
+        markSources.delete(entry);
+      };
+    },
+    mapMarks() {
+      const out: MapMark[] = [];
+      for (const source of markSources) out.push(...source());
+      return out;
     },
     setGoal(on, x, y, z) {
       // Mutated in place: the driver holds no copy, so the next frame simply reads the new one.

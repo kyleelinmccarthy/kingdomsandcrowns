@@ -34,7 +34,7 @@ import { makeCaster, makeCastQueue } from "@/lib/realm3d/casting";
 import { CAST_ON_THE_ROAD, requestCast } from "@/lib/realm3d/riding";
 import { clockLine, escapeFrom, spellbookHref, visitClockLine, type AccessSource, type Overlay } from "@/lib/realm3d/frame";
 import { goalFor, spellHelp, type SpellbookFacts } from "@/lib/realm3d/guide";
-import { makeHudBus, type InteractTarget } from "@/lib/realm3d/hud-bus";
+import { makeHudBus, type InteractTarget, type MapMark } from "@/lib/realm3d/hud-bus";
 import { blockedTarget, createInputRouter } from "@/lib/realm3d/input-router";
 import { defaultKeymap, WALK_ACTIONS } from "@/lib/realm3d/keymap";
 import { deedToast, type DeedToast } from "@/lib/realm3d/talk";
@@ -102,6 +102,7 @@ import {
 import { RealmHud } from "./hud";
 import { RealmInputProvider, useAction } from "./realm-input";
 import { RoomLine } from "./room-hud";
+import { WorldMap } from "./world-map";
 import { RideLine, RideSlot, TravelBanner, TravelSheet, useRiding } from "./riding-hud";
 import { CompanionSlot, LeadLine, LeadMapMarks, leadWords, useCompanionLead } from "./companion-hud";
 import { travelGraphFor } from "@/lib/realm3d/travel";
@@ -1023,6 +1024,27 @@ export function RealmGame({
     [go, signal, childId],
   );
   const closeOverlay = useCallback(() => go(null), [go]);
+
+  /* ---- the big map ---------------------------------------------------- */
+  // M, or whatever map is bound to: open from play, close from the map, nothing under any other
+  // panel. The world is paused while it is open, so what it shows is read once, here: where the
+  // hero stands and faces (written by the HUD driver; indoors the island is frozen, so it still
+  // holds the spot by the door they went in at) and every feature's registered marks.
+  const [mapShot, setMapShot] = useState<{ hero: { x: number; z: number; facing: number }; marks: MapMark[] } | null>(null);
+  useAction(
+    router,
+    "map",
+    (e) => {
+      if (!e.down) return;
+      const now = overlayRef.current;
+      if (now === null) {
+        setMapShot({ hero: { x: bus.you.x, z: bus.you.z, facing: bus.you.facing }, marks: bus.mapMarks() });
+        go({ kind: "map" });
+      } else if (now.kind === "map") go(null);
+    },
+    "always",
+    !close,
+  );
   const help = useMemo(() => (spellFacts ? spellHelp(spellFacts) : null), [spellFacts]);
 
   const retryKingdom = useCallback(() => {
@@ -1178,9 +1200,9 @@ export function RealmGame({
             inside={room ? room.where : null}
             mapExtras={
               <>
-                <TroubleMapMarks tbus={troubleBus} />
+                <TroubleMapMarks tbus={troubleBus} hud={bus} />
                 <LeadMapMarks route={companion.route} target={companion.target} />
-                <RecessMapMarks bus={recess.bus} calm={calm} />
+                <RecessMapMarks bus={recess.bus} calm={calm} hud={bus} />
               </>
             }
             barExtra={
@@ -1356,6 +1378,9 @@ export function RealmGame({
               }}
               onClose={closeOverlay}
             />
+          )}
+          {overlay?.kind === "map" && mapShot && (
+            <WorldMap world={world} found={places.found} castle={castleUnlocked} goal={goal} marks={mapShot.marks} hero={mapShot.hero} onClose={closeOverlay} />
           )}
           {overlay?.kind === "page" && (
             <EmptyPagePanel slot={overlay.slot} viewer={who} heroName={heroName} spellbookHref={bookHref} help={help} onClose={closeOverlay} />

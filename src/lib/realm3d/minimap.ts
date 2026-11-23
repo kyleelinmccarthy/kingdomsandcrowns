@@ -40,6 +40,20 @@ import type { Vec2 } from "@/lib/realm/layout";
  */
 export const MAP_WINDOW = 240;
 
+/** The minimap's own viewBox: 100 units square, and CSS decides how many pixels that is. */
+export const MAP_VIEW = 100;
+
+/**
+ * How much to scale a glyph drawn in a ±3.4 box inside a map that shows `window` world units
+ * across, so it comes out the same size in the map's own units however much land the map shows.
+ * The minimap's window gives the size its glyphs have always had (2.4). The big map shows the
+ * whole island, so the same rule makes its glyphs bigger in world units: the island is drawn
+ * smaller per unit there, and a glyph kept at the minimap's world size would be a speck.
+ */
+export function glyphScaleFor(window: number): number {
+  return window / MAP_VIEW;
+}
+
 /** A point on the map square as a fraction: 0 is the left/top edge, 1 the right/bottom. */
 export type MapPoint = { x: number; y: number };
 

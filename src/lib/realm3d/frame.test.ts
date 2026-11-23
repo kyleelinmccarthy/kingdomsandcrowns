@@ -137,6 +137,10 @@ describe("Esc", () => {
     expect(escapeFrom({ kind: "ceremony" })).toBeNull();
   });
 
+  it("closes the big map straight back to the world", () => {
+    expect(escapeFrom({ kind: "map" })).toBeNull();
+  });
+
   it("always reaches the world in two presses at most", () => {
     const starts = [null, { kind: "pause" }, { kind: "howto", back: true }, { kind: "howto", back: false }, { kind: "page", slot: 1 }] as const;
     for (const s of starts) {

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { PLACES } from "@/lib/realm/layout";
 import {
   BAKE_N,
+  glyphScaleFor,
   headingDegrees,
   insideMap,
   LEAVE_FACTOR,
@@ -9,10 +10,12 @@ import {
   makeRimMark,
   mapPoint,
   mapShade,
+  MAP_VIEW,
   MAP_WINDOW,
   placeAt,
   rimMark,
 } from "./minimap";
+import { WORLD_HALF } from "./worldgen";
 
 const deg = (d: number) => ((d % 360) + 360) % 360;
 
@@ -177,5 +180,16 @@ describe("the baked land", () => {
     expect(mapShade("#ffffff", 0.5)).toBe("rgb(128,128,128)");
     expect(mapShade("#2c5f86", 1)).toBe("rgb(44,95,134)");
     expect(mapShade("#336699", 0)).toBe("rgb(0,0,0)");
+  });
+});
+
+describe("glyph size", () => {
+  it("keeps the minimap's glyphs the size they always were", () => {
+    expect(MAP_VIEW).toBe(100);
+    expect(glyphScaleFor(MAP_WINDOW)).toBe(MAP_WINDOW / 100);
+  });
+
+  it("draws bigger glyphs on a map that shows more of the island, so they stay legible", () => {
+    expect(glyphScaleFor(2 * WORLD_HALF)).toBeGreaterThan(glyphScaleFor(MAP_WINDOW));
   });
 });

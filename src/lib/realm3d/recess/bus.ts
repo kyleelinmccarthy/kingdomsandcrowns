@@ -15,7 +15,8 @@
 
 import { ringCourse, type LapCourse } from "./course";
 import { makeRun, type RecessEvent, type RecessRun, type RunKind } from "./sim";
-import { formatLap } from "@/lib/realm/recess/copy";
+import { formatLap, nextMarkLine, RING } from "@/lib/realm/recess/copy";
+import type { MapMark } from "../hud-bus";
 
 export type RecessHandler = (e: RecessEvent) => void;
 
@@ -167,4 +168,20 @@ export function paintMapMark(bus: RecessBus, transform: string): void {
   }
   (node as SVGGElement).style.display = "";
   node.setAttribute("transform", transform);
+}
+
+/**
+ * The Ring on the big map (`world-map.tsx`): the arch, always, and the post the minimap's lit mark
+ * sits on during a lap. Read from the same run and course the scene lights that mark from; the
+ * arch's own lit state (before a lap, or heading home) adds nothing, since the arch is marked.
+ */
+export function ringMapMarks(bus: RecessBus): MapMark[] {
+  const { arch, posts } = bus.course;
+  const marks: MapMark[] = [{ id: "ring-arch", x: arch.x, z: arch.z, kind: "ring", label: RING }];
+  const run = bus.run;
+  if (run.active && run.lapStartedAt !== null && run.nextPost < posts.length) {
+    const post = posts[run.nextPost];
+    marks.push({ id: "ring-next", x: post.position.x, z: post.position.z, kind: "ring", label: nextMarkLine({ started: true, nextPost: run.nextPost, posts }) });
+  }
+  return marks;
 }

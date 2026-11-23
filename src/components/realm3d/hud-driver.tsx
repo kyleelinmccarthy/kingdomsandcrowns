@@ -123,6 +123,8 @@ export function HudDriver({
     const facing = facingRef.current;
     // Where the sound listens from: a trouble to the child's left on screen is heard on the left.
     writeEar(bus.ear, p.x, p.z, yawRef.current);
+    // Where the hero stands and faces, for the big map to read once as it opens.
+    writeYou(bus.you, p.x, p.z, facing);
 
     /* ---- casting ------------------------------------------------------- */
     /**
@@ -309,7 +311,13 @@ export function HudDriver({
   return null;
 }
 
-/** A free function, so the frame loop writes through no prop of its own (the React compiler's rule). */
+/** Free functions, so the frame loop writes through no prop of its own (the React compiler's rule). */
+function writeYou(you: { x: number; z: number; facing: number }, x: number, z: number, facing: number): void {
+  you.x = x;
+  you.z = z;
+  you.facing = facing;
+}
+
 function writeEar(ear: { x: number; z: number; yaw: number }, x: number, z: number, yaw: number): void {
   ear.x = x;
   ear.z = z;
