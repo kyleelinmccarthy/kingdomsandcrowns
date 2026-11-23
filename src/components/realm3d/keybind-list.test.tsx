@@ -145,6 +145,28 @@ describe("the rows", () => {
     cleanupRouter();
   });
 
+  it("a key taken onto a + chip leaves the other action its second key, and says so", () => {
+    const { onChange, press, live, cleanupRouter } = setup();
+    fireEvent.click(screen.getByRole("button", { name: "Jump: add another key." }));
+    press("KeyW");
+    const next = onChange.mock.calls[0][0] as Keymap;
+    expect(next.jump).toEqual(["Space", "KeyW"]);
+    expect(next.walkForward).toEqual(["ArrowUp"]);
+    expect(live()).toHaveTextContent("W was Walk forward. Walk forward still has ↑.");
+    cleanupRouter();
+  });
+
+  it("a key taken onto a + chip from an action with only that key leaves it with none, and says so", () => {
+    const { onChange, press, live, cleanupRouter } = setup();
+    fireEvent.click(screen.getByRole("button", { name: "Jump: add another key." }));
+    press("KeyZ");
+    const next = onChange.mock.calls[0][0] as Keymap;
+    expect(next.jump).toEqual(["Space", "KeyZ"]);
+    expect(next.mount).toEqual([]);
+    expect(live()).toHaveTextContent("Z was Get on or off your mount. Get on or off your mount has no key now.");
+    cleanupRouter();
+  });
+
   it("offers an unbound action a + chip for its first key", () => {
     const keymap: Keymap = { ...defaultKeymap(), follow: [] };
     const { onChange, press, cleanupRouter } = setup({ keymap });

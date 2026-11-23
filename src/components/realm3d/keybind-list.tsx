@@ -32,14 +32,18 @@ const labelOf = (action: ActionId): string => ACTIONS.find((a) => a.id === actio
 type Slot = 0 | 1;
 type Listening = { action: ActionId; slot: Slot };
 
-/** What the line says once a key is placed: who it moved from, and where they went. */
-function placedLine(action: ActionId, code: string, displaced: ActionId | null, replaced: string | undefined): string {
+/**
+ * What the line says once a key is placed: who it moved from, and what they have now. Taken onto
+ * an empty slot ("+"), nothing goes back: the other action keeps its second key if it had one
+ * (`next`, the keymap after the bind), or is left with none.
+ */
+function placedLine(action: ActionId, code: string, displaced: ActionId | null, replaced: string | undefined, next: Keymap): string {
   const label = labelOf(action);
   if (!displaced) return `${label} is now ${keyLabel(code)}.`;
   const other = labelOf(displaced);
-  return replaced === undefined
-    ? `${keyLabel(code)} was ${other}. ${other} has no key now.`
-    : `${keyLabel(code)} was ${other}. ${other} is now ${keyLabel(replaced)}.`;
+  if (replaced !== undefined) return `${keyLabel(code)} was ${other}. ${other} is now ${keyLabel(replaced)}.`;
+  const left = next[displaced];
+  return left.length === 0 ? `${keyLabel(code)} was ${other}. ${other} has no key now.` : `${keyLabel(code)} was ${other}. ${other} still has ${keyLabel(left[0])}.`;
 }
 
 function KeyChips({
@@ -136,7 +140,7 @@ export function KeybindList({
       const own = k[listening.action];
       const replaced = own[Math.min(listening.slot, own.length)];
       setListening(null);
-      setLine(placedLine(listening.action, e.code, r.displaced, replaced));
+      setLine(placedLine(listening.action, e.code, r.displaced, replaced, r.keymap));
       if (r.keymap !== k) change(r.keymap);
     };
     window.addEventListener("keydown", onKey, true);
