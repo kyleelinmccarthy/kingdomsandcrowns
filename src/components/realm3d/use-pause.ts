@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * EVERYTHING THAT PAUSES THE GAME WITHOUT A PANEL ASKING: the P key, and the four pauses a child
+ * EVERYTHING THAT PAUSES THE GAME WITHOUT A PANEL ASKING: the pause key (P), and the four pauses a child
  * never asks for — the tab hidden, the window left, the captured mouse let go, and two minutes
  * with nobody touching anything. Each one opens the pause menu through the frame's `go`, so the
  * play clock stops the way it stops for any panel (`usePlayClock` does not tick while paused).
@@ -20,7 +20,8 @@ import { useCallback, useEffect, useRef, type RefObject } from "react";
 import type { Overlay } from "@/lib/realm3d/frame";
 import type { HudBus } from "@/lib/realm3d/hud-bus";
 import { autoPause, IDLE_MS, type AutoTrigger } from "@/lib/realm3d/pause";
-import { typingInto } from "@/lib/realm3d/typing";
+import type { InputRouter } from "@/lib/realm3d/input-router";
+import { useAction } from "./realm-input";
 
 /** What counts as the child touching the game: any key, click, mouse move or wheel. */
 const INPUT = ["keydown", "pointerdown", "pointermove", "wheel"] as const;
@@ -37,6 +38,7 @@ function focused(): boolean {
 }
 
 export function usePause({
+  router,
   bus,
   overlayRef,
   paused,
@@ -46,6 +48,8 @@ export function usePause({
   noteInput,
   giveBackIdle,
 }: {
+  /** The frame's input router: the pause key arrives as an action. */
+  router: InputRouter;
   bus: HudBus;
   /** The overlay as it is at the moment something happens. */
   overlayRef: RefObject<Overlay | null>;
@@ -112,28 +116,34 @@ export function usePause({
     return () => bus.setHandlers({ onLookFreed: () => {} });
   }, [bus, enabled, open, overlayRef]);
 
-  // The tab hidden, the window left, and P.
+  // P, or whatever pause is bound to: open from play, resume from the pause menu, nothing under any other panel.
+  useAction(
+    router,
+    "pause",
+    (e) => {
+      if (!e.down) return;
+      const now = overlayRef.current;
+      if (now === null) {
+        looked.current = captured();
+        go({ kind: "pause" });
+      } else if (now.kind === "pause") resume();
+    },
+    "always",
+    enabled,
+  );
+
+  // The tab hidden and the window left.
   useEffect(() => {
     if (!enabled) return;
     const onVisibility = () => {
       if (document.visibilityState === "hidden") open("hidden");
     };
     const onBlur = () => open("blur");
-    const onKey = (e: KeyboardEvent) => {
-      if (e.code !== "KeyP" || e.repeat || e.ctrlKey || e.metaKey || e.altKey || typingInto(e.target)) return;
-      const now = overlayRef.current;
-      if (now === null) {
-        looked.current = captured();
-        go({ kind: "pause" });
-      } else if (now.kind === "pause") resume();
-    };
     document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("blur", onBlur);
-    window.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("blur", onBlur);
-      window.removeEventListener("keydown", onKey);
     };
   }, [enabled, open, go, resume, overlayRef]);
 

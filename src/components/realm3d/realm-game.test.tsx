@@ -1452,7 +1452,7 @@ describe("the quiet world (0 minutes in an earning mode)", () => {
   const arch = { kind: "arch" as const, id: "ring", label: "the Ring", verb: "Run" };
   const one = { ...run, questions: [run.questions[0]], responses: [null] };
   const paid = (minutesEarned: number) => ({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 3 as const, previousBest: 0 as const, deedBest: 3 as const, counted: true, crowned: false, kind: "deed" as const, building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 3, maxStars: 3, practice: false }, minutesEarned, sideQuestPayFull: false });
-  const pressM = () => act(() => void fireEvent.keyDown(window, { code: "KeyM", key: "m" }));
+  const pressMount = () => act(() => void fireEvent.keyDown(window, { code: "KeyZ", key: "z" }));
   const ride = () => handed.props!.ride as RideBus;
   async function playPayingQuest(bus: HudBus, minutes: number) {
     vi.mocked(startDeedRun).mockResolvedValue(one);
@@ -1475,10 +1475,10 @@ describe("the quiet world (0 minutes in an earning mode)", () => {
     expect(handed.props!.recess).toBeDefined();
   });
 
-  it("the saddle rests: no Ride slot, and M invites to a side quest instead of riding", () => {
+  it("the saddle rests: no Ride slot, and Z invites to a side quest instead of riding", () => {
     mount(quiet);
     expect(screen.queryByRole("button", { name: /Ride your Pony/ })).toBeNull();
-    pressM();
+    pressMount();
     expect(screen.getByText(`Your Pony is resting. ${QUIET}.`)).toBeInTheDocument();
     act(() => {
       for (let i = 0; i < 30; i++) stepRide(ride(), 0.05, 0);
@@ -1525,7 +1525,7 @@ describe("the quiet world (0 minutes in an earning mode)", () => {
       vi.mocked(getRealmAccess).mockResolvedValue({ allowed: true, minutesRemaining: 0, source: "quiet" });
       const { view } = mount({ ...quiet, entry: { minutes: 0, visit: null, source: "earned" } });
       expect(handed.props!.troubles).toBeDefined();
-      pressM();
+      pressMount();
       act(() => {
         for (let i = 0; i < 30; i++) stepRide(ride(), 0.05, 0);
       });

@@ -461,6 +461,7 @@ export function RealmGame({
   const onRodeRef = useRef<() => void>(() => {});
   const onRode = useCallback(() => onRodeRef.current(), []);
   const riding = useRiding({
+    router,
     avatar: hero,
     unlocked: mounts,
     viewer,
@@ -468,14 +469,13 @@ export function RealmGame({
     childId: realm.isChildView ? realm.childId : null,
     reducedMotion: profile.reducedMotion,
     readAloud,
-    bus,
     graph: travelGraph,
     insideRef,
     onRode,
     places: places.store,
   });
   // The companion leads (`companion-hud.tsx`): F or the pet's slot, its words, its way on the map.
-  const companion = useCompanionLead({ avatar: hero, viewer, calm, readAloud, bus, goal: leadGoal, world, found: places.found, insideRef, breakOff: surfaces.troubleDetail && !profile.fewerChoices });
+  const companion = useCompanionLead({ router, avatar: hero, viewer, calm, readAloud, bus, goal: leadGoal, world, found: places.found, insideRef, breakOff: surfaces.troubleDetail && !profile.fewerChoices });
 
   // The ONE writer of `bus.paused`. Every panel is an overlay, so every panel pauses the
   // scene, and nothing can open a panel that forgets to. Indoors pauses the ISLAND too (its keys,
@@ -956,7 +956,7 @@ export function RealmGame({
   });
   // The pauses a child never asks for — the tab hidden, the window left, the mouse let go, two
   // minutes untouched — and P (`use-pause.ts`). A grown-up has no clock: only Esc and P pause them.
-  const pauser = usePause({ bus, overlayRef, paused, go, clock: clockOn, enabled: !close, noteInput: clock.noteInput, giveBackIdle: clock.giveBackIdle });
+  const pauser = usePause({ router, bus, overlayRef, paused, go, clock: clockOn, enabled: !close, noteInput: clock.noteInput, giveBackIdle: clock.giveBackIdle });
   // The quiet world (`quiet-hud.tsx`): troubles, riding and recess rest. A grown-up has no clock, so is never quiet.
   const { quiet, awake } = useQuietWorld({ clockOn, clock, rest: riding.rest, askGate });
   // How the mouse looks around, kept on this computer and live on the bus from the first frame.

@@ -13,6 +13,8 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { InputRouter } from "@/lib/realm3d/input-router";
+import { useAction } from "./realm-input";
 import type { HudBus } from "@/lib/realm3d/hud-bus";
 import type { Goal } from "@/lib/realm3d/guide";
 import { isPlanId, PLANS_BOARD_NAME } from "@/lib/realm3d/plan-goal";
@@ -94,6 +96,7 @@ export type CompanionLead = {
 };
 
 export function useCompanionLead({
+  router,
   avatar,
   viewer,
   calm,
@@ -105,6 +108,8 @@ export function useCompanionLead({
   insideRef,
   breakOff = false,
 }: {
+  /** The frame's input router: the follow key arrives as an action. */
+  router: InputRouter;
   avatar: Pick<AvatarConfig, "companion">;
   viewer: "child" | "parent";
   /** Reduced motion or low stimulus: a gentler pet. */
@@ -246,20 +251,8 @@ export function useCompanionLead({
     if (insideRef.current) say(leadWords.indoors(pet));
   }, [viewer, pet, lead, bus, say, insideRef]);
 
-  // F: ask the pet the way, or stop it. Never while typing or in a menu.
-  useEffect(() => {
-    if (viewer !== "child") return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.code !== "KeyF" || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
-      const t = e.target;
-      if (t instanceof HTMLElement && (t.isContentEditable || t.closest("input, textarea, select, [role='dialog']"))) return;
-      if (bus.paused && !insideRef.current) return;
-      e.preventDefault();
-      toggle();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [viewer, bus, insideRef, toggle]);
+  // F, or whatever follow is bound to: ask the pet the way, or stop it. The router keeps it out of fields, dialogs and menus.
+  useAction(router, "follow", (e) => e.down && toggle(), "play", viewer === "child");
 
   // Development only: the lead bus, for a screenshot script to read and steer.
   useEffect(() => {

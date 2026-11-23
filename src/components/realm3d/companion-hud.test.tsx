@@ -6,6 +6,8 @@ import { controlRows, keyHints } from "@/lib/realm3d/frame";
 import type { Goal } from "@/lib/realm3d/guide";
 import { PLANS_BOARD_NAME } from "@/lib/realm3d/plan-goal";
 import type { LeadBus, LeadTarget } from "@/lib/realm3d/lead";
+import { createInputRouter, type InputRouter } from "@/lib/realm3d/input-router";
+import { bind, defaultKeymap, type ActionId, type Keymap } from "@/lib/realm3d/keymap";
 import { CompanionSlot, LeadLine, LeadMapMarks, leadWords, petLabel, slotCaption, useCompanionLead, type CompanionLead } from "./companion-hud";
 
 const BRAM: Goal = { on: true, x: 0, z: 40, name: "Old Bram", id: "bram" };
@@ -13,9 +15,9 @@ const WORLD = { landmarks: [{ id: "far", name: "Far Place", position: { x: 200, 
 
 type Seen = (lead: CompanionLead) => void;
 
-function Harness({ pet, viewer = "child", bus, goal = BRAM, inside = false, breakOff = false, seen }: { pet: string | null; viewer?: "child" | "parent"; bus: HudBus; goal?: Goal; inside?: boolean; breakOff?: boolean; seen: Seen }) {
+function Harness({ router, pet, viewer = "child", bus, goal = BRAM, inside = false, breakOff = false, seen }: { router: InputRouter; pet: string | null; viewer?: "child" | "parent"; bus: HudBus; goal?: Goal; inside?: boolean; breakOff?: boolean; seen: Seen }) {
   const insideRef = useRef<unknown>(inside ? { room: "chapel" } : null);
-  const lead = useCompanionLead({ avatar: { companion: pet }, viewer, calm: false, readAloud: false, bus, goal, world: WORLD, found: new Set(), insideRef, breakOff });
+  const lead = useCompanionLead({ router, avatar: { companion: pet }, viewer, calm: false, readAloud: false, bus, goal, world: WORLD, found: new Set(), insideRef, breakOff });
   // Handed out after each render, through a function rather than by writing to a prop.
   useEffect(() => {
     seen(lead);
@@ -28,15 +30,28 @@ function Harness({ pet, viewer = "child", bus, goal = BRAM, inside = false, brea
   );
 }
 
+function rebound(action: ActionId, code: string): Keymap {
+  const r = bind(defaultKeymap(), action, 0, code);
+  if (!r.ok) throw new Error("not bindable");
+  return r.keymap;
+}
+
+const routers: InputRouter[] = [];
+
 function setup(o: { pet?: string | null; viewer?: "child" | "parent"; goal?: Goal; inside?: boolean; breakOff?: boolean } = {}) {
   const bus = makeHudBus(4, 1);
   let latest: CompanionLead | null = null;
-  const view = render(<Harness pet={o.pet === undefined ? "fox" : o.pet} viewer={o.viewer} bus={bus} goal={o.goal} inside={o.inside} breakOff={o.breakOff} seen={(l) => (latest = l)} />);
-  return { bus, view, lead: () => latest!.bus as LeadBus };
+  const router = createInputRouter(window, defaultKeymap());
+  routers.push(router);
+  const view = render(<Harness router={router} pet={o.pet === undefined ? "fox" : o.pet} viewer={o.viewer} bus={bus} goal={o.goal} inside={o.inside} breakOff={o.breakOff} seen={(l) => (latest = l)} />);
+  return { bus, view, router, lead: () => latest!.bus as LeadBus };
 }
 
-const press = () => fireEvent.keyDown(window, { code: "KeyF" });
-afterEach(cleanup);
+const press = (code = "KeyF") => fireEvent.keyDown(window, { code });
+afterEach(() => {
+  cleanup();
+  for (const r of routers.splice(0)) r.dispose();
+});
 
 describe("asking the pet the way", () => {
   it("F asks for a lead to whoever is waiting, when they are far", () => {
@@ -44,6 +59,15 @@ describe("asking the pet the way", () => {
     act(() => press());
     expect(lead().ask).toMatchObject({ kind: "villager", id: "bram", name: "Old Bram" });
     expect(screen.getByRole("button", { name: /Fox/ })).toHaveTextContent("Stop");
+  });
+
+  it("a remapped follow key asks, and the old one does not", () => {
+    const { lead, router } = setup();
+    act(() => router.setKeymap(rebound("follow", "KeyG")));
+    act(() => void press("KeyF"));
+    expect(lead().ask).toBeNull();
+    act(() => void press("KeyG"));
+    expect(lead().ask).toMatchObject({ kind: "villager", id: "bram" });
   });
 
   it("the canvas setting off puts the pet's words in the top lane", () => {
@@ -94,8 +118,8 @@ describe("asking the pet the way", () => {
   });
 
   it("does nothing under a menu", () => {
-    const { bus, lead } = setup();
-    bus.setPaused(true);
+    const { router, lead } = setup();
+    router.setState({ overlay: true, inside: false });
     act(() => press());
     expect(lead().ask).toBeNull();
   });

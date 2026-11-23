@@ -10,7 +10,9 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { HudBus, InteractTarget } from "@/lib/realm3d/hud-bus";
+import type { InputRouter } from "@/lib/realm3d/input-router";
+import { useAction } from "./realm-input";
+import type { InteractTarget } from "@/lib/realm3d/hud-bus";
 import {
   askStop,
   askTravel,
@@ -72,18 +74,20 @@ export type Riding = {
 };
 
 export function useRiding({
+  router,
   avatar,
   unlocked,
   viewer,
   heroName,
   reducedMotion,
   readAloud,
-  bus,
   graph,
   insideRef,
   onRode,
   places,
 }: {
+  /** The frame's input router: the mount key arrives as an action. */
+  router: InputRouter;
   avatar: AvatarConfig;
   unlocked: readonly string[];
   viewer: "child" | "parent";
@@ -92,7 +96,6 @@ export function useRiding({
   childId?: string | null;
   reducedMotion: boolean;
   readAloud: boolean;
-  bus: HudBus;
   graph: TravelGraph;
   /** Indoors, M says where the mount is instead. */
   insideRef: React.RefObject<unknown>;
@@ -217,19 +220,8 @@ export function useRiding({
     toggleRide(ride);
   }, [access, heroName, insideRef, ride, say]);
 
-  // M: get on, get off. Heard here, where the words are, and never while typing or in a menu.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.code !== "KeyM" || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
-      const t = e.target;
-      if (t instanceof HTMLElement && (t.isContentEditable || t.closest("input, textarea, select, [role='dialog']"))) return;
-      if (bus.paused && !insideRef.current) return;
-      e.preventDefault();
-      toggle();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [bus, insideRef, toggle]);
+  // Z, or whatever mount is bound to: get on, get off. The router keeps it out of fields, dialogs and menus.
+  useAction(router, "mount", (e) => e.down && toggle(), "play");
 
   const refuseCast = useCallback(() => {
     if (!castBlocked(ride)) return false;

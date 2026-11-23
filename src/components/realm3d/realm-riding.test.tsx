@@ -58,6 +58,8 @@ vi.mock("@/lib/realm3d/worldgen", async (orig) => {
   return { ...real, realmWorld: () => world };
 });
 
+import { bind, defaultKeymap, type ActionId, type Keymap } from "@/lib/realm3d/keymap";
+import type { InputRouter } from "@/lib/realm3d/input-router";
 import { stepRide } from "@/lib/realm3d/riding";
 import type { RideBus } from "@/lib/realm3d/riding";
 import { DEFAULT_AVATAR } from "@/lib/utils/avatar-catalog";
@@ -108,7 +110,14 @@ function mount(over: Partial<React.ComponentProps<typeof RealmGame>> = {}) {
 }
 
 
-const pressM = () => act(() => void fireEvent.keyDown(window, { code: "KeyM", key: "m" }));
+function rebound(action: ActionId, code: string): Keymap {
+  const r = bind(defaultKeymap(), action, 0, code);
+  if (!r.ok) throw new Error("not bindable");
+  return r.keymap;
+}
+
+const pressMount = () => act(() => void fireEvent.keyDown(window, { code: "KeyZ", key: "z" }));
+const pressCode = (code: string) => act(() => void fireEvent.keyDown(window, { code }));
 const ride = () => handed.props!.ride as RideBus;
 const pony = { ...DEFAULT_AVATAR, mount: "pony" };
 
@@ -123,22 +132,22 @@ describe("riding, the frame's half", () => {
   it("a child with no mount is told kindly how to get one, and the bar has an empty saddle", () => {
     mount({ avatar: DEFAULT_AVATAR, mounts: ["pony", "donkey"] });
     expect(screen.getByRole("button", { name: /No mount yet/ })).toHaveTextContent("No mount");
-    pressM();
+    pressMount();
     expect(screen.getByRole("status")).toHaveTextContent(/You don't have a mount yet!.*Tavern.*Pony and the Donkey are free/);
     expect(ride().mount).toBeNull();
   });
 
   it("a mount chosen but not earned says how it is earned", () => {
     mount({ avatar: { ...DEFAULT_AVATAR, mount: "stag" }, mounts: ["pony"] });
-    pressM();
+    pressMount();
     expect(screen.getByRole("status")).toHaveTextContent(/Stag isn't yours to ride yet\. Reach Level 8/);
   });
 
-  it("M gets on an earned mount; the slot and the key strip say so; no spells from the saddle", () => {
+  it("Z gets on an earned mount; the slot and the key strip say so; no spells from the saddle", () => {
     mount({ avatar: pony, mounts: ["pony"] });
     expect(ride().mount).toMatchObject({ id: "pony", label: "Pony" });
     expect(screen.getByText(/M/, { selector: ".r3-keys b" })).toBeInTheDocument();
-    pressM();
+    pressMount();
     expect(ride().want).toBe(true);
     settleRide();
     expect(screen.getByRole("button", { name: /Get off your Pony/ })).toHaveTextContent("Get off");
@@ -147,10 +156,27 @@ describe("riding, the frame's half", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Get down to cast a spell. Press M.");
   });
 
+  it("M no longer mounts: it is the map's key now", () => {
+    mount({ avatar: pony, mounts: ["pony"] });
+    pressCode("KeyM");
+    expect(ride().want).not.toBe(true);
+    expect(ride().phase).toBe("off");
+  });
+
+  it("a remapped mount key mounts, and the old one stops", () => {
+    mount({ avatar: pony, mounts: ["pony"] });
+    const router = handed.props!.router as InputRouter;
+    act(() => router.setKeymap(rebound("mount", "KeyG")));
+    pressMount();
+    expect(ride().want).not.toBe(true);
+    pressCode("KeyG");
+    expect(ride().want).toBe(true);
+  });
+
   it("a visiting grown-up has no saddle and walks", () => {
     mount({ avatar: pony, mounts: ["pony"], viewer: "parent" });
     expect(screen.queryByRole("button", { name: /Ride your/ })).toBeNull();
-    pressM();
+    pressMount();
     expect(screen.getByRole("status")).toHaveTextContent("Visitors walk. The mount is Emma's to ride.");
   });
 
@@ -160,7 +186,7 @@ describe("riding, the frame's half", () => {
     act(() => bus.onInteract(post));
     expect(screen.queryByRole("dialog", { name: "Fast travel" })).toBeNull();
     expect(screen.getByRole("status")).toHaveTextContent("Get on your Pony first. Press M.");
-    pressM();
+    pressMount();
     settleRide();
     act(() => bus.onInteract(post));
     const sheet = screen.getByRole("dialog", { name: "Fast travel" });
