@@ -6,7 +6,7 @@ import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { sanitizeEmail, sanitizeName, sanitizeText } from "@/lib/utils/sanitize";
-import { sendEmail } from "@/lib/email";
+import { sendEmail, appBaseUrl } from "@/lib/email";
 import { brandedEmail } from "@/lib/email-template";
 
 export type AccessRequestInput = {
@@ -110,6 +110,7 @@ async function notifyOwner(r: {
       ...(r.message ? [r.message] : []),
       `ID: ${r.id}`,
     ],
+    button: { label: "Approve or decline", url: `${appBaseUrl()}/admin/access-requests` },
     footnote: "Sent by the Kingdoms & Crowns “Request access” form. Reply to this email to reach them.",
   });
   await sendEmail({

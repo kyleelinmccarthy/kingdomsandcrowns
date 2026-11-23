@@ -1322,6 +1322,10 @@ export const kingdomProgress = sqliteTable(
  * Someone asking to be let in from the public "Request access" form. Stored as well as emailed
  * to FEEDBACK_NOTIFY_EMAIL, so a failed email never loses a request. The three interest flags are
  * independent opt-ins: help beta-test now, and/or hear when free or paid plans open.
+ *
+ * An admin decides each request at /admin/access-requests. Approving sets status "invited" and
+ * admitUntil: until then, this email may create an account (and its own family) while sign-ups
+ * are invite-only (see src/lib/auth/signup-allowlist.ts). Declining clears admitUntil.
  */
 export const accessRequest = sqliteTable(
   "access_request",
@@ -1336,6 +1340,9 @@ export const accessRequest = sqliteTable(
     // Hashed, not raw: only ever compared for rate limiting.
     ipHash: text("ip_hash"),
     status: text("status", { enum: ["new", "invited", "declined"] }).notNull().default("new"),
+    admitUntil: integer("admit_until", { mode: "timestamp" }),
+    decidedAt: integer("decided_at", { mode: "timestamp" }),
+    decidedByUserId: text("decided_by_user_id").references(() => user.id, { onDelete: "set null" }),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [

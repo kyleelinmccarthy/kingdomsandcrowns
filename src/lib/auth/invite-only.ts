@@ -7,7 +7,7 @@
 export const INVITE_ONLY = "invite_only";
 
 export const INVITE_ONLY_MESSAGE =
-  "Kingdoms & Crowns is invite-only while it's in beta, and this email isn't part of a family yet. " +
+  "Kingdoms & Crowns is invite-only while it's in beta, and this email hasn't been invited yet. " +
   "You can request access instead.";
 
 /** A message for the auth forms, translating our own codes and passing anything else through. */

@@ -2,7 +2,7 @@
 
 Production runs on **Vercel's free Hobby plan** with a **Turso** (libSQL, i.e. SQLite) database on Turso's free plan. Both stay well inside their free limits for a family app: the whole database is a few hundred KB.
 
-The app is an **invite-only beta**: sign-ups are closed, and paid plans are built but switched off ("coming soon").
+The app is an **invite-only beta**: sign-ups are closed until `SIGNUP_MODE=open` ([Who can get in](#who-can-get-in)), and paid plans are built but switched off ("coming soon").
 
 | Piece | Where | Configured in |
 |---|---|---|
@@ -32,8 +32,10 @@ The app is an **invite-only beta**: sign-ups are closed, and paid plans are buil
 | `RESEND_API_KEY` | sends password resets, invites, ravens and access requests |
 | `EMAIL_FROM`, `FEEDBACK_FROM_EMAIL` | addresses on the verified Resend domain |
 | `FEEDBACK_NOTIFY_EMAIL` | **you**: receives ravens and access requests |
-| `ADMIN_USER_IDS` | your user id, for `/admin/feedback` |
+| `SIGNUP_MODE` | leave **unset** for the invite-only beta; `open` at full release. Anything else also means invite-only |
 | `NEXT_PUBLIC_APP_VERSION` | bump per release; stamped onto feedback |
+
+Admins are flagged in the database, not by a variable: `npx tsx --env-file=.env.prod src/lib/db/make-admin.ts you@example.com` (or `--revoke`). An admin can open `/admin/feedback` and `/admin/access-requests`.
 
 **Never set `DEMO_MODE`** (it skips sign-in). Stripe variables aren't needed while paid plans are off.
 
@@ -70,9 +72,17 @@ Rollback: **Vercel → Deployments → (previous) → Promote to Production** re
 
 ## Who can get in
 
-Sign-ups are **invite-only** ([src/lib/auth/signup-allowlist.ts](../../src/lib/auth/signup-allowlist.ts)). A new account can be created only for an email with a pending, unexpired family invite, or a hero email with email/Google login turned on. Everyone else uses **Request access** (`/request-access`), which stores the request and emails `FEEDBACK_NOTIFY_EMAIL` their opt-ins (beta tester now, or notify when free or paid accounts open). Existing accounts are unaffected.
+`SIGNUP_MODE` decides ([src/lib/auth/signup-mode.ts](../../src/lib/auth/signup-mode.ts)). Existing accounts can always sign in; the mode only affects creating a new one.
 
-To let someone in, invite them as a guardian from **The Hearth**.
+**Beta (unset, the default).** Sign-ups are **invite-only** ([src/lib/auth/signup-allowlist.ts](../../src/lib/auth/signup-allowlist.ts)), checked on every account creation (email form, Google, and a hero's set-password). A new account can be created only for an email that:
+
+- has a pending, unexpired guardian invite (sent from **The Hearth**, joins that family),
+- belongs to a hero with email or Google login turned on, or
+- has an **approved access request** that hasn't run out.
+
+Everyone else uses **Request access** (`/request-access`), which stores the request and emails `FEEDBACK_NOTIFY_EMAIL` a link to **The Gatehouse** (`/admin/access-requests`, admins only). There, **Approve** lets that email create an account (and start its own family) for 14 days and emails them a sign-up link; if the email fails, the page shows the link to send by hand. **Decline** (or **Withdraw approval**) closes it again. Approving again starts a fresh 14 days.
+
+**Full release.** Set `SIGNUP_MODE=open` in Vercel (Production) and redeploy. Anyone can then sign up, the beta banner disappears, and the public **Request access** buttons become **Create account**. The request form keeps working for anyone who still has its link. To close sign-ups again, remove the variable and redeploy.
 
 **Passwords.** **Forgot passphrase?** on the sign-in page emails a reset link; completing it also adds a password to a Google-only account. To set one by hand:
 
@@ -85,7 +95,8 @@ node --env-file=.env.prod scripts/set-password.mjs you@example.com   # prompts, 
 ## Smoke test
 
 - [ ] `/` shows the beta banner; every call to action says **Request access**.
-- [ ] Submitting **Request access** emails `FEEDBACK_NOTIFY_EMAIL`, and the row lands in `access_request`.
+- [ ] Submitting **Request access** emails `FEEDBACK_NOTIFY_EMAIL`, and the row lands in `access_request` and on `/admin/access-requests`.
+- [ ] **Approve** on a test request emails a sign-up link, and that email can then create an account.
 - [ ] Signing in with **Google** and with **email + password** both work.
 - [ ] A Google account that isn't in a family is turned away with the invite-only message (not an error page).
 - [ ] **Forgot passphrase?** sends an email whose link sets a new passphrase.
@@ -108,5 +119,5 @@ Only needed for a new environment; production already exists.
 2. **Vercel:** import the GitHub repo (framework preset Next.js; `vercel.json` supplies the build command). Set the variables above **before** the first deploy, since the build migrates the database.
 3. **Badges:** `TURSO_DATABASE_URL=… TURSO_AUTH_TOKEN=… npm run db:seed-badges`.
 4. **Domain:** **Project → Settings → Domains**, add `www.kingdomsandcrowns.com` and `kingdomsandcrowns.com` (redirecting to `www`), and add the DNS records Vercel shows. Confirm `https://www.kingdomsandcrowns.com/api/auth/callback/google` is an authorized redirect URI on the Google OAuth client.
-5. **Admin:** sign in, find your user id (`turso db shell <name> "select id, email from user"`), set `ADMIN_USER_IDS`, and redeploy.
+5. **Admin:** sign in, then flag yourself: `TURSO_DATABASE_URL=… TURSO_AUTH_TOKEN=… npm run db:make-admin -- you@example.com`.
 6. **Backups:** `npm run db:backup-install` ([database-backups.md](./database-backups.md)).

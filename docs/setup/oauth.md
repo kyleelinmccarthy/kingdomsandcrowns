@@ -129,13 +129,12 @@ Send yourself a test "Send a Raven" from the user menu — the email should arri
 
 ---
 
-## Admin access to `/admin/feedback`
+## Admin access to `/admin/feedback` and `/admin/access-requests`
 
-The Rookery (admin feedback inbox) is gated by user ID, not by role. After you create your account in production:
+The Rookery (feedback inbox) and The Gatehouse (access requests) are for users flagged as admins in the database (`user.is_admin`). After you create your account in production, flag it:
 
-1. Sign in as yourself.
-2. Look up your user ID in the `user` table (or temporarily log it from `getSession()`).
-3. Set `ADMIN_USER_IDS=<your-user-id>` in the Vercel project's environment variables (comma-separated for multiple admins).
-4. Redeploy. You can now visit `/admin/feedback`.
+```bash
+TURSO_DATABASE_URL=… TURSO_AUTH_TOKEN=… npm run db:make-admin -- you@example.com
+```
 
-Non-admins hitting the route get a 404, not a 403, so the route isn't discoverable.
+`--revoke` removes the flag. Non-admins hitting either route get a 404, not a 403, so the routes aren't discoverable.
