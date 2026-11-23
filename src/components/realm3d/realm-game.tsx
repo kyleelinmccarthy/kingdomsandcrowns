@@ -1314,7 +1314,7 @@ export function RealmGame({
               )}
               {!paused && <DeedToastBanner toast={toast} numerals={numerals} />}
               {!paused && inside && <RoomLine line={roomLine} onDone={clearRoomLine} />}
-              <TroubleNotices tbus={troubleBus} skin={tone} pages={pages} paused={paused} bounty={bounty} clearCount={surfaces.clearCount} />
+              <TroubleNotices tbus={troubleBus} skin={tone} pages={pages} paused={paused} bounty={bounty} clearCount={surfaces.clearCount} keymap={keymap} />
               {!paused && <RideLine line={riding.line} onDone={riding.clearLine} />}
               {!paused && <LeadLine line={companion.line} onDone={companion.clearLine} />}
             </div>

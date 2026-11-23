@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { resolvePages, withEmptyPages } from "@/lib/realm/spells/pages";
 import { hideTroublePlate, makeTroubleBus, paintTroubleLabel, paintTroubleMark, paintTroublePips, paintTroublePlate } from "@/lib/realm3d/trouble-bus";
 import { TROUBLE_POOL, type TroubleEvent } from "@/lib/realm3d/troubles3d";
+import { defaultKeymap } from "@/lib/realm3d/keymap";
 import { BountyGain, GAIN_MS, NOTICE_MS, TroubleMapMarks, TroubleNotices, TroublePlates } from "./troubles-hud";
 
 afterEach(cleanup);
@@ -102,6 +103,30 @@ describe("the notices, in the top lane", () => {
     act(() => tbus.onEvent(ev("sighted", "cursed-stone"), null, null));
     expect(screen.getByRole("status")).toHaveTextContent("A cursed stone is near!");
     expect(screen.getByRole("status")).toHaveTextContent("Press 1 to cast at it.");
+  });
+
+  it("names the key the child moved Cast spell 1 to, not the page's number", () => {
+    const tbus = makeTroubleBus();
+    const keymap = { ...defaultKeymap(), cast1: ["KeyQ"] };
+    render(<TroubleNotices tbus={tbus} skin="gentle" pages={pages} paused={false} keymap={keymap} />);
+    act(() => tbus.onEvent(ev("sighted", "fog"), null, null));
+    expect(screen.getByRole("status")).toHaveTextContent("Press Q to cast at it.");
+  });
+
+  it("asks for a click when no key casts the spell: a page past nine, or Cast spell 1 left with no key", () => {
+    const tbus = makeTroubleBus();
+    const page10 = withEmptyPages(
+      resolvePages([{ slot: 10, elementId: "ember", formId: "bolt", modifierId: null, adjective: "Ember", noun: "Bolt" }] as never, 12),
+      12,
+    );
+    const { unmount } = render(<TroubleNotices tbus={tbus} skin="gentle" pages={page10} paused={false} />);
+    act(() => tbus.onEvent(ev("sighted", "fog"), null, null));
+    expect(screen.getByRole("status")).toHaveTextContent("Click a spell to cast at it.");
+    expect(screen.getByRole("status")).not.toHaveTextContent("Press 10");
+    unmount();
+    render(<TroubleNotices tbus={tbus} skin="gentle" pages={pages} paused={false} keymap={{ ...defaultKeymap(), cast1: [] }} />);
+    act(() => tbus.onEvent(ev("sighted", "fog"), null, null));
+    expect(screen.getByRole("status")).toHaveTextContent("Click a spell to cast at it.");
   });
 
   it("stays out of the way under a menu", () => {

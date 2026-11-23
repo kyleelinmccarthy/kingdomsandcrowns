@@ -12,7 +12,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { TroubleSkin } from "@/lib/realm/spells/troubles";
 import type { SpellPageView } from "@/lib/realm/spells/pages";
-import { TROUBLE_POOL, troubleNotice, type ClearReward, type TroubleEventKind } from "@/lib/realm3d/troubles3d";
+import { TROUBLE_POOL, troubleNotice, type CastHint, type ClearReward, type TroubleEventKind } from "@/lib/realm3d/troubles3d";
+import { castAction, defaultKeymap, keyLabel, type Keymap } from "@/lib/realm3d/keymap";
 import type { TroubleBounty } from "./use-trouble-bounty";
 import { troubleMapMarks, type TroubleBus } from "@/lib/realm3d/trouble-bus";
 import type { HudBus } from "@/lib/realm3d/hud-bus";
@@ -76,6 +77,23 @@ export function TroubleMapMarks({ tbus, hud }: { tbus: TroubleBus; /** The HUD's
 type Notice = { id: number; kind: TroubleEventKind; title: string; line: string; reward?: string };
 
 /**
+ * What the "sighted" line can say about casting: nothing to cast yet (null), or the bound key of
+ * the first spell that has one. A page's number is not its key: Cast spell 1 may live on Q, and
+ * pages ten to twelve have no key at all, so a spell no key reaches says "click" (`key: null`).
+ */
+export function castHint(pages: readonly SpellPageView[], keymap: Keymap): CastHint {
+  let any = false;
+  for (const p of pages) {
+    if (!p.spell) continue;
+    any = true;
+    const action = castAction(p.slot);
+    const first = action ? keymap[action][0] : undefined;
+    if (first !== undefined) return { key: keyLabel(first) };
+  }
+  return any ? { key: null } : null;
+}
+
+/**
  * The words, in the top-centre lane under the lesson and the village's news: the flat Realm's
  * own clearing line ("The fog thins." / "The mist-wisp scatters!"), where it was cleared and how
  * many so far; a bump, never frightening; and once a visit, the first time a trouble is near,
@@ -88,6 +106,7 @@ export function TroubleNotices({
   paused,
   bounty = null,
   clearCount = true,
+  keymap = defaultKeymap(),
 }: {
   tbus: TroubleBus;
   skin: TroubleSkin;
@@ -97,10 +116,14 @@ export function TroubleNotices({
   clearCount?: boolean;
   /** Clearing troubles earns Realm minutes: what each clear is worth, and the day's tally. */
   bounty?: TroubleBounty | null;
+  /** The keymap in force, so the "sighted" line names the key the child bound, not a page number. */
+  keymap?: Keymap;
 }) {
   const [notice, setNotice] = useState<Notice | null>(null);
   const seq = useRef(0);
-  const castKey = pages.find((p) => p.spell)?.slot ?? null;
+  const hint = castHint(pages, keymap);
+  // A string, so the handler below is re-made only when the words would change.
+  const castKey = hint === null ? null : (hint.key ?? "");
   // "You've had all today's minutes" is said once a visit; after that a clear just counts.
   const toldCapped = useRef(false);
 
@@ -128,7 +151,8 @@ export function TroubleNotices({
           toldCapped.current = true;
         }
       }
-      const words = troubleNotice(e, tbus.skin, placeName, castKey, reward, clearCount);
+      const cast: CastHint = castKey === null ? null : { key: castKey || null };
+      const words = troubleNotice(e, tbus.skin, placeName, cast, reward, clearCount);
       if (!words) return;
       seq.current += 1;
       setNotice({ id: seq.current, kind: e.kind, title: words.title, line: words.line, reward: words.reward });
