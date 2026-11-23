@@ -557,6 +557,23 @@
   font-weight: 900;
 }
 
+/* The Controls panel's keys, as chips to press and change (`keybind-list.tsx`). */
+button.r3-kbd--edit { cursor: var(--cursor-hand); }
+button.r3-kbd--edit:hover { filter: brightness(1.12); transform: translateY(-1px); }
+button.r3-kbd--edit:active { transform: translateY(2px); box-shadow: 0 1px 0 #7a4f14; }
+button.r3-kbd--edit:focus-visible { outline: 3px solid #fff6de; outline-offset: 2px; }
+.r3-kbd--empty { background: rgba(0, 0, 0, 0.25); border-style: dashed; border-color: #c99a45; box-shadow: none; color: #ffe7a8; }
+.r3-kbd--listening { background: linear-gradient(180deg, #fff6de, #ffd875); outline: 3px solid #fff6de; outline-offset: 2px; animation: r3-kbd-wait 1.1s ease-in-out infinite; }
+@keyframes r3-kbd-wait { 50% { filter: brightness(1.18); } }
+@media (prefers-reduced-motion: reduce) { .r3-kbd--listening { animation: none; } }
+.r3-control--group { grid-template-columns: 1fr; gap: 0.35rem; }
+.r3-control-subs { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.3rem; }
+.r3-control--sub { grid-template-columns: 10.5rem 1fr; background: rgba(0, 0, 0, 0.14); padding: 0.3rem 0.5rem; }
+.r3-control--sub .r3-control-what { font-size: 0.95rem; color: #e6cf9c; }
+.r3-keys-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.6rem; margin: -0.3rem 0 0.8rem; }
+.r3-keys-line { flex: 1 1 14rem; margin: 0; min-height: 1.3em; font-size: 0.95rem; font-weight: 700; color: #ffe7a8; }
+.r3-keys-foot .r3-keys-reset { flex: none; min-height: 2.6rem; }
+
 /* The empty page: element + shape = spell, drawn before it is said. */
 .r3-page-demo { display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin: 0.6rem 0 0.8rem; }
 .r3-page-part {

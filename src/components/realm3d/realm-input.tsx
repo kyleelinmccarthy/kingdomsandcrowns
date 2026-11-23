@@ -24,6 +24,11 @@ export function useRealmInput(): InputRouter {
   return router;
 }
 
+/** The router, if a frame provided one: for a panel that also renders on its own (a test, a preview). */
+export function useOptionalRealmInput(): InputRouter | null {
+  return useContext(RealmInput);
+}
+
 /**
  * Subscribes for the component's life; `fn` is read through a ref, so it may change every render.
  * `actions` is compared by content, so an inline array does not re-subscribe either.

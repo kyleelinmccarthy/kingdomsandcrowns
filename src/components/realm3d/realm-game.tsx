@@ -35,8 +35,10 @@ import { CAST_ON_THE_ROAD, requestCast } from "@/lib/realm3d/riding";
 import { clockLine, escapeFrom, spellbookHref, visitClockLine, type AccessSource, type Overlay } from "@/lib/realm3d/frame";
 import { goalFor, spellHelp, type SpellbookFacts } from "@/lib/realm3d/guide";
 import { makeHudBus, type InteractTarget, type MapMark } from "@/lib/realm3d/hud-bus";
-import { blockedTarget, createInputRouter } from "@/lib/realm3d/input-router";
-import { defaultKeymap, primaryLabel, WALK_ACTIONS } from "@/lib/realm3d/keymap";
+import { blockedTarget, createInputRouter, type InputRouter } from "@/lib/realm3d/input-router";
+import { keymapFrom, primaryLabel, WALK_ACTIONS, type Keymap } from "@/lib/realm3d/keymap";
+import { saveRealmKeybinds } from "@/lib/actions/realm-keybinds";
+import { debounceSave } from "@/lib/realm3d/sound/store";
 import { deedToast, type DeedToast } from "@/lib/realm3d/talk";
 import { roomFor, type RoomVisit } from "@/lib/realm3d/doorways";
 import { fixtureLine, roomPlan } from "@/lib/realm3d/interiors";
@@ -102,6 +104,7 @@ import {
 } from "./frame-hud";
 import { RealmHud } from "./hud";
 import { RealmInputProvider, useAction, useKeymap } from "./realm-input";
+import { KEYS_UNSAVED } from "./keybind-list";
 import { RoomLine } from "./room-hud";
 import { WorldMap } from "./world-map";
 import { RideLine, RideSlot, TravelBanner, TravelSheet, useRiding } from "./riding-hud";
@@ -173,6 +176,8 @@ export type RealmData = {
   ceremony?: CeremonyInfo | null;
   /** Sound settings for whoever is looking: the hero's own, or a visiting grown-up's own. */
   sound?: SoundSettings;
+  /** The keys for whoever is looking (`bundle.keybinds`): the hero's own, or a visiting grown-up's own. Absent: the defaults. */
+  keybinds?: Keymap;
   /**
    * Whether whoever is looking may WRITE this hero's settings. False for a grown-up with view
    * access only (a teacher): a save of the hero's settings would be refused, so the pause menu
@@ -209,6 +214,47 @@ export type RealmData = {
 };
 
 const NO_RECENT: RecentQuest[] = [];
+
+/** How long after the last key change the keys are saved: as the sound sliders wait (`realm-sound.tsx`). */
+const KEYS_SAVE_MS = 700;
+
+/**
+ * A key changed in the Controls panel: the router has it at once, and it is saved a moment later
+ * (a child trying out three keys in a row is one save). The server decides whose row it is, the
+ * hero's or a visiting grown-up's own. With no hero to save for there is nothing to call. A save
+ * that fails keeps the keys for this visit, and `note` says so until a later save goes through.
+ * Leaving within the moment still saves.
+ */
+function useKeybindSaver(router: InputRouter, childId: string | null): { change: (k: Keymap) => void; note: string | null } {
+  const [note, setNote] = useState<string | null>(null);
+  const saver = useRef<ReturnType<typeof debounceSave<Keymap>> | null>(null);
+  useEffect(() => {
+    if (!childId) return;
+    const save = debounceSave<Keymap>(
+      (k) => {
+        saveRealmKeybinds(childId, k).then(
+          () => setNote(null),
+          () => setNote(KEYS_UNSAVED),
+        );
+      },
+      KEYS_SAVE_MS,
+      { set: (fn, ms) => window.setTimeout(fn, ms), clear: (id) => window.clearTimeout(id) },
+    );
+    saver.current = save;
+    return () => {
+      save.flush();
+      if (saver.current === save) saver.current = null;
+    };
+  }, [childId]);
+  const change = useCallback(
+    (k: Keymap) => {
+      router.setKeymap(k);
+      saver.current?.push(k);
+    },
+    [router],
+  );
+  return { change, note };
+}
 
 /** What the access check decided, for an open gate. */
 export type OpenEntry = {
@@ -387,8 +433,9 @@ export function RealmGame({
   const fxPool = useMemo(() => makeFxPool(FX_POOL), []);
   const casts = useMemo(() => makeCastQueue(), []);
   // The one keyboard listener (`input-router.ts`): keys become actions for the scenes, the tutorial
-  // and the HUD. Made once, on the client only (the frame mounts this after hydration).
-  const [router] = useState(() => createInputRouter(window, defaultKeymap(), blockedTarget));
+  // and the HUD. Made once, on the client only (the frame mounts this after hydration), with the
+  // keys whoever is looking saved.
+  const [router] = useState(() => createInputRouter(window, keymapFrom(realm.keybinds ?? null), blockedTarget));
   const routerMounted = useRef(false);
   useEffect(() => {
     routerMounted.current = true;
@@ -402,6 +449,8 @@ export function RealmGame({
   }, [router]);
   // The keys in force, re-read on a rebind: every surface that names a key is handed this.
   const keymap = useKeymap(router);
+  // A key changed in the Controls panel: applied at once, saved for the hero or the visitor.
+  const keybinds = useKeybindSaver(router, realm.childId);
   // With the clears a reload would forget, held with when they arrived, for the scene to seed its field.
   const [troubleBus] = useState(() => makeTroubleBus(undefined, heldClearsFor(realm.childId, realm.troubleClears, realm.isChildView)));
   // What the hero is wearing: the page's look, until the wardrobe saves a new one.
@@ -1343,6 +1392,8 @@ export function RealmGame({
               earning={earning}
               ring={viewer === "child" ? ringHelp("keyboard", primaryLabel(keymap, "interact")) : undefined}
               keymap={keymap}
+              onKeymap={realm.childId ? keybinds.change : null}
+              keysNote={keybinds.note}
               back={overlay.back}
               onClose={() => go(escapeFrom(overlay))}
               onReplay={

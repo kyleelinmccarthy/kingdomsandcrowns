@@ -34,6 +34,7 @@ import { listWords, type SpellHelp } from "@/lib/realm3d/guide";
 import type { InteractTarget } from "@/lib/realm3d/hud-bus";
 import { defaultKeymap, primaryLabel, type Keymap } from "@/lib/realm3d/keymap";
 import { pauseCopy, type PauseWhy } from "@/lib/realm3d/pause";
+import { KeybindList } from "./keybind-list";
 import type { RealmWorld } from "@/lib/realm3d/worldgen";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
 import { CASTLE_TYPES } from "@/lib/utils/avatar-catalog";
@@ -536,7 +537,10 @@ export function PauseMenu({
   );
 }
 
-/** How to play: every control, from the one list the key strip also reads. */
+/**
+ * How to play: every control, from the one list the key strip also reads. Opened from the pause
+ * menu's Controls, its keyboard rows are chips a child presses to change (`KeybindList`).
+ */
 export function HowToPlay({
   slots,
   back,
@@ -547,10 +551,19 @@ export function HowToPlay({
   pet,
   ring,
   keymap = defaultKeymap(),
+  onKeymap = null,
+  keysNote = null,
 }: {
   slots: number;
   /** The keys the child has bound: every row names them. */
   keymap?: Keymap;
+  /**
+   * A key changed in the list (`keybind-list.tsx`): the frame applies it and saves it. Absent, or
+   * null with nowhere to save, the keys are listed but not changeable.
+   */
+  onKeymap?: ((k: Keymap) => void) | null;
+  /** Said under the keys: a save that failed. */
+  keysNote?: string | null;
   /** A child's F row: their pet's name ("Fox"), or false without one; absent for a visitor. */
   pet?: string | false;
   /** Where the Ring is run, for a child (`recess/copy.ts`'s `ringHelp`); absent for a visitor. */
@@ -569,20 +582,7 @@ export function HowToPlay({
 }) {
   return (
     <Panel title="How to play" label="How to play" wide icon={<GameIcon name="scroll" className="r3-board-icon" />} onClose={onClose}>
-      <ul className="r3-controls">
-        {controlRows(keymap, slots, { mount, pet }).map((row) => (
-          <li key={row.what} className="r3-control">
-            <span className="r3-control-keys">
-              {row.keys.map((k, i) => (
-                <kbd key={i} className="r3-kbd">
-                  {k}
-                </kbd>
-              ))}
-            </span>
-            <span className="r3-control-what">{row.what}</span>
-          </li>
-        ))}
-      </ul>
+      <KeybindList rows={controlRows(keymap, slots, { mount, pet })} keymap={keymap} onChange={onKeymap ?? (() => {})} editable={onKeymap !== null} note={keysNote} />
       <p className="r3-board-sub">
         Follow the gold <b>!</b> — over a villager&rsquo;s head, at the edge of the screen, and on your map. That is who is waiting for you.
         {pet && (
@@ -599,7 +599,8 @@ export function HowToPlay({
         </p>
       )}
       <div className="r3-board-foot">
-        <button type="button" className="r3-menu-item r3-menu-item--go" onClick={onClose}>
+        {/* The panel opens with focus here, not on the first key chip: a stray Enter goes back, it doesn't start a rebind. */}
+        <button type="button" className="r3-menu-item r3-menu-item--go" onClick={onClose} data-autofocus>
           {back ? "Back" : "Play"}
         </button>
         {onReplay && (
