@@ -42,6 +42,7 @@ function setup(o: { pet?: string | null; viewer?: "child" | "parent"; goal?: Goa
   const bus = makeHudBus(4, 1);
   let latest: CompanionLead | null = null;
   const router = createInputRouter(window, defaultKeymap());
+  router.start();
   routers.push(router);
   const view = render(<Harness router={router} pet={o.pet === undefined ? "fox" : o.pet} viewer={o.viewer} bus={bus} goal={o.goal} inside={o.inside} breakOff={o.breakOff} seen={(l) => (latest = l)} />);
   return { bus, view, router, lead: () => latest!.bus as LeadBus };

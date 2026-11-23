@@ -26,6 +26,7 @@ function target() {
 function setup() {
   const win = target();
   const router = createInputRouter(win, defaultKeymap());
+  router.start();
   const press = (code: string) => act(() => win.fire("keydown", { code }));
   return { win, router, press };
 }

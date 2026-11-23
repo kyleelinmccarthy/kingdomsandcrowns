@@ -17,6 +17,7 @@ const MOUNT = /^Get on or off your mount: Z\. Press to change\.$/;
 function setup(o: { keymap?: Keymap; editable?: boolean } = {}) {
   const keymap = o.keymap ?? defaultKeymap();
   const router: InputRouter = createInputRouter(window, keymap);
+  router.start();
   const onChange = vi.fn();
   const rows = controlRows(keymap, 4, { mount: true, pet: "Fox" });
   const view = render(

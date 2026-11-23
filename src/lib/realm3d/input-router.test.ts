@@ -34,6 +34,7 @@ type Win = ReturnType<typeof target>;
 function setup() {
   const win = target();
   const router = createInputRouter(win, defaultKeymap());
+  router.start();
   return { win, router };
 }
 
@@ -307,6 +308,58 @@ describe("the input router", () => {
     expect(win.listeners()).toBe(3);
     router.dispose();
     expect(win.listeners()).toBe(0);
+  });
+});
+
+describe("the router's life", () => {
+  it("listens to nothing until started, so a router React makes and throws away leaks nothing", () => {
+    const win = target();
+    const router = createInputRouter(win, defaultKeymap());
+    expect(win.listeners()).toBe(0);
+    const fn = listen(router, "jump", "always");
+    down(win, "Space");
+    expect(fn).not.toHaveBeenCalled();
+    router.start();
+    expect(win.listeners()).toBe(3);
+    down(win, "Space");
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops listening on stop, keeps its subscribers, and listens again on the next start", () => {
+    const { win, router } = setup();
+    router.setState(PLAY);
+    const fn = listen(router, "jump", "play");
+    router.stop();
+    expect(win.listeners()).toBe(0);
+    down(win, "Space");
+    expect(fn).not.toHaveBeenCalled();
+    router.start();
+    expect(win.listeners()).toBe(3);
+    down(win, "Space");
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  it("is idempotent: a second start adds nothing, a second stop removes nothing", () => {
+    const { win, router } = setup();
+    router.start();
+    expect(win.listeners()).toBe(3);
+    router.stop();
+    router.stop();
+    expect(win.listeners()).toBe(0);
+    router.start();
+    router.start();
+    expect(win.listeners()).toBe(3);
+  });
+
+  it("lets go of what was held when it stops, since it can no longer hear the key come up", () => {
+    const { win, router } = setup();
+    router.setState(PLAY);
+    const fn = listen(router, "walkForward", "play");
+    down(win, "KeyW");
+    fn.mockClear();
+    router.stop();
+    expect(fn).toHaveBeenCalledWith({ action: "walkForward", down: false, repeat: false });
+    expect(router.held("walkForward")).toBe(false);
   });
 
   it("stops delivering to a subscriber that unsubscribed", () => {

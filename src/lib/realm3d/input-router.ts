@@ -21,6 +21,15 @@
  * A bound key's UP is prevented too, while playing: some browsers press a focused button on
  * Space's key up, so a child who clicked Pause and then jumped would pause again.
  *
+ * Making a router listens to nothing: `start` adds its listeners and `stop` takes them away, both
+ * safe to call twice. The frame makes its router in a `useState` initializer and starts it in an
+ * effect, stopping it in the effect's cleanup. React may run that initializer twice and throw one
+ * router away (Strict Mode in development), and a router that listened from birth would leave the
+ * spare one hearing every key for good. And under `<Activity mode="hidden">` the effect is cleaned
+ * up and run again on the SAME router, so the cleanup must only pause it, never kill it: `stop`
+ * keeps the subscribers and the keymap, and the next `start` carries on. `dispose` is the end:
+ * stop, and forget every subscriber.
+ *
  * No DOM beyond the window-like target it is given, and no three: tests drive it with a fake.
  */
 import { actionIndex, ACTIONS, WALK_ACTIONS, type ActionId, type Keymap } from "./keymap";
@@ -45,6 +54,11 @@ export type InputRouter = {
   held(action: ActionId): boolean;
   /** While true (a rebind is listening), no key reaches a subscriber and none is prevented. */
   suspend(on: boolean): void;
+  /** Adds the window listeners. A second call does nothing. */
+  start(): void;
+  /** Takes the listeners away and lets go of anything held, keeping subscribers. A second call does nothing. */
+  stop(): void;
+  /** `stop`, and forget every subscriber: the router is done. */
   dispose(): void;
 };
 
@@ -126,9 +140,23 @@ export function createInputRouter(
     for (const action of was) release(action);
   };
 
-  target.addEventListener("keydown", onKeyDown, true);
-  target.addEventListener("keyup", onKeyUp, true);
-  target.addEventListener("blur", onBlur);
+  let listening = false;
+  const start = () => {
+    if (listening) return;
+    listening = true;
+    target.addEventListener("keydown", onKeyDown, true);
+    target.addEventListener("keyup", onKeyUp, true);
+    target.addEventListener("blur", onBlur);
+  };
+  const stop = () => {
+    if (!listening) return;
+    listening = false;
+    target.removeEventListener("keydown", onKeyDown, true);
+    target.removeEventListener("keyup", onKeyUp, true);
+    target.removeEventListener("blur", onBlur);
+    // A key down now will never be heard coming up: let go of it, as losing focus would.
+    onBlur();
+  };
 
   return {
     get keymap() {
@@ -176,10 +204,10 @@ export function createInputRouter(
       }
       suspended = on;
     },
+    start,
+    stop,
     dispose() {
-      target.removeEventListener("keydown", onKeyDown, true);
-      target.removeEventListener("keyup", onKeyUp, true);
-      target.removeEventListener("blur", onBlur);
+      stop();
       subs.clear();
       keymapListeners.clear();
       heldCodes.clear();

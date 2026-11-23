@@ -434,18 +434,13 @@ export function RealmGame({
   const casts = useMemo(() => makeCastQueue(), []);
   // The one keyboard listener (`input-router.ts`): keys become actions for the scenes, the tutorial
   // and the HUD. Made once, on the client only (the frame mounts this after hydration), with the
-  // keys whoever is looking saved.
+  // keys whoever is looking saved. Making it listens to nothing, so a spare one React makes and
+  // throws away leaks nothing; it listens while this is mounted, and the cleanup only stops it, so
+  // `<Activity mode="hidden">` (which cleans up and re-runs effects on the same router) gets it back.
   const [router] = useState(() => createInputRouter(window, keymapFrom(realm.keybinds ?? null), blockedTarget));
-  const routerMounted = useRef(false);
   useEffect(() => {
-    routerMounted.current = true;
-    return () => {
-      routerMounted.current = false;
-      // Strict Mode's rehearsal unmounts and remounts at once: dispose only if nothing came back.
-      queueMicrotask(() => {
-        if (!routerMounted.current) router.dispose();
-      });
-    };
+    router.start();
+    return () => router.stop();
   }, [router]);
   // The keys in force, re-read on a rebind: every surface that names a key is handed this.
   const keymap = useKeymap(router);
