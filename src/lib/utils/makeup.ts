@@ -1,5 +1,6 @@
 import { addDays, weekEndOf } from "./dates";
 import { weekdayOfDate, type DayOfWeek, DAYS_OF_WEEK, DAY_LABELS } from "./schedule-days";
+import { isDayOff, type StreakOptions } from "./streak";
 
 /**
  * Catch-up: what happens to a quest a hero didn't get to on the day it was set.
@@ -114,16 +115,18 @@ export function isWithinBreak(date: string, breaks: DateRange[]): boolean {
  * thing on it. Within a day, the quests keep their own order.
  *
  * `today` itself is excluded: today's board already shows today's quests, and
- * listing them twice makes an ordinary day look like a backlog. So are days
- * inside a school break — nobody was meant to be working, so nothing there
- * was missed.
+ * listing them twice makes an ordinary day look like a backlog. So is every day
+ * off — not a school day, marked optional, inside a school break, or excused —
+ * asked of the streak's own `isDayOff`, the same rule the Missed Days panel
+ * uses. Nothing was expected on those days, so nothing there was missed; and a
+ * parent who has excused everything that panel shows must see nothing owed.
  */
 export function selectMakeupAssignments<T extends MakeupCandidate>(
   rows: T[],
   today: string,
   windowStart: string = makeupWindowStart(today),
-  /** School breaks: a quest nobody was meant to be doing was never missed. */
-  breaks: DateRange[] = []
+  /** The hero's days off: a quest nobody was meant to be doing was never missed. */
+  daysOff: StreakOptions = {}
 ): T[] {
   return rows
     .filter(
@@ -131,7 +134,7 @@ export function selectMakeupAssignments<T extends MakeupCandidate>(
         r.assignment.date < today &&
         r.assignment.date >= windowStart &&
         isUnfinishedStatus(r.assignment.status) &&
-        !isWithinBreak(r.assignment.date, breaks)
+        !isDayOff(r.assignment.date, daysOff)
     )
     .sort(
       (a, b) =>

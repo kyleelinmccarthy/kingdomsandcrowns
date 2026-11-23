@@ -165,9 +165,36 @@ describe("selectMakeupAssignments", () => {
   it("leaves out days inside a school break — nobody was meant to be working", () => {
     const rows = [item("2026-09-03", "pending"), item("2026-09-02", "pending")];
     const breaks = [{ startDate: "2026-09-02", endDate: "2026-09-02" }];
-    expect(dates(selectMakeupAssignments(rows, TODAY, "2026-08-28", breaks))).toEqual([
+    expect(dates(selectMakeupAssignments(rows, TODAY, "2026-08-28", { breaks }))).toEqual([
       "2026-09-03",
     ]);
+  });
+
+  // The Missed Days panel never offers these days to excuse (it asks the streak's
+  // isDayOff), so counting their work as owed left "to catch up" behind after a
+  // parent had excused everything they were shown.
+  it("leaves out the hero's optional days — nothing needed logging there", () => {
+    // 2026-08-28 is a Friday, 2026-09-03 a Thursday.
+    const rows = [item("2026-09-03", "pending"), item("2026-08-28", "pending")];
+    expect(
+      dates(selectMakeupAssignments(rows, TODAY, "2026-08-28", { optionalDays: ["fri"] }))
+    ).toEqual(["2026-09-03"]);
+  });
+
+  it("leaves out weekdays that aren't school days", () => {
+    // 2026-08-30 is a Sunday.
+    const rows = [item("2026-09-03", "pending"), item("2026-08-30", "pending")];
+    const schoolDays = ["mon", "tue", "wed", "thu", "fri"];
+    expect(dates(selectMakeupAssignments(rows, TODAY, "2026-08-28", { schoolDays }))).toEqual([
+      "2026-09-03",
+    ]);
+  });
+
+  it("leaves out excused days, even where a quest on them is still pending", () => {
+    const rows = [item("2026-09-03", "pending"), item("2026-09-01", "pending")];
+    expect(
+      dates(selectMakeupAssignments(rows, TODAY, "2026-08-28", { excusedDates: ["2026-09-01"] }))
+    ).toEqual(["2026-09-03"]);
   });
 
   it("puts the most recent day first, keeping quest order within a day", () => {

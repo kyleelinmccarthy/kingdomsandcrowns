@@ -184,7 +184,11 @@ export async function getMakeupView(childId: string, date: string): Promise<Make
   const settings = await getMakeupSettings(childId);
 
   const rows = await db
-    .select({ createdAt: schema.child.createdAt })
+    .select({
+      createdAt: schema.child.createdAt,
+      schoolDays: schema.child.schoolDays,
+      streakOptionalDays: schema.child.streakOptionalDays,
+    })
     .from(schema.child)
     .where(eq(schema.child.id, childId))
     .limit(1);
@@ -205,15 +209,33 @@ export async function getMakeupView(childId: string, date: string): Promise<Make
     await generateAssignmentsFromSchedules(childId, windowStart, windowEnd);
   }
 
-  const [range, breaks] = await Promise.all([
+  const [range, breaks, excused] = await Promise.all([
     getAssignmentsForDateRange(childId, windowStart, windowEnd),
     getSchoolBreaks(familyId),
+    db
+      .select({ date: schema.excusedDay.date })
+      .from(schema.excusedDay)
+      .where(
+        and(
+          eq(schema.excusedDay.childId, childId),
+          gte(schema.excusedDay.date, windowStart),
+          lte(schema.excusedDay.date, windowEnd)
+        )
+      ),
   ]);
+  // The same days off the Missed Days panel and the streak skip, so work a
+  // parent can't see there (and so can't excuse) is never counted as owed.
+  const daysOff = {
+    schoolDays: parseSchoolDays(rows[0]?.schoolDays),
+    optionalDays: parseStreakOptionalDays(rows[0]?.streakOptionalDays),
+    breaks,
+    excusedDates: excused.map((e) => e.date),
+  };
   return {
     isMakeupDay: isMakeupDay(date, settings),
     reason: makeupReason(date, settings),
     settings,
-    assignments: selectMakeupAssignments(range, date, windowStart, breaks),
+    assignments: selectMakeupAssignments(range, date, windowStart, daysOff),
   };
 }
 
