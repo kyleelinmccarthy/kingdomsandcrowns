@@ -26,6 +26,7 @@ import {
   takeAim,
   terrainClearance,
   turnToward,
+  walkYaw,
   wrapAngle,
   zoomBy,
   type LookLimits,
@@ -112,11 +113,34 @@ describe("looking with the mouse", () => {
   });
 
   it("counts as looking while the mouse has the camera, and a moment after", () => {
-    const s = { pitch: DEFAULT_PITCH, dist: DEFAULT_DIST, held: false, lastLookAt: 10 };
+    const s = { pitch: DEFAULT_PITCH, dist: DEFAULT_DIST, held: false, lastLookAt: 10, orbiting: false };
     expect(looking(s, 10 + LOOK_SETTLE / 2)).toBe(true);
     expect(looking(s, 10 + LOOK_SETTLE * 2)).toBe(false);
     s.held = true;
     expect(looking(s, 1000)).toBe(true);
+  });
+
+  it("does not count a left-drag swinging the camera round as looking: the body keeps its facing", () => {
+    expect(looking({ pitch: DEFAULT_PITCH, dist: DEFAULT_DIST, held: false, lastLookAt: -1e9, orbiting: true }, 5)).toBe(false);
+    // Not even straight after a turning look: the orbit has the camera now.
+    expect(looking({ pitch: DEFAULT_PITCH, dist: DEFAULT_DIST, held: false, lastLookAt: 5, orbiting: true }, 5.05)).toBe(false);
+  });
+});
+
+describe("walking while the camera is swung round", () => {
+  it("walks by the body's own facing on foot, so forward walks toward a camera looking at their face", () => {
+    expect(cameraFacing(walkYaw(0.3, 1.2, true, false))).toBeCloseTo(1.2, 9);
+    const i = moveIntent(makeMoveIntent(), walkYaw(0.3, 1.2, true, false), keys("W"));
+    expect(i.face).toBeCloseTo(1.2, 9);
+    expect(Math.atan2(i.x, i.z)).toBeCloseTo(1.2, 9);
+  });
+
+  it("walks by the camera in the saddle, where the mount steers as always", () => {
+    expect(walkYaw(0.3, 1.2, true, true)).toBe(0.3);
+  });
+
+  it("walks by the camera when nothing is orbiting", () => {
+    expect(walkYaw(0.3, 1.2, false, false)).toBe(0.3);
   });
 });
 

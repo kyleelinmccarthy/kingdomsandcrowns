@@ -14,7 +14,8 @@
  */
 
 import type { TroubleKind, TroubleSkin } from "@/lib/realm/spells/troubles";
-import { TROUBLE_POOL, type TroubleEvent, type TroubleField } from "./troubles3d";
+import { TROUBLE_POOL, troubleName, type TroubleEvent, type TroubleField } from "./troubles3d";
+import type { MapMark } from "./hud-bus";
 import type { HeldClears } from "./trouble-reload";
 
 export type TroubleHandler = (e: TroubleEvent, placeName: string | null, homeId: string | null) => void;
@@ -99,6 +100,21 @@ export function makeTroubleBus(slots: number = TROUBLE_POOL, held: HeldClears = 
 /** The troubles' scene shares its field (null when it goes): read by others, stepped only by it. */
 export function shareTroubleField(bus: TroubleBus, field: TroubleField | null): void {
   bus.field = field;
+}
+
+/**
+ * The troubles on the big map (`world-map.tsx`): every one the minimap shows a dot for (live and
+ * not fading), where the scene's field has it now, named in the chosen tone. None while the
+ * troubles are out of the world.
+ */
+export function troubleMapMarks(bus: TroubleBus): MapMark[] {
+  const field = bus.field;
+  if (!field) return [];
+  const marks: MapMark[] = [];
+  field.troubles.forEach((t, i) => {
+    if (t.live && !t.dying) marks.push({ id: `trouble-${i}`, x: t.x, z: t.z, kind: "trouble", label: troubleName(t.kind, bus.skin) });
+  });
+  return marks;
 }
 
 /* ------------------------------------------------------------------ painting */

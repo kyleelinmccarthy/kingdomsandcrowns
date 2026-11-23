@@ -4,6 +4,8 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import type { HudBus } from "@/lib/realm3d/hud-bus";
 import type { TroubleBus } from "@/lib/realm3d/trouble-bus";
 import type { CastQueue } from "@/lib/realm3d/casting";
+import type { InputRouter } from "@/lib/realm3d/input-router";
+import { bind, defaultKeymap, type ActionId, type Keymap } from "@/lib/realm3d/keymap";
 import { DEFAULT_AVATAR, type AvatarConfig } from "@/lib/utils/avatar-catalog";
 import { DEFAULT_LEARNING_PROFILE } from "@/lib/utils/learning-profile";
 
@@ -53,6 +55,7 @@ vi.mock("@/lib/actions/avatar", () => ({
   updateAvatarConfig: vi.fn(async () => {}),
 }));
 vi.mock("@/lib/actions/realm-sound", () => ({ saveRealmSound: vi.fn(async () => {}) }));
+vi.mock("@/lib/actions/realm-keybinds", () => ({ saveRealmKeybinds: vi.fn(async () => {}) }));
 vi.mock("@/lib/actions/deeds", () => ({ startDeedRun: vi.fn(), answerDeedQuestion: vi.fn(), retryDeedQuestion: vi.fn(), resolveDeedQuestion: vi.fn(), completeDeedRun: vi.fn() }));
 vi.mock("@/lib/actions/seasons", () => ({ markCeremonySeen: vi.fn(async () => {}) }));
 vi.mock("@/lib/actions/improvements", () => ({ markBuildingsAnnounced: vi.fn(async () => {}), markDeliverySeen: vi.fn(async () => {}), startBuildRun: vi.fn(), pinPlan: vi.fn(async () => {}) }));
@@ -107,6 +110,7 @@ import { applyRuneOutcomes, worldCanvas, type WorldStateView } from "@/lib/realm
 import { RUNE_DONE, RUNE_FINISH, RUNE_HOLDS_HERE, RUNE_LEAVE, RUNE_TRACKER_LABEL } from "@/lib/tasks/rune-copy";
 import { MEND, RUNE_WALK_SUMMARY, WALK_STOPS, runeWalkRun } from "@/test/rune-walk-run";
 import { saveRealmSound } from "@/lib/actions/realm-sound";
+import { saveRealmKeybinds } from "@/lib/actions/realm-keybinds";
 import { getRealmAccess, getTroubleBounty, recordTroubleClears } from "@/lib/actions/realm-play";
 import { stepRide, type RideBus } from "@/lib/realm3d/riding";
 import { LEGACY_STEPS, LESSONS, STORED_MAX } from "@/lib/realm3d/tutorial";
@@ -204,6 +208,53 @@ describe("the real village", () => {
     expect(view.container.querySelector(".r3-quest-title")).toHaveTextContent("Village Well");
     expect(screen.getByText("0 of 8 built")).toBeInTheDocument();
     expect(screen.getByText("240 min left")).toBeInTheDocument();
+  });
+});
+
+describe("the big map", () => {
+  const pressMap = () => act(() => void fireEvent.keyDown(window, { code: "KeyM", key: "m" }));
+
+  it("opens on M from play, and pauses the world while it is open", () => {
+    const { bus } = mount();
+    pressMap();
+    expect(screen.getByRole("dialog", { name: "Map of the island" })).toBeInTheDocument();
+    expect(bus.paused).toBe(true);
+  });
+
+  it("closes on M again, and the world plays on", () => {
+    const { bus } = mount();
+    pressMap();
+    pressMap();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(bus.paused).toBe(false);
+  });
+
+  it("closes on Esc, straight back to the world", () => {
+    const { bus } = mount();
+    pressMap();
+    esc();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(bus.paused).toBe(false);
+  });
+
+  it("does nothing under the pause menu", () => {
+    mount();
+    esc();
+    pressMap();
+    expect(screen.getByRole("dialog", { name: "Paused" })).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Map of the island" })).toBeNull();
+  });
+
+  it("draws the marks the features registered, read as it opens", () => {
+    const { bus, view } = mount();
+    let marks = [{ id: "t-late", x: 1, z: 2, kind: "trouble" as const, label: "Fog" }];
+    act(() => void bus.addMapMarks(() => marks));
+    pressMap();
+    expect(view.container.querySelector('.r3-worldmap [data-mark="t-late"]')).not.toBeNull();
+    marks = [];
+    pressMap();
+    pressMap();
+    expect(view.container.querySelector('.r3-worldmap [data-mark="t-late"]')).toBeNull();
   });
 });
 
@@ -1037,6 +1088,35 @@ describe("the tutorial", () => {
     expect(bus.paused).toBe(false);
   });
 
+  it("counts the walk keys the child bound, not the letters", () => {
+    const { bus } = mount({ realm: fresh });
+    const router = handed.props!.router as InputRouter;
+    const r = bind(router.keymap, "walkForward", 0, "KeyI");
+    if (!r.ok) throw new Error("bind refused");
+    act(() => router.setKeymap(r.keymap));
+    // W is no longer a walk key, so W and D are one direction, not two.
+    act(() => void fireEvent.keyDown(window, { code: "KeyW" }));
+    act(() => void fireEvent.keyDown(window, { code: "KeyD" }));
+    walk(bus, 8);
+    expect(screen.getByText("Walk around.")).toBeInTheDocument();
+    // I is: with D that is two directions, and the lesson moves on.
+    act(() => void fireEvent.keyDown(window, { code: "KeyI" }));
+    walk(bus, 8);
+    expect(screen.getByText("Look around.")).toBeInTheDocument();
+  });
+
+  it("tells a child who moved Jump to J to press J, on the keycap and in the words", () => {
+    const { view } = mount({ realm: { ...fresh, tutorialStep: LEGACY_STEPS + 2 } });
+    expect(screen.getByText("Jump!")).toBeInTheDocument();
+    expect(screen.getByText("Press Space.")).toBeInTheDocument();
+    const router = handed.props!.router as InputRouter;
+    const r = bind(router.keymap, "jump", 0, "KeyJ");
+    if (!r.ok) throw new Error("bind refused");
+    act(() => router.setKeymap(r.keymap));
+    expect(screen.getByText("Press J.")).toBeInTheDocument();
+    expect(view.container.querySelector(".r3-coach-keys kbd")).toHaveTextContent("J");
+  });
+
   it("finds Old Bram only when he is the one in reach, and talking to him is the next lesson", () => {
     const { bus } = mount({ realm: { ...fresh, tutorialStep: LEGACY_STEPS + 3 } });
     expect(screen.getByText("Find Old Bram.")).toBeInTheDocument();
@@ -1433,7 +1513,7 @@ describe("the quiet world (0 minutes in an earning mode)", () => {
   const arch = { kind: "arch" as const, id: "ring", label: "the Ring", verb: "Run" };
   const one = { ...run, questions: [run.questions[0]], responses: [null] };
   const paid = (minutesEarned: number) => ({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 3 as const, previousBest: 0 as const, deedBest: 3 as const, counted: true, crowned: false, kind: "deed" as const, building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 3, maxStars: 3, practice: false }, minutesEarned, sideQuestPayFull: false });
-  const pressM = () => act(() => void fireEvent.keyDown(window, { code: "KeyM", key: "m" }));
+  const pressMount = () => act(() => void fireEvent.keyDown(window, { code: "KeyZ", key: "z" }));
   const ride = () => handed.props!.ride as RideBus;
   async function playPayingQuest(bus: HudBus, minutes: number) {
     vi.mocked(startDeedRun).mockResolvedValue(one);
@@ -1456,10 +1536,10 @@ describe("the quiet world (0 minutes in an earning mode)", () => {
     expect(handed.props!.recess).toBeDefined();
   });
 
-  it("the saddle rests: no Ride slot, and M invites to a side quest instead of riding", () => {
+  it("the saddle rests: no Ride slot, and Z invites to a side quest instead of riding", () => {
     mount(quiet);
     expect(screen.queryByRole("button", { name: /Ride your Pony/ })).toBeNull();
-    pressM();
+    pressMount();
     expect(screen.getByText(`Your Pony is resting. ${QUIET}.`)).toBeInTheDocument();
     act(() => {
       for (let i = 0; i < 30; i++) stepRide(ride(), 0.05, 0);
@@ -1506,7 +1586,7 @@ describe("the quiet world (0 minutes in an earning mode)", () => {
       vi.mocked(getRealmAccess).mockResolvedValue({ allowed: true, minutesRemaining: 0, source: "quiet" });
       const { view } = mount({ ...quiet, entry: { minutes: 0, visit: null, source: "earned" } });
       expect(handed.props!.troubles).toBeDefined();
-      pressM();
+      pressMount();
       act(() => {
         for (let i = 0; i < 30; i++) stepRide(ride(), 0.05, 0);
       });
@@ -2181,5 +2261,100 @@ describe("a rune walk in the Realm (R-I2, R-I11, I10)", () => {
     expect(drawnFixed(WAGON)).toBe(false);
     await press(stop(1));
     expect(startRuneObjectRun).toHaveBeenCalledWith("demo-child-1", LANTERN);
+  });
+});
+
+describe("the keys the hero chose (pause → Controls)", () => {
+  const rebound = (action: ActionId, code: string): Keymap => {
+    const r = bind(defaultKeymap(), action, 0, code);
+    if (!r.ok) throw new Error("bind refused");
+    return r.keymap;
+  };
+  const rider = { avatar: { ...DEFAULT_AVATAR, mount: "pony" }, mounts: ["pony"] };
+  const ride = () => handed.props!.ride as RideBus;
+  const settle = () =>
+    act(() => {
+      for (let i = 0; i < 30; i++) stepRide(ride(), 0.05, 0);
+    });
+  const openControls = () => {
+    esc();
+    fireEvent.click(screen.getByRole("button", { name: /Controls/ }));
+  };
+  const key = (code: string) => act(() => void fireEvent.keyDown(window, { code, key: code }));
+
+  it("starts with the saved keys: G mounts, and the Controls panel shows G on the Mount row", () => {
+    mount({ realm: { ...realm, keybinds: rebound("mount", "KeyG") }, ...rider });
+    key("KeyG");
+    settle();
+    expect(ride().phase).toBe("on");
+    openControls();
+    expect(screen.getByRole("button", { name: "Get on or off your mount: G. Press to change." })).toBeInTheDocument();
+  });
+
+  it("a key changed in the panel works at once, and is saved a moment later", async () => {
+    vi.useFakeTimers();
+    try {
+      mount(rider);
+      openControls();
+      fireEvent.click(screen.getByRole("button", { name: "Get on or off your mount: Z. Press to change." }));
+      key("KeyH");
+      expect(screen.getByRole("button", { name: "Get on or off your mount: H. Press to change." })).toBeInTheDocument();
+      expect((handed.props!.router as InputRouter).keymap.mount).toEqual(["KeyH"]);
+      expect(saveRealmKeybinds).not.toHaveBeenCalled();
+      await act(async () => void (await vi.advanceTimersByTimeAsync(1000)));
+      expect(saveRealmKeybinds).toHaveBeenCalledTimes(1);
+      expect(saveRealmKeybinds).toHaveBeenCalledWith("demo-child-1", expect.objectContaining({ mount: ["KeyH"] }));
+      // The panel stays open: rebinding is not leaving it.
+      expect(screen.getByRole("dialog", { name: "How to play" })).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("Esc while listening cancels the listen and leaves the panel open", () => {
+    mount();
+    openControls();
+    fireEvent.click(screen.getByRole("button", { name: "Jump: Space. Press to change." }));
+    esc();
+    expect(screen.getByRole("dialog", { name: "How to play" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Jump: Space. Press to change." })).toBeInTheDocument();
+    esc();
+    expect(screen.getByRole("dialog", { name: "Paused" })).toBeInTheDocument();
+  });
+
+  it("a save that fails keeps the new keys for the visit, and says they weren't saved", async () => {
+    vi.mocked(saveRealmKeybinds).mockRejectedValueOnce(new Error("offline"));
+    vi.useFakeTimers();
+    try {
+      mount();
+      openControls();
+      fireEvent.click(screen.getByRole("button", { name: "Jump: Space. Press to change." }));
+      key("KeyJ");
+      await act(async () => void (await vi.advanceTimersByTimeAsync(1000)));
+      expect(screen.getByText(/Your keys work for now, but weren't saved\./)).toBeInTheDocument();
+      expect((handed.props!.router as InputRouter).keymap.jump).toEqual(["KeyJ"]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a visiting grown-up rebinds too (the server keeps theirs apart)", async () => {
+    vi.useFakeTimers();
+    try {
+      mount({ viewer: "parent", realm: { ...realm, isChildView: false } });
+      openControls();
+      fireEvent.click(screen.getByRole("button", { name: "Jump: Space. Press to change." }));
+      key("KeyJ");
+      await act(async () => void (await vi.advanceTimersByTimeAsync(1000)));
+      expect(saveRealmKeybinds).toHaveBeenCalledWith("demo-child-1", expect.objectContaining({ jump: ["KeyJ"] }));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("with no hero to save for, the keys are listed but not changeable", () => {
+    mount({ realm: { ...realm, childId: null } });
+    openControls();
+    expect(screen.queryByRole("button", { name: /Press to change/ })).toBeNull();
   });
 });

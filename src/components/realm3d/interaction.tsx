@@ -33,7 +33,7 @@ export function Interaction({
 }: {
   spots: readonly InteractSpot[];
   heroRef: React.RefObject<THREE.Vector3>;
-  /** The scene's key state. `interact` is set by the keydown handler and eaten here. */
+  /** The scene's key state. `interact` is set by the scene's interact subscription (the input router) and eaten here. */
   keys: React.RefObject<{ interact: boolean }>;
   bus: HudBus;
   world: RealmWorld;

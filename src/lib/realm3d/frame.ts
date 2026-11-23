@@ -14,6 +14,7 @@
 import { gateCopy, type GateCopy } from "@/lib/realm/play-clock";
 import { isQuiet, type AccessDenied, type AccessResult, type AccessSource } from "@/lib/utils/realm-access";
 import type { InteractTarget } from "./hud-bus";
+import { castAction, pressLine, primaryLabel, WALK_ACTIONS, type ActionId, type Keymap } from "./keymap";
 import type { PauseWhy } from "./pause";
 
 // Declared once, in realm-access.ts; re-exported for the frame's own importers.
@@ -148,7 +149,9 @@ export type Overlay =
   /** A hitching post's fast-travel sheet, from the post (a destination id) the child stands at. */
   | { kind: "travel"; from: string }
   /** The Ring's board at the arch: the child's record and a way to run it (a grown-up only looks). */
-  | { kind: "ring" };
+  | { kind: "ring" }
+  /** The big map of the whole island (`world-map.tsx`), opened with the map key from play. */
+  | { kind: "map" };
 
 /**
  * Esc. With nothing open it opens the pause menu; with a panel open it closes it — back to the
@@ -165,7 +168,7 @@ export function escapeFrom(overlay: Overlay | null): Overlay | null {
 /* ------------------------------------------------------------------ interact */
 
 /**
- * What the E prompt says. A person is talked to; everything else is looked at. The label is
+ * What the interact prompt says. A person is talked to; everything else is looked at. The label is
  * the scene's, already phrased for a sentence ("Old Bram", "the Chapel", "Cloudfoot").
  */
 export function interactVerb(target: InteractTarget): string {
@@ -175,61 +178,111 @@ export function interactVerb(target: InteractTarget): string {
 
 /* ------------------------------------------------------------------ controls */
 
-export type ControlRow = { keys: string[]; what: string };
+/**
+ * One line of the controls list. `keys` is what is drawn, as a child reads it ("W", "Space",
+ * "1–4", "Click"). `actions` is what a keyboard row covers, so the Controls panel can rebind it:
+ * the walk row covers the four walk actions (in `WALK_ACTIONS` order, while its keys are drawn
+ * W A S D, as they sit under the fingers), the cast row every page on the bar, the rest one each.
+ * A mouse row has none, and the pause row's Esc is not in it: Esc is never in the keymap.
+ *
+ * `editActions`, when a row has it, is what the row opens out to while its keys can be changed,
+ * in place of `actions`. Only the cast row has one: all nine spell keys, not just the bar's. A
+ * swap can move a key onto any cast action (Jump taken onto 6 on a four-page bar sends Space to
+ * Cast spell 6), and a key the list doesn't show is a key a child can't see or take back.
+ */
+export type ControlRow = { keys: string[]; what: string; actions?: readonly ActionId[]; editActions?: readonly ActionId[] };
+
+/** The walk keys as they sit under the fingers: forward over left, back and right. */
+function walkLabels(k: Keymap): { forward: string; left: string; back: string; right: string } {
+  return { forward: primaryLabel(k, "walkForward"), left: primaryLabel(k, "strafeLeft"), back: primaryLabel(k, "walkBack"), right: primaryLabel(k, "strafeRight") };
+}
+
+/** The cast actions for a bar of `slots` pages, 1 to 9. */
+function castActions(slots: number): ActionId[] {
+  const n = Math.max(1, Math.min(9, Math.floor(slots)));
+  return Array.from({ length: n }, (_, i) => castAction(i + 1)!);
+}
+
+/**
+ * The spell keys, as few labels as says them: "1–4" when they are a run of digits counting up,
+ * "1" for a one-page bar, and otherwise each key on its own ("1", "Q", "3").
+ */
+function castLabels(k: Keymap, slots: number): string[] {
+  const labels = castActions(slots).map((a) => primaryLabel(k, a));
+  const run = labels.every((l, i) => /^\d$/.test(l) && (i === 0 || Number(l) === Number(labels[i - 1]) + 1));
+  if (!run) return labels;
+  return [labels.length > 1 ? `${labels[0]}–${labels[labels.length - 1]}` : labels[0]];
+}
 
 /**
  * THE control scheme, in one list. The pause menu's Controls panel, the how-to-play card and
  * the hint strip under the spell bar all read it, so no surface can describe a key the scene
- * does not bind. Fixed with the scene: WASD relative to the camera, A and D strafe, S backs up,
- * a click catches the mouse as the camera (Esc lets it go), a right-drag looks while it is free,
- * the wheel zooms, Space jumps, E interacts, 1–N casts, P or Esc pauses.
+ * does not bind, and every key is the one the child has bound (`keymap.ts`), not the one the game
+ * shipped with. The mouse is fixed with the scene: a click catches it as the camera (Esc lets it
+ * go), a left drag swings the camera round the hero, a right drag looks while it is free, the
+ * wheel zooms. The map, the mount and the pet are listed for everyone: a child without a mount
+ * or pet is told how to get one, and a visiting grown-up what the key does for the hero.
  */
-export function controlRows(slots: number, opts: { mount?: boolean; pet?: string | false } = {}): ControlRow[] {
-  const n = Math.max(1, Math.min(9, Math.floor(slots)));
-  const rows: ControlRow[] = [
-    { keys: ["W", "A", "S", "D"], what: "Walk. A and D step sideways, S backs up." },
-    { keys: ["Space"], what: "Jump." },
+export function controlRows(k: Keymap, slots: number, opts: { mount?: boolean; pet?: string | false } = {}): ControlRow[] {
+  const walk = walkLabels(k);
+  const interact = primaryLabel(k, "interact");
+  const follow = primaryLabel(k, "follow");
+  return [
+    { keys: [walk.forward, walk.left, walk.back, walk.right], what: `Walk. ${walk.left} and ${walk.right} step sideways, ${walk.back} backs up.`, actions: [...WALK_ACTIONS] },
+    { keys: [primaryLabel(k, "jump")], what: "Jump.", actions: ["jump"] },
     { keys: ["Click"], what: "Look around with the mouse. Esc lets the mouse go." },
+    { keys: ["Left drag"], what: "Swing the camera round to see your hero's face." },
     { keys: ["Right drag"], what: "Look around without catching the mouse." },
     { keys: ["Wheel"], what: "Zoom in and out." },
-    { keys: ["E"], what: "Talk to someone, or look at something, when you are close." },
-    { keys: [n > 1 ? `1–${n}` : "1"], what: "Cast a spell. You can click a spell too." },
-    { keys: ["P", "Esc"], what: "Pause, with Controls and Leave." },
+    { keys: [interact], what: "Talk to someone, or look at something, when you are close.", actions: ["interact"] },
+    { keys: castLabels(k, slots), what: "Cast a spell. You can click a spell too.", actions: castActions(slots), editActions: castActions(9) },
+    { keys: [primaryLabel(k, "map")], what: "Open the map of the island.", actions: ["map"] },
+    // Riding (`riding.ts`).
+    {
+      keys: [primaryLabel(k, "mount")],
+      what:
+        opts.mount === undefined
+          ? "Your hero gets on or off their mount."
+          : opts.mount
+            ? `Get on or off your mount. ${pressLine(k, "interact", (e) => `On it, ${e} at a hitching post rides you anywhere you've been.`, "On it, a hitching post rides you anywhere you've been.")}`
+            : "Ride your mount, once you've picked one in the Tavern.",
+      actions: ["mount"],
+    },
+    // The companion leads (`lead.ts`).
+    {
+      keys: [follow],
+      what:
+        opts.pet === undefined
+          ? "Your hero's companion shows the way."
+          : opts.pet
+            ? `Ask your ${opts.pet} to show you the way: to whoever is waiting, or somewhere you haven't found yet.${pressLine(k, "follow", (f) => ` ${f} again to stop.`, "")}`
+            : "Your companion shows you the way, once you've picked one in the Tavern.",
+      actions: ["follow"],
+    },
+    { keys: [primaryLabel(k, "pause"), "Esc"], what: "Pause, with Controls and Leave.", actions: ["pause"] },
   ];
-  // Riding (`riding.ts`): for a child, always — with or without a mount, M says how it works.
-  if (opts.mount !== undefined) {
-    rows.splice(rows.length - 1, 0, {
-      keys: ["M"],
-      what: opts.mount ? "Get on or off your mount. On it, E at a hitching post rides you anywhere you've been." : "Ride your mount, once you've picked one in the Tavern.",
-    });
-  }
-  // The companion leads (`lead.ts`): for a child, always — with or without a pet, F says how it works.
-  if (opts.pet !== undefined) {
-    rows.splice(rows.length - 1, 0, {
-      keys: ["F"],
-      what: opts.pet
-        ? `Ask your ${opts.pet} to show you the way: to whoever is waiting, or somewhere you haven't found yet. F again to stop.`
-        : "Your companion shows you the way, once you've picked one in the Tavern.",
-    });
-  }
-  return rows;
 }
 
-/** The strip under the spell bar: the five verbs a child needs first, in the fewest words. */
-export function keyHints(slots: number, opts: { mount?: boolean; pet?: boolean } = {}): { key: string; what: string }[] {
-  const n = Math.max(1, Math.min(9, Math.floor(slots)));
+/**
+ * The strip under the spell bar: the verbs a child needs first, in the fewest words, with the
+ * keys they have bound. The map is always there; the mount only for a child who can ride, and
+ * the pet only for one who has a pet: a key that does nothing yet is clutter on this strip.
+ */
+export function keyHints(k: Keymap, slots: number, opts: { mount?: boolean; pet?: boolean } = {}): { key: string; what: string }[] {
+  const walk = walkLabels(k);
+  const four = [walk.forward, walk.left, walk.back, walk.right];
   const hints = [
-    { key: "WASD", what: "walk" },
+    // "WASD" reads as one word; keys with longer names ("Num 8") keep a space between them.
+    { key: four.join(four.every((l) => l.length === 1) ? "" : " "), what: "walk" },
     { key: "Click", what: "look" },
-    { key: "Space", what: "jump" },
-    { key: "E", what: "talk" },
-    { key: n > 1 ? `1–${n}` : "1", what: "cast" },
-    { key: "P", what: "pause" },
+    { key: primaryLabel(k, "jump"), what: "jump" },
+    { key: primaryLabel(k, "interact"), what: "talk" },
+    { key: castLabels(k, slots).join(" "), what: "cast" },
+    { key: primaryLabel(k, "map"), what: "map" },
   ];
-  // Only for a child who has a mount to ride: the strip stays five verbs for everyone else.
-  if (opts.mount) hints.splice(hints.length - 1, 0, { key: "M", what: "ride" });
-  // ...and for a child with a pet to follow.
-  if (opts.pet) hints.splice(hints.length - 1, 0, { key: "F", what: "follow" });
+  if (opts.mount) hints.push({ key: primaryLabel(k, "mount"), what: "ride" });
+  if (opts.pet) hints.push({ key: primaryLabel(k, "follow"), what: "follow" });
+  hints.push({ key: primaryLabel(k, "pause"), what: "pause" });
   return hints;
 }
 

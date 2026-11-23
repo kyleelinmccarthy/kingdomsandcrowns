@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { DEFAULT_REALM_SETTINGS } from "@/lib/utils/realm-settings";
 import { DEFAULT_SOUND } from "@/lib/realm3d/sound/settings";
+import { defaultKeymap, keymapFrom } from "@/lib/realm3d/keymap";
 import { EMPTY_WORKS, type Works } from "@/lib/realm/works-state";
 import type { Drawing } from "@/lib/utils/drawing";
 import { todayInZone } from "@/lib/utils/dates";
@@ -19,6 +20,8 @@ vi.mock("@/lib/auth/access", () => ({
 }));
 const loadRealmSound = vi.fn(async () => ({ ...DEFAULT_SOUND }));
 vi.mock("@/lib/services/realm-sound", () => ({ loadRealmSound: (...a: unknown[]) => (loadRealmSound as (...x: unknown[]) => unknown)(...a) }));
+const loadRealmKeybinds = vi.fn(async (): Promise<unknown> => defaultKeymap());
+vi.mock("@/lib/services/realm-keybinds", () => ({ loadRealmKeybinds: (...a: unknown[]) => (loadRealmKeybinds as (...x: unknown[]) => unknown)(...a) }));
 const loadPlacesFound = vi.fn(async (childId: string): Promise<string[]> => (childId ? ["farfurrow", "summit-6"] : []));
 vi.mock("@/lib/services/realm-places", () => ({ loadPlacesFound: (childId: string) => loadPlacesFound(childId) }));
 const loadRecentTroubleClears = vi.fn(async (childId: string) => childId ? [{ homeId: "rim-0", agoMs: 4_000 }] : []);
@@ -100,6 +103,8 @@ beforeEach(() => {
   loadRecentQuests.mockClear();
   family.timezone = "America/Chicago";
   loadRealmSound.mockClear();
+  loadRealmKeybinds.mockReset();
+  loadRealmKeybinds.mockImplementation(async () => defaultKeymap());
 });
 
 describe("getRealmBundle — who is looking", () => {
@@ -122,6 +127,26 @@ describe("getRealmBundle — who is looking", () => {
     const b = await getRealmBundle("c1");
     expect(b.canEdit).toBe(false);
     expect(loadRealmSound).toHaveBeenCalledWith("c1", "u-tutor");
+  });
+});
+
+describe("getRealmBundle — the keybinds", () => {
+  it("reads the hero's own for the hero, and the visitor's own for a grown-up", async () => {
+    requireChildAccess.mockResolvedValue(as("child:c1", "edit"));
+    await getRealmBundle("c1");
+    expect(loadRealmKeybinds).toHaveBeenLastCalledWith("c1", null);
+    requireChildAccess.mockResolvedValue(as("u-tutor", "view"));
+    await getRealmBundle("c1");
+    expect(loadRealmKeybinds).toHaveBeenLastCalledWith("c1", "u-tutor");
+  });
+
+  it("carries what was read, and falls back to the defaults when the read fails", async () => {
+    requireChildAccess.mockResolvedValue(as("u-mom", "edit"));
+    const mine = keymapFrom({ jump: ["KeyJ"] });
+    loadRealmKeybinds.mockResolvedValueOnce(mine);
+    expect((await getRealmBundle("c1")).keybinds).toEqual(mine);
+    loadRealmKeybinds.mockRejectedValueOnce(new Error("db down"));
+    expect((await getRealmBundle("c1")).keybinds).toEqual(defaultKeymap());
   });
 });
 

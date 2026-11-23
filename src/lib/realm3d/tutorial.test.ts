@@ -12,28 +12,38 @@ import {
   STORED_MAX,
   CORE_LESSONS,
   storedFromLessons,
-  TUTORIAL_DONE,
+  tutorialDone,
   tutorialLearned,
+  lessonKeys,
   type LessonContext,
 } from "./tutorial";
+import { bind, defaultKeymap, type ActionId, type Keymap } from "./keymap";
 
 const ctx: LessonContext = { waiting: "Old Bram", villagers: true, spell: { name: "Ember Bolt", key: 1 }, emptyPage: true };
 const at = (id: string) => LESSONS.findIndex((l) => l.id === id);
+const K = defaultKeymap();
+/** The words with the keys the game ships with. */
+const copyOf = (done: number, c: LessonContext) => lessonCopy(done, c, K);
+function rebound(action: ActionId, code: string, k: Keymap = defaultKeymap()): Keymap {
+  const r = bind(k, action, 0, code);
+  if (!r.ok) throw new Error("not bindable");
+  return r.keymap;
+}
 
 describe("the ladder", () => {
   it("teaches the real controls, in the order a child meets them", () => {
     expect(LESSONS.map((l) => l.id)).toEqual(["walk", "look", "jump", "find", "talk", "cast", "spells", "ride"]);
   });
 
-  it("teaches M only to a child with a mount, last, and counts the seven before it as learned", () => {
+  it("teaches riding only to a child with a mount, last, and counts the seven before it as learned", () => {
     const spells = LESSONS.findIndex((l) => l.id === "spells");
     const noMount = { ...ctx, mount: null };
     expect(advanceLesson(spells, { kind: "page" }, noMount)).toBe(LESSONS.length);
     const pony = { ...ctx, mount: "Pony" };
     const at = advanceLesson(spells, { kind: "page" }, pony);
     expect(LESSONS[at].id).toBe("ride");
-    expect(lessonCopy(at, pony)?.title).toBe("Ride your Pony!");
-    expect(lessonCopy(at, pony)?.how).toMatch(/Press M/);
+    expect(copyOf(at, pony)?.title).toBe("Ride your Pony!");
+    expect(copyOf(at, pony)?.how).toBe("Press Z to get on, and Z again to get off.");
     expect(advanceLesson(at, { kind: "rode" }, pony)).toBe(LESSONS.length);
     expect(tutorialLearned(storedFromLessons(CORE_LESSONS))).toBe(true);
   });
@@ -49,7 +59,7 @@ describe("the ladder", () => {
     d = advanceLesson(d, { kind: "page" }, ctx);
     expect(d).toBe(LESSONS.length);
     expect(currentLesson(d, ctx)).toBeNull();
-    expect(lessonCopy(d, ctx)).toBeNull();
+    expect(copyOf(d, ctx)).toBeNull();
   });
 
   it("does not finish walking on one key, however far, or on two keys and no distance", () => {
@@ -81,18 +91,18 @@ describe("the ladder", () => {
   it("accepts any villager when nobody in particular is waiting (a finished village)", () => {
     const done: LessonContext = { ...ctx, waiting: null };
     expect(advanceLesson(at("find"), { kind: "near", villager: true, waiting: false }, done)).toBe(at("find") + 1);
-    expect(lessonCopy(at("find"), done)?.title).toBe("Find a villager.");
+    expect(copyOf(at("find"), done)?.title).toBe("Find a villager.");
   });
 
   it("says where the gold ! is while it points at the plans board, and still takes any villager", () => {
     const plan: LessonContext = { ...ctx, waiting: null, planBeacon: true };
-    expect(lessonCopy(at("find"), plan)).toMatchObject({
+    expect(copyOf(at("find"), plan)).toMatchObject({
       title: "Find a villager.",
       how: "Anyone with a name over their head. The gold ! is on the plans board for now.",
     });
     expect(advanceLesson(at("find"), { kind: "near", villager: true, waiting: false }, plan)).toBe(at("find") + 1);
     // Without the beacon on a plan, the line is as it was.
-    expect(lessonCopy(at("find"), { ...ctx, waiting: null })?.how).toBe("Anyone with a name over their head.");
+    expect(copyOf(at("find"), { ...ctx, waiting: null })?.how).toBe("Anyone with a name over their head.");
   });
 });
 
@@ -111,8 +121,8 @@ describe("lessons the world cannot offer are stepped over, never shown", () => {
 
   it("a village whose villagers did not load says nothing for the villager lessons, but does not skip them", () => {
     const resting: LessonContext = { ...ctx, villagers: false };
-    expect(lessonCopy(at("find"), resting)).toBeNull();
-    expect(lessonCopy(at("talk"), resting)).toBeNull();
+    expect(copyOf(at("find"), resting)).toBeNull();
+    expect(copyOf(at("talk"), resting)).toBeNull();
     expect(settle(at("find"), resting)).toBe(at("find"));
   });
 });
@@ -127,13 +137,51 @@ describe("never trapped", () => {
 
 describe("the words", () => {
   it("names the villager and the real spell", () => {
-    expect(lessonCopy(at("find"), ctx)?.title).toBe("Find Old Bram.");
-    expect(lessonCopy(at("talk"), ctx)).toMatchObject({ title: "Talk to Old Bram.", how: "Stand close and press E." });
-    expect(lessonCopy(at("cast"), { ...ctx, spell: { name: "Tide Orb", key: 2 } })).toMatchObject({ title: "Cast Tide Orb.", how: "Press 2, or click the spell." });
+    expect(copyOf(at("find"), ctx)?.title).toBe("Find Old Bram.");
+    expect(copyOf(at("talk"), ctx)).toMatchObject({ title: "Talk to Old Bram.", how: "Stand close and press E." });
+    expect(copyOf(at("cast"), { ...ctx, spell: { name: "Tide Orb", key: 2 } })).toMatchObject({ title: "Cast Tide Orb.", how: "Press 2, or click the spell." });
+  });
+
+  it("names the keys the child has bound, not the ones the game shipped with", () => {
+    expect(lessonCopy(at("jump"), ctx, rebound("jump", "KeyJ"))?.how).toBe("Press J.");
+    expect(lessonCopy(at("talk"), ctx, rebound("interact", "KeyR"))?.how).toBe("Stand close and press R.");
+    expect(lessonCopy(at("cast"), { ...ctx, spell: { name: "Tide Orb", key: 2 } }, rebound("cast2", "KeyQ"))?.how).toBe("Press Q, or click the spell.");
+    const walk = rebound("strafeRight", "KeyL", rebound("strafeLeft", "KeyJ", rebound("walkBack", "KeyK", rebound("walkForward", "KeyI"))));
+    expect(lessonCopy(0, ctx, walk)?.how).toBe("I walks forward and K walks back. J and L step to the side.");
+    expect(lessonCopy(at("ride"), { ...ctx, spell: null, emptyPage: false, mount: "Pony" }, rebound("mount", "KeyG"))?.how).toBe("Press G to get on, and G again to get off.");
+  });
+
+  it("never says \"Press —\" for an action left with no key: it says where to set one", () => {
+    const none = (action: ActionId) => ({ ...defaultKeymap(), [action]: [] }) as Keymap;
+    expect(lessonCopy(at("jump"), ctx, none("jump"))?.how).toBe("Set a key for Jump in Controls.");
+    expect(lessonCopy(at("talk"), ctx, none("interact"))?.how).toBe("Set a key for Talk or look in Controls.");
+    expect(lessonCopy(at("cast"), { ...ctx, spell: { name: "Tide Orb", key: 2 } }, none("cast2"))?.how).toBe("Click the spell.");
+    expect(lessonCopy(at("ride"), { ...ctx, spell: null, emptyPage: false, mount: "Pony" }, none("mount"))?.how).toBe("Set a key for Get on or off your mount in Controls.");
+    expect(lessonCopy(0, ctx, none("walkBack"))?.how).toBe("Set a key for Walk back in Controls.");
+    expect(tutorialDone(none("pause"))).toBe("You know the Realm! Press Esc any time to pause.");
+  });
+
+  it("draws the keycaps from the keymap: the walk keys as they sit under the fingers, and the first spell's own key", () => {
+    const lesson = (id: string) => LESSONS.find((l) => l.id === id)!;
+    expect(lessonKeys(lesson("walk"), K)).toEqual(["W", "A", "S", "D"]);
+    expect(lessonKeys(lesson("jump"), K)).toEqual(["Space"]);
+    expect(lessonKeys(lesson("jump"), rebound("jump", "KeyJ"))).toEqual(["J"]);
+    expect(lessonKeys(lesson("find"), K)).toEqual([]);
+    expect(lessonKeys(lesson("talk"), K)).toEqual(["E"]);
+    expect(lessonKeys(lesson("cast"), K)).toEqual(["1"]);
+    expect(lessonKeys(lesson("cast"), K, { ...ctx, spell: { name: "Tide Orb", key: 2 } })).toEqual(["2"]);
+    expect(lessonKeys(lesson("spells"), K)).toEqual(["+"]);
+    expect(lessonKeys(lesson("ride"), K)).toEqual(["Z"]);
+  });
+
+  it("names no key for a first spell on a page no key casts (10 to 12): it is clicked", () => {
+    const late = { ...ctx, spell: { name: "Tide Orb", key: 10 } };
+    expect(copyOf(at("cast"), late)).toMatchObject({ title: "Cast Tide Orb.", how: "Click the spell." });
+    expect(lessonKeys(LESSONS.find((l) => l.id === "cast")!, K, late)).toEqual([]);
   });
 
   it("speaks the title and the how together", () => {
-    expect(lessonCopy(0, ctx)?.spoken).toBe("Walk around. W walks forward and S walks back. A and D step to the side.");
+    expect(copyOf(0, ctx)?.spoken).toBe("Walk around. W walks forward and S walks back. A and D step to the side.");
   });
 });
 
@@ -166,20 +214,25 @@ describe("persistence, above the flat tutorial's numbers", () => {
 });
 
 describe("what counts as looking round", () => {
-  it("counts the captured mouse moving and a right-drag, and not a free mouse passing over", () => {
+  it("counts the captured mouse moving, a right-drag and a left-drag, and not a free mouse passing over", () => {
     expect(countsAsLook(0, true)).toBe(true);
     expect(countsAsLook(2, false)).toBe(true);
+    expect(countsAsLook(1, false)).toBe(true);
     expect(countsAsLook(0, false)).toBe(false);
-    expect(countsAsLook(1, false)).toBe(false);
+    expect(countsAsLook(4, false)).toBe(false);
   });
 
   it("teaches the click, not a drag", () => {
-    expect(LESSONS.find((l) => l.id === "look")!.keys).toEqual(["Click"]);
+    expect(lessonKeys(LESSONS.find((l) => l.id === "look")!, K)).toEqual(["Click"]);
   });
 });
 
 describe("the closing line", () => {
   it("names both keys that pause, matching the key strip's \"P pause\"", () => {
-    expect(TUTORIAL_DONE).toBe("You know the Realm! Press P or Esc any time to pause.");
+    expect(tutorialDone(defaultKeymap())).toBe("You know the Realm! Press P or Esc any time to pause.");
+  });
+
+  it("names the pause key the child has, and Esc, which never moves", () => {
+    expect(tutorialDone(rebound("pause", "KeyO"))).toBe("You know the Realm! Press O or Esc any time to pause.");
   });
 });

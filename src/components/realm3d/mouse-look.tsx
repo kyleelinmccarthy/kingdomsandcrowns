@@ -4,7 +4,9 @@
  * The mouse on a canvas, the island's or a room's alike: `mouseLook` (`lib/realm3d/look-input.ts`)
  * bound to this canvas and the page, its looks turned into the camera's yaw and pitch by `lookBy`
  * (`controls.ts`) at the child's own settings (`bus.look`), the wheel into `zoomBy`, and the browser
- * freeing a captured mouse reported on the bus (`onLookFreed`) so the frame can pause.
+ * freeing a captured mouse reported on the bus (`onLookFreed`) so the frame can pause. A look that
+ * orbits (the left button) moves the camera like any other but never marks the view as turning
+ * (`held`, `lastLookAt`), so the body stays as it is (`LookState.orbiting`).
  *
  * Whichever canvas is drawing installs its own capture as the bus's `requestLook`, every frame: the
  * island stops drawing while a room is open, so Resume always asks the canvas the child is in.
@@ -19,8 +21,9 @@ import type { HudBus } from "@/lib/realm3d/hud-bus";
 const noop = () => {};
 
 /** A free function, so the view is never written to as a prop. */
-function markHeld(v: LookState, on: boolean): void {
+function markHeld(v: LookState, on: boolean, orbiting: boolean): void {
   v.held = on;
+  v.orbiting = orbiting;
 }
 
 export function MouseLook({
@@ -52,12 +55,15 @@ export function MouseLook({
       return v;
     };
     const l = mouseLook(gl.domElement, document, {
-      sink: (dx, dy) => {
+      sink: (dx, dy, mode) => {
         const v = hold();
         lookBy(orbit, dx, dy, bus.look, limits);
         yawRef.current = orbit.yaw;
         v.pitch = orbit.pitch;
-        v.lastLookAt = performance.now() / 1000;
+        // Only a turn asks the body to follow: an orbit swings round the hero and leaves them be.
+        // Written here as well as on the frame, so the hero never meets an orbit's first move as a turn.
+        v.orbiting = mode === "orbit";
+        if (mode === "turn") v.lastLookAt = performance.now() / 1000;
       },
       zoom: (deltaY) => {
         const v = hold();
@@ -80,7 +86,9 @@ export function MouseLook({
     const l = look.current;
     if (!l) return;
     l.tick(paused());
-    markHeld(view.current, l.captured || l.dragging);
+    // The mouse turns the camera (and the body with it) while captured with no left button, or in a
+    // right-drag; a left button orbits instead, and the body stays as it is.
+    markHeld(view.current, (l.captured && !l.orbiting) || l.dragging, l.orbiting);
     bus.setLookRequester(request.current);
   });
   return null;

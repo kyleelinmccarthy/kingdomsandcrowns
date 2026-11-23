@@ -12,9 +12,11 @@
  * a jar for the gleams, a ribbon for a best — the same things, drawn instead of counted.
  */
 
+import { useEffect } from "react";
 import { GameIcon } from "@/components/game-icon";
-import type { RecessBus } from "@/lib/realm3d/recess/bus";
-import { MAP_WINDOW } from "@/lib/realm3d/minimap";
+import { ringMapMarks, type RecessBus } from "@/lib/realm3d/recess/bus";
+import type { HudBus } from "@/lib/realm3d/hud-bus";
+import { glyphScaleFor, MAP_WINDOW } from "@/lib/realm3d/minimap";
 import { boardRows, formatLap, jarCaption, lampLine, nextMarkLine, parentArchLine, RING, WRITE_FAILED, WRITE_FAILED_AGAIN, type BoardRow, type RecessDepth } from "@/lib/realm/recess/copy";
 import { hasAnyRecord, JAR_CAPACITY, jarFillFor, lampsLitFor, type RecessRecord } from "@/lib/realm/recess/record";
 import { LAMP_COUNT } from "@/lib/realm3d/recess/lamps";
@@ -185,8 +187,14 @@ export function RecessError({ error, onRetry }: { error: string; onRetry: () => 
 /* ------------------------------------------------------------------ the map */
 
 /** The arch, always, as a gold hoop; and whichever mark is lit, as a pulsing ring (placed by the scene). */
-export function RecessMapMarks({ bus, calm = false }: { bus: RecessBus; calm?: boolean }) {
-  const glyph = MAP_WINDOW / 100;
+export function RecessMapMarks({ bus, calm = false, hud }: { bus: RecessBus; calm?: boolean; /** The HUD's bus: the big map reads the Ring from here. */ hud?: HudBus }) {
+  // The big map can't borrow the lit mark (placed each frame, one node slot), so it asks the run
+  // and the course the scene lights it from, once, as it opens.
+  useEffect(() => {
+    if (!hud) return;
+    return hud.addMapMarks(() => ringMapMarks(bus));
+  }, [hud, bus]);
+  const glyph = glyphScaleFor(MAP_WINDOW);
   const a = bus.course.arch;
   return (
     <g className={`r3-recess-map${calm ? " r3-recess--calm" : ""}`}>

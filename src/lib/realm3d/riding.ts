@@ -9,8 +9,9 @@
  *   - **How fast.** The mount's own `MountItem.speed` instead of the walk. The catalog's numbers
  *     are in the flat Realm's units (a hero walks 3.5 there); the island walks at 11, so every
  *     mount keeps its exact RATIO to walking — a Pony is still 1.29x a child's legs, a Wyrm 2x.
- *   - **No casting from the saddle.** The flat Realm refused a spell key while riding with
- *     "Dismount to cast." and so does this one, with the key that fixes it named.
+ *   - **A spell in the saddle gets you down.** The flat Realm refused a spell key while riding;
+ *     here the hero gets down and the spell goes off once they are on foot (`requestCast`). Only a
+ *     fast-travel ride refuses, because the road is not somewhere to stop.
  *   - **Mounting drops what you were doing.** 2D's `setMounted` cleared the walk target and the
  *     selected spell; here the short mount-up moment holds the mover still for the same reason.
  *
@@ -23,12 +24,14 @@
  *   - **Doors.** Riding into a building sets the child down at the door; the mount waits outside
  *     where they left it (`parkAt`). Every dismount parks: the mount stands where you got off.
  *
- * `RideBus` is the one mutable object the frame (`realm-game.tsx`, which owns the M key and the
- * words) and the canvas (`riding-scene.tsx`, which owns the hero's position and the frame loop)
+ * `RideBus` is the one mutable object the frame (`realm-game.tsx`, which owns the mount key and
+ * the words) and the canvas (`riding-scene.tsx`, which owns the hero's position and the frame loop)
  * share, exactly as `HudBus` and `TroubleBus` are shared: built once, never React state, written
  * through the free functions below so no component ever assigns through a prop.
  */
 
+import { pushCast, type CastQueue } from "./casting";
+import { keyLine } from "./keymap";
 import { findMount, getUnlockDescription, type AvatarConfig, type MountItem } from "@/lib/utils/avatar-catalog";
 import type { Collider, Pt } from "./collision";
 import { buried, freeSpot } from "./doorways";
@@ -122,7 +125,7 @@ export function rideAccess(avatar: Pick<AvatarConfig, "mount" | "mountColor"> | 
 }
 
 /**
- * What pressing M says when there is nothing to ride. Kind, and it says how a mount is EARNED —
+ * What the mount key says when there is nothing to ride. Kind, and it says how a mount is EARNED —
  * which is the real rule: the Pony and the Donkey are free to everyone and are chosen on the
  * Mount tab of the hero's look in the Tavern; the rest come from levels, a streak badge and
  * quest rewards (`MOUNTS` in the avatar catalog).
@@ -137,11 +140,30 @@ export function rideRefusal(access: Exclude<RideAccess, { ok: true }>, heroName:
   return "You don't have a mount yet! In the Tavern, open your hero's look and pick one on the Mount tab. The Pony and the Donkey are free, and more come with levels, streaks and quests.";
 }
 
-/** The flat Realm's "Dismount to cast.", with the key that does it. */
-export const CAST_FROM_SADDLE = "Get down to cast a spell. Press M.";
-/** Pressing M indoors. */
+/** A spell asked for on a fast-travel ride: the road is the one place it waits for. */
+export const CAST_ON_THE_ROAD = "Spells wait until the ride is over.";
+/** The mount key, indoors. */
 export function waitingOutside(label: string): string {
   return `Your ${label} is waiting outside.`;
+}
+/**
+ * The interact key at a hitching post on foot: fast travel is a ride, so get on first. `key` is
+ * the label of the mount key the child has bound ("Z"), or null when they have taken it away,
+ * and then the line says where to set one rather than "Press —".
+ */
+export function mountFirstLine(label: string, key: string | null): string {
+  return `Get on your ${label} first. ${keyLine(key, "mount", (z) => `Press ${z}.`)}`;
+}
+/**
+ * A fast-travel ride setting off, read aloud: any walk key pulls up. `keys` are the walk keys'
+ * labels, forward first, null for one with no key: those are left out, and with none at all
+ * the line just says where the ride is going.
+ */
+export function pullUpLine(where: string, keys: readonly (string | null)[]): string {
+  const bound = keys.filter((k): k is string => k !== null);
+  if (bound.length === 0) return `Riding to ${where}.`;
+  const said = bound.length > 1 ? `${bound.slice(0, -1).join(", ")} or ${bound[bound.length - 1]}` : bound[0];
+  return `Riding to ${where}. Press ${said} to pull up.`;
 }
 export const TOO_DEEP_TO_GET_DOWN = "Too deep to get down here. Ride to the shallows first.";
 
@@ -181,6 +203,8 @@ export type RideBus = {
   cam: number;
   /** A request from the frame, eaten by the scene: true get on, false get off. */
   want: boolean | null;
+  /** A spell slot (1..9) waiting for the ground, or 0: asked for in the saddle, cast once the hero is down. */
+  castAfter: number;
   /** Where the mount waits when nobody is on it. */
   parked: Parked;
   /** The hero, as the scene last saw them: what the frame parks at when the child goes indoors. */
@@ -256,6 +280,7 @@ export function makeRideBus(mount: RideMount | null, calm = false, visited: Iter
     hold: false,
     cam: 0,
     want: null,
+    castAfter: 0,
     parked: { on: false, x: 0, z: 0, yaw: 0 },
     at: { x: 0, z: 0, yaw: 0, depth: 0 },
     calm,
@@ -288,12 +313,51 @@ export function isRiding(ride: RideBus | null | undefined): boolean {
   return !!ride && (ride.phase === "on" || ride.phase === "up");
 }
 
-/** Whether a spell may go off right now: never from the saddle, never mid-moment. */
+/** Whether a spell must be refused right now: only on a fast-travel ride. */
 export function castBlocked(ride: RideBus | null | undefined): boolean {
-  return !!ride && ride.phase !== "off";
+  return !!ride && ride.travelling;
 }
 
-/** M, from the frame: get on if walking, off if riding. Ignored mid-moment and mid-ride. */
+/** What `requestCast` did with a spell key. */
+export type CastAsk = "cast" | "dismounting" | "travelling" | "empty";
+
+/**
+ * A spell key or click. On foot (or with no mount) it goes straight into the queue. In the
+ * saddle, or on the way into or out of it, the slot waits in `castAfter` and the hero gets down;
+ * the scene casts it when the dismount ends (`takeCastAfter`). A newer ask replaces an older one.
+ * On a fast-travel ride it is refused: the caller says why.
+ *
+ * `hasSpell` is whether that page holds a spell, which only the caller knows (it has the pages;
+ * this module stays free of them). A key for an empty page does nothing at all ("empty"): on
+ * foot the queue would skip it anyway, and in the saddle it must not put the hero on the ground
+ * for a spell that is never going to go off.
+ */
+export function requestCast(ride: RideBus | null | undefined, q: CastQueue, slot: number, hasSpell: boolean): CastAsk {
+  if (!hasSpell) return "empty";
+  if (castBlocked(ride)) return "travelling";
+  if (!ride || ride.phase === "off") {
+    pushCast(q, slot);
+    return "cast";
+  }
+  ride.castAfter = slot;
+  // Getting up or down is already under way: `stepRide` turns `up` round once it is `on`.
+  if (ride.phase === "on") ride.want = false;
+  return "dismounting";
+}
+
+/** The spell that was waiting for the ground, cleared as it is taken (0 for none). */
+export function takeCastAfter(ride: RideBus): number {
+  const n = ride.castAfter;
+  ride.castAfter = 0;
+  return n;
+}
+
+/** Forget a spell that was waiting: the hero is not going to be on foot after all. */
+export function dropCastAfter(ride: RideBus): void {
+  ride.castAfter = 0;
+}
+
+/** The mount key, from the frame: get on if walking, off if riding. Ignored mid-moment and mid-ride. */
 export function toggleRide(ride: RideBus): void {
   if (!ride.mount || ride.travelling) return;
   if (ride.phase === "off") ride.want = true;
@@ -316,6 +380,7 @@ export function askStop(ride: RideBus): void {
  * relative to the hero, in world units (the frame passes a step to the side of the door).
  */
 export function parkNow(ride: RideBus, dx = 0, dz = 0): boolean {
+  dropCastAfter(ride);
   if (ride.phase === "off") return false;
   const was = ride.phase === "on" || ride.phase === "up";
   // Through a door mid-way through a fast-travel ride: the ride ends here. Left running, it
@@ -370,6 +435,7 @@ export function stepRide(ride: RideBus, dt: number, depth: number): RideEvent {
     } else if (!want && ride.phase === "on") {
       if (!canGetDown(depth)) {
         event = "refused-deep";
+        dropCastAfter(ride);
       } else {
         ride.phase = "down";
         ride.t = 0;
@@ -386,6 +452,8 @@ export function stepRide(ride: RideBus, dt: number, depth: number): RideEvent {
       ride.phase = "on";
       ride.seat = 1;
       event = "mounted";
+      // A spell asked for while getting on: now that the hero is up, get down again for it.
+      if (ride.castAfter > 0) ride.want = false;
     }
   } else if (ride.phase === "down") {
     ride.t += dt;

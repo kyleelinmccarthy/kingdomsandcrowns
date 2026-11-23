@@ -14,6 +14,14 @@ import {
   spellbookHref,
   visitClockLine,
 } from "./frame";
+import { bind, defaultKeymap, WALK_ACTIONS, type ActionId, type Keymap } from "./keymap";
+
+const K = defaultKeymap();
+function rebound(action: ActionId, code: string, k: Keymap = defaultKeymap()): Keymap {
+  const r = bind(k, action, 0, code);
+  if (!r.ok) throw new Error("not bindable");
+  return r.keymap;
+}
 
 describe("the gate", () => {
   it("lets a child in against the minutes they have, and remembers why the gate is open", () => {
@@ -137,6 +145,10 @@ describe("Esc", () => {
     expect(escapeFrom({ kind: "ceremony" })).toBeNull();
   });
 
+  it("closes the big map straight back to the world", () => {
+    expect(escapeFrom({ kind: "map" })).toBeNull();
+  });
+
   it("always reaches the world in two presses at most", () => {
     const starts = [null, { kind: "pause" }, { kind: "howto", back: true }, { kind: "howto", back: false }, { kind: "page", slot: 1 }] as const;
     for (const s of starts) {
@@ -160,28 +172,111 @@ describe("the E prompt", () => {
 });
 
 describe("the controls", () => {
-  it("names the scheme the scene binds: a click catches the mouse, a right-drag looks, P and Esc pause, and Q is gone", () => {
-    const rows = controlRows(4);
+  it("names the scheme the scene binds: a click catches the mouse, a left drag swings round, P and Esc pause, and Q is gone", () => {
+    const rows = controlRows(K, 4);
     const keys = rows.flatMap((r) => r.keys);
-    expect(keys).toEqual(expect.arrayContaining(["W", "A", "S", "D", "Space", "E", "Click", "Right drag", "Wheel", "P", "Esc", "1–4"]));
-    expect(keys).not.toContain("Left drag");
+    expect(keys).toEqual(expect.arrayContaining(["W", "A", "S", "D", "Space", "E", "Click", "Left drag", "Right drag", "Wheel", "P", "Esc", "1–4"]));
     expect(keys).not.toContain("Q");
     expect(rows.find((r) => r.keys.includes("Click"))!.what).toBe("Look around with the mouse. Esc lets the mouse go.");
+    expect(rows.find((r) => r.keys.includes("Left drag"))!.what).toBe("Swing the camera round to see your hero's face.");
     expect(rows.find((r) => r.keys.includes("E"))!.what).toMatch(/talk/i);
   });
 
-  it("counts the cast keys off the bar, and never past 9", () => {
-    expect(controlRows(1).some((r) => r.keys.includes("1"))).toBe(true);
-    expect(controlRows(12).some((r) => r.keys.includes("1–9"))).toBe(true);
-    expect(keyHints(5).map((h) => h.key)).toContain("1–5");
+  it("lists the rows in one order: walk, jump, the mouse, E, the spells, the map, the mount, the pet, then pause", () => {
+    const rows = controlRows(K, 4, { mount: true, pet: "Fox" });
+    expect(rows.map((r) => r.keys.join(" "))).toEqual(["W A S D", "Space", "Click", "Left drag", "Right drag", "Wheel", "E", "1–4", "M", "Z", "F", "P Esc"]);
+    expect(rows[0].what).toBe("Walk. A and D step sideways, S backs up.");
   });
 
-  it("puts the look, E and P on the strip", () => {
-    const hints = keyHints(4);
+  it("never says \"— again to stop\" or \"— at a hitching post\" for a key taken away", () => {
+    const k = { ...defaultKeymap(), interact: [], follow: [] };
+    const rows = controlRows(k, 4, { mount: true, pet: "Fox" });
+    const what = rows.map((r) => r.what).join(" ");
+    expect(what).not.toContain("—");
+    expect(what).toContain("Get on or off your mount. On it, a hitching post rides you anywhere you've been.");
+    expect(what).toContain("Ask your Fox to show you the way: to whoever is waiting, or somewhere you haven't found yet.");
+  });
+
+  it("says which actions each keyboard row covers, and none for the mouse", () => {
+    const rows = controlRows(K, 4, { mount: true, pet: "Fox" });
+    const by = (key: string) => rows.find((r) => r.keys.includes(key))!;
+    expect(by("W").actions).toEqual([...WALK_ACTIONS]);
+    expect(by("Space").actions).toEqual(["jump"]);
+    expect(by("E").actions).toEqual(["interact"]);
+    expect(by("1–4").actions).toEqual(["cast1", "cast2", "cast3", "cast4"]);
+    // Changing keys, the cast row opens out to all nine, so a key swapped onto a spell past the
+    // bar is still on the list to see and take back.
+    expect(by("1–4").editActions).toEqual(["cast1", "cast2", "cast3", "cast4", "cast5", "cast6", "cast7", "cast8", "cast9"]);
+    expect(by("W").editActions).toBeUndefined();
+    expect(by("M").actions).toEqual(["map"]);
+    expect(by("Z").actions).toEqual(["mount"]);
+    expect(by("F").actions).toEqual(["follow"]);
+    expect(by("P").actions).toEqual(["pause"]);
+    for (const mouse of ["Click", "Left drag", "Right drag", "Wheel"]) expect(by(mouse).actions).toBeUndefined();
+  });
+
+  it("names the key the child bound, not the one the game shipped with", () => {
+    const rows = controlRows(rebound("jump", "KeyJ"), 4);
+    expect(rows.find((r) => r.actions?.includes("jump"))!.keys).toEqual(["J"]);
+    const walk = rebound("strafeRight", "KeyL", rebound("strafeLeft", "KeyJ", rebound("walkBack", "KeyK", rebound("walkForward", "KeyI"))));
+    const row = controlRows(walk, 4)[0];
+    expect(row.keys).toEqual(["I", "J", "K", "L"]);
+    expect(row.what).toBe("Walk. J and L step sideways, K backs up.");
+    const pet = controlRows(rebound("follow", "KeyG"), 4, { pet: "Fox" }).find((r) => r.actions?.includes("follow"))!;
+    expect(pet.keys).toEqual(["G"]);
+    expect(pet.what).toMatch(/G again to stop\.$/);
+    const saddle = controlRows(rebound("interact", "KeyR"), 4, { mount: true }).find((r) => r.actions?.includes("mount"))!;
+    expect(saddle.what).toMatch(/On it, R at a hitching post/);
+    expect(controlRows(rebound("pause", "KeyO"), 4).at(-1)!.keys).toEqual(["O", "Esc"]);
+  });
+
+  it("shows a visitor the map, the mount and the pet, saying what each does for the hero", () => {
+    const rows = controlRows(K, 4);
+    const by = (a: ActionId) => rows.find((r) => r.actions?.includes(a));
+    expect(by("map")).toMatchObject({ keys: ["M"], what: "Open the map of the island." });
+    expect(by("mount")).toMatchObject({ keys: ["Z"], what: "Your hero gets on or off their mount." });
+    expect(by("follow")).toMatchObject({ keys: ["F"], what: "Your hero's companion shows the way." });
+  });
+
+  it("counts the cast keys off the bar, and never past 9", () => {
+    expect(controlRows(K, 1).some((r) => r.keys.includes("1"))).toBe(true);
+    expect(controlRows(K, 12).some((r) => r.keys.includes("1–9"))).toBe(true);
+    expect(keyHints(K, 5).map((h) => h.key)).toContain("1–5");
+  });
+
+  it("lists each cast key when they are not a run of digits", () => {
+    const k = rebound("cast2", "KeyQ");
+    expect(controlRows(k, 3).find((r) => r.actions?.includes("cast1"))!.keys).toEqual(["1", "Q", "3"]);
+    expect(keyHints(k, 3).find((h) => h.what === "cast")!.key).toBe("1 Q 3");
+    // Digits still, but out of order: listed, not a range.
+    const swapped = rebound("cast1", "Digit2");
+    expect(controlRows(swapped, 2).find((r) => r.actions?.includes("cast1"))!.keys).toEqual(["2", "1"]);
+  });
+
+  it("puts the look, E, the map and P on the strip", () => {
+    const hints = keyHints(K, 4);
+    expect(hints.find((h) => h.key === "WASD")!.what).toBe("walk");
     expect(hints.find((h) => h.key === "Click")!.what).toBe("look");
     expect(hints.find((h) => h.key === "E")!.what).toBe("talk");
     expect(hints.find((h) => h.key === "P")!.what).toBe("pause");
     expect(hints.map((h) => h.key)).not.toContain("Q");
+  });
+
+  it("always shows the map on the strip, the mount only with one to ride, the pet only with one to follow", () => {
+    const hints = keyHints(defaultKeymap(), 3, {});
+    expect(hints).toContainEqual({ key: "M", what: "map" });
+    expect(hints.map((h) => h.key)).not.toContain("Z");
+    expect(hints.map((h) => h.key)).not.toContain("F");
+    const both = keyHints(K, 3, { mount: true, pet: true });
+    expect(both).toContainEqual({ key: "Z", what: "ride" });
+    expect(both).toContainEqual({ key: "F", what: "follow" });
+    expect(both.at(-1)).toEqual({ key: "P", what: "pause" });
+  });
+
+  it("names the bound keys on the strip", () => {
+    const hints = keyHints(rebound("map", "KeyN", rebound("jump", "KeyJ")), 3, {});
+    expect(hints).toContainEqual({ key: "J", what: "jump" });
+    expect(hints).toContainEqual({ key: "N", what: "map" });
   });
 });
 

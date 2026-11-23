@@ -15,7 +15,7 @@ export const REALM_SETTINGS_DDL = [
     side_quest_length integer DEFAULT 8 NOT NULL, second_chances integer DEFAULT true NOT NULL,
     daily_allowance_minutes integer DEFAULT 10 NOT NULL, minutes_per_star integer DEFAULT 1 NOT NULL,
     side_quest_daily_cap_minutes integer DEFAULT 15 NOT NULL, bank_cap_minutes integer DEFAULT 30 NOT NULL,
-    sound text, mechanics text, materials_per_quest integer DEFAULT 1 NOT NULL,
+    sound text, keybinds text, mechanics text, materials_per_quest integer DEFAULT 1 NOT NULL,
     show_minutes_on_quests integer DEFAULT false NOT NULL, pinned_plan text, delivery_seen_at integer, regraded_at integer,
     created_at integer NOT NULL, updated_at integer NOT NULL)`,
 ];

@@ -30,10 +30,10 @@ import * as THREE from "three";
 import type { Prop } from "@/lib/realm/layout";
 import { CASTLE_TIERS, GATE_FRONT, type CastlePlan } from "@/lib/realm3d/castle-plan";
 import { HERO_RADIUS, supportHeight, type Collider, type Pt } from "@/lib/realm3d/collision";
-import { chaseShot, makeMoveIntent, moveIntent, wrapAngle, type CamRide, type LookState, type MoveIntent, type MoveKeys } from "@/lib/realm3d/controls";
+import { chaseShot, makeMoveIntent, moveIntent, walkYaw, wrapAngle, type CamRide, type LookState, type MoveIntent, type MoveKeys } from "@/lib/realm3d/controls";
 import { buildDoors, buried, doorAhead, exitSpot, freeSpot, DOOR_DWELL, type Door } from "@/lib/realm3d/doorways";
 import type { HudBus } from "@/lib/realm3d/hud-bus";
-import { camOffsets, rideFace, rideRadius, type RideBus } from "@/lib/realm3d/riding";
+import { camOffsets, isRiding, rideFace, rideRadius, type RideBus } from "@/lib/realm3d/riding";
 import { bodyFor, bodyReach } from "@/lib/realm3d/mount-body";
 import type { RealmWorld } from "@/lib/realm3d/worldgen";
 import { LENS_HERO } from "./geo-kit";
@@ -44,6 +44,7 @@ export function Doorstep({
   bus,
   heroRef,
   yawRef,
+  facingRef,
   aimRef,
   keys,
   view,
@@ -59,6 +60,8 @@ export function Doorstep({
   bus: HudBus;
   heroRef: React.RefObject<THREE.Vector3>;
   yawRef: React.RefObject<number>;
+  /** The hero's facing: with the camera swung round, the walk goes by it (`walkYaw`). Read, never written. */
+  facingRef: React.RefObject<number>;
   aimRef: React.RefObject<number>;
   keys: React.RefObject<MoveKeys>;
   /** The child's own camera — its pitch and length — to frame them as they come out. Read, never written. */
@@ -132,7 +135,8 @@ export function Doorstep({
 
     /* ---- walking into a door ------------------------------------------- */
     const k = keys.current;
-    moveIntent(intent, yawRef.current, k);
+    // The same walk the hero takes (`walkYaw`), so the door it pushes at is the one it walks into.
+    moveIntent(intent, walkYaw(yawRef.current, facingRef.current, view.current.orbiting, isRiding(ride)), k);
     // Riding, the push counts from the mount's nose (or rump, backing in), which is what reaches the door.
     const reach = bodyReach(bodyFor(ride), rideFace(ride, intent), 0, -1, HERO_RADIUS);
     const i = intent.moving ? doorAhead(doors, p.x, p.z, intent.x, intent.z, reach) : -1;

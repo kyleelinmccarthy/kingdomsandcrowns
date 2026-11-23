@@ -1118,12 +1118,20 @@ export const ALREADY_COPY = "This one already gave you a minute today.";
  * its day's tally replaces the visit's, since clears are kept now. `clearCount` is the depth's
  * say (`surfacesFor(...).clearCount`): the running tally is a full-view surface, so at simple
  * depth a clear says where, and the reward, but no count (spec §6).
+ *
+ * `cast` is what the "sighted" line can tell the child about casting: null while they have no
+ * spell yet, else the label of a key that casts one. That key is the bound key's label, read
+ * through the keymap by the caller, never the page's number: a child who moved Cast spell 1 to Q
+ * is told Q, and a spell on page ten, or one whose key was taken away, has no key at all, so the
+ * line asks for a click instead of naming a key that does nothing.
  */
+export type CastHint = { key: string | null } | null;
+
 export function troubleNotice(
   e: Pick<TroubleEvent, "kind" | "trouble" | "count">,
   skin: TroubleSkin,
   placeName: string | null,
-  castKey: number | null,
+  cast: CastHint,
   reward: ClearReward | null = null,
   clearCount = true,
 ): { title: string; line: string; reward?: string } | null {
@@ -1145,7 +1153,7 @@ export function troubleNotice(
     case "sighted":
       return {
         title: SIGHT_COPY[e.trouble][skin],
-        line: castKey ? `Press ${castKey} to cast at it.` : "Earn a spell to clear it.",
+        line: !cast ? "Earn a spell to clear it." : cast.key ? `Press ${cast.key} to cast at it.` : "Click a spell to cast at it.",
       };
     case "hit":
       // Only a stone takes two, so a hit that did not clear is the moment a child needs telling

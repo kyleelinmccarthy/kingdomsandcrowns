@@ -20,47 +20,22 @@ import { Avatar } from "@/components/avatar";
 import { GameIcon } from "@/components/game-icon";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
 import { keyHints } from "@/lib/realm3d/frame";
+import { castAction, defaultKeymap, primaryLabel, type Keymap } from "@/lib/realm3d/keymap";
 import { keepFocusInWorld } from "./frame-hud";
 import type { SpellPageView } from "@/lib/realm/spells/pages";
 import { MANA_MAX, REFUSAL_MS } from "@/lib/realm3d/casting";
 import type { HudBus } from "@/lib/realm3d/hud-bus";
 import { NO_GOAL, type Goal } from "@/lib/realm3d/guide";
-import { BAKE_N, mapShade, MAP_WINDOW } from "@/lib/realm3d/minimap";
+import { glyphScaleFor, MAP_VIEW, MAP_WINDOW } from "@/lib/realm3d/minimap";
 import type { PlateAnchor } from "@/lib/realm3d/plate-anchors";
 import { PlateStars } from "./plate-stars";
-import { BIOME_COLORS, WORLD_HALF, type RealmWorld } from "@/lib/realm3d/worldgen";
+import type { RealmWorld } from "@/lib/realm3d/worldgen";
+import { MapLayers, useBakedLand, YOU_GLYPH } from "./map-layers";
 
 /* ------------------------------------------------------------------ the map */
 
-/** The map's own viewBox. 100 units square; CSS decides how many pixels that is. */
-const MAP = 100;
-/** viewBox units per world unit, and its reciprocal for counter-scaling fixed-size glyphs. */
-const MAP_SCALE = MAP / MAP_WINDOW;
-const GLYPH_SCALE = 1 / MAP_SCALE;
-
-/**
- * One silhouette per kind of place, so a child tells a summit from a cove without a legend —
- * the same argument the flat Realm's map made for its five glyphs, applied to seven kinds.
- * Drawn in a ±3.4 box and counter-scaled, so a glyph is the same size however the map pans.
- */
-const PLACE_GLYPH: Record<string, string> = {
-  // A peak.
-  summit: "M0,-3.6 L3.4,3 L-3.4,3 Z",
-  // Three trees crowded together.
-  deepwood: "M0,-3.6 L2.2,0.4 L1.1,0.4 L2.6,3.2 L-2.6,3.2 L-1.1,0.4 L-2.2,0.4 Z",
-  // Still water: a flat lens.
-  tarn: "M-3.4,0 A3.4,2.1 0 0,1 3.4,0 A3.4,2.1 0 0,1 -3.4,0 Z",
-  // A bay bitten out of the coast.
-  cove: "M-3.4,-2.6 L3.4,-2.6 A3.4,3.4 0 0,1 -3.4,-2.6 Z",
-  // Reeds.
-  mire: "M-3,3 L-3,-1 M0,3 L0,-3.4 M3,3 L3,-1",
-  // A broken tooth of rock.
-  outcrop: "M-3.2,3.2 L-1.4,-3.4 L0.4,0.2 L1.6,-2.4 L3.2,3.2 Z",
-  // One of the five places the flat Realm authored, carried through: a ring, because it is
-  // somewhere to GO rather than something to do. The same reasoning, and the same shape, as
-  // `realm-minimap.tsx` — a child who has played the flat Realm already knows this mark.
-  place: "M0,-3.2 A3.2,3.2 0 1,1 0,3.2 A3.2,3.2 0 1,1 0,-3.2 Z",
-};
+/** The map's own viewBox, 100 units square (`MAP_VIEW`), so the compass and the rim sit in it. */
+const MAP = MAP_VIEW;
 
 /** The four points of the compass, just inside the rim. */
 const COMPASS = [
@@ -70,73 +45,10 @@ const COMPASS = [
   { letter: "W", x: 7, y: MAP / 2 },
 ] as const;
 
-/** Home: a keep with crenellations, the biggest mark on the map because it is where you live. */
-const CASTLE_GLYPH = "M-4.6,3.4 L-4.6,-1.4 L-3.2,-1.4 L-3.2,-3 L-1.8,-3 L-1.8,-1.4 L1.8,-1.4 L1.8,-3 L3.2,-3 L3.2,-1.4 L4.6,-1.4 L4.6,3.4 Z";
-/** You: a fat kite, pointing where the next step goes. */
-const YOU_GLYPH = "M0,-6 L4.1,3.6 L0,1.4 L-4.1,3.6 Z";
 /** An arrow pinned to the rim for home when it is off the window. */
 const RIM_GLYPH = "M0,-4.6 L3.4,2.6 L-3.4,2.6 Z";
-/** The goal: a gold disc with a !, the same mark that floats over the villager in the world. */
-const GOAL_BANG = "M-0.7,-3 L0.7,-3 L0.45,0.9 L-0.45,0.9 Z M0,1.7 A0.75,0.75 0 1,1 0,3.2 A0.75,0.75 0 1,1 0,1.7 Z";
 /** Which way the camera is looking: a wedge out of the middle of the map. */
 const CONE_GLYPH = "M0,0 L-13,-26 A29,29 0 0,1 13,-26 Z";
-
-/**
- * Paints the island into a bitmap, in bands, off the frame loop.
- *
- * The island's ground is a noise field, so there is no list of rectangles for the map to trace
- * the way the flat Realm's map traced `layout.terrain` — the only honest map of a generated
- * surface is a picture of it. Twenty-five thousand `biomeAt` calls is about six times that
- * many noise queries, which is far too much for one frame, so it goes out in bands of eight
- * rows on `setTimeout(0)`: the map shows its roads and its marks immediately and the land
- * arrives over the next second, and no frame is ever long.
- */
-function useBakedLand(world: RealmWorld): string | null {
-  const [url, setUrl] = useState<string | null>(null);
-  useEffect(() => {
-    const canvas = document.createElement("canvas");
-    canvas.width = BAKE_N;
-    canvas.height = BAKE_N;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    const step = (2 * WORLD_HALF) / BAKE_N;
-    let row = 0;
-    let timer = 0;
-    let cancelled = false;
-    const band = () => {
-      if (cancelled) return;
-      const end = Math.min(BAKE_N, row + 8);
-      for (; row < end; row++) {
-        const z = -WORLD_HALF + (row + 0.5) * step;
-        for (let col = 0; col < BAKE_N; col++) {
-          const x = -WORLD_HALF + (col + 0.5) * step;
-          const biome = world.biomeAt(x, z);
-          // Darkened, so the gold marks and the parchment names read on top of it. The colours
-          // themselves are the GROUND's own, so the map cannot drift from the island.
-          // Barely darkened. The first pass took the ground colours down to 0.64 and the
-          // island came out as one olive smudge with grey smears on it — the heath, the moor
-          // and the crags are all mid-greys to begin with, and dimming them killed the only
-          // thing separating them from the wood. At 0.85 the biomes read apart and the gold
-          // marks and cream roads still sit clearly on top; the sea is left alone, because a
-          // map whose water is not obviously water is not a map of an island.
-          ctx.fillStyle = mapShade(BIOME_COLORS[biome], biome === "ocean" ? 1 : 0.85);
-          ctx.fillRect(col, row, 1, 1);
-        }
-      }
-      if (row < BAKE_N) {
-        timer = window.setTimeout(band, 0);
-        return;
-      }
-      setUrl(canvas.toDataURL("image/png"));
-    };
-    timer = window.setTimeout(band, 0);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
-  }, [world]);
-  return url;
-}
 
 function Minimap({
   bus,
@@ -157,14 +69,6 @@ function Minimap({
   goal: Goal;
 }) {
   const land = useBakedLand(world);
-  const roads = useMemo(
-    () =>
-      world.roads.map((r) => ({
-        id: r.id,
-        d: r.points.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.z.toFixed(1)}`).join(" "),
-      })),
-    [world],
-  );
 
   return (
     <div className="r3-map" aria-hidden="true">
@@ -183,44 +87,9 @@ function Minimap({
             positioning twenty marks individually would be twenty writes a frame.
           */}
           <g ref={(el) => bus.setNode("mapWorld", el)}>
-            {land && (
-              <image
-                href={land}
-                x={-WORLD_HALF}
-                y={-WORLD_HALF}
-                width={WORLD_HALF * 2}
-                height={WORLD_HALF * 2}
-                preserveAspectRatio="none"
-              />
-            )}
-            {roads.map((r) => (
-              <path key={r.id} className="r3-map-road" d={r.d} strokeWidth={4} />
-            ))}
-            {world.landmarks.map((l) => (
-              <g key={l.id} transform={`translate(${l.position.x} ${l.position.z}) scale(${GLYPH_SCALE})`}>
-                <path
-                  className={`r3-map-place r3-map-place--${l.kind}${found.has(l.id) ? " r3-map-place--found" : ""}`}
-                  d={PLACE_GLYPH[l.kind] ?? PLACE_GLYPH.place}
-                />
-              </g>
-            ))}
-            {castle && (
-              <g transform={`translate(0 -14) scale(${GLYPH_SCALE})`}>
-                <path className="r3-map-home" d={CASTLE_GLYPH} />
-              </g>
-            )}
-            {/*
-              The one thing on the map that says GO HERE. Drawn last in the world group so no
-              road or place sits on top of it, at the villager's own position, so it pans with
-              the land for free.
-            */}
-            {extras}
-            {goal.on && (
-              <g className="r3-map-goal" transform={`translate(${goal.x} ${goal.z}) scale(${GLYPH_SCALE})`}>
-                <circle r={4.6} />
-                <path d={GOAL_BANG} />
-              </g>
-            )}
+            <MapLayers world={world} land={land} found={found} castle={castle} goal={goal} glyphScale={glyphScaleFor(MAP_WINDOW)}>
+              {extras}
+            </MapLayers>
           </g>
           {/* Fixed to the middle of the map, because the child is always the middle of it. */}
           <g ref={(el) => bus.setNode("mapCone", el)} transform={`translate(${MAP / 2} ${MAP / 2})`}>
@@ -266,7 +135,8 @@ function Minimap({
  * The bar, and the keys it binds. Four pages for a new hero, five from level 10 —
  * `withEmptyPages` has already padded the book to the child's real slot count, so the number
  * of keycaps drawn is the number of keys the scene listens for, and neither can drift from the
- * other.
+ * other. Each keycap is the key the child has bound to that page (`keymap`), 1 to 9 until they
+ * move one.
  *
  * An empty page is drawn, not hidden. A bar with one tile on it says "this game has one
  * spell"; a bar with one tile and three waiting pages says "there are more, go and earn them",
@@ -279,9 +149,11 @@ function SpellBar({
   onCast,
   onEmptyPage,
   extra,
+  keymap,
 }: {
   bus: HudBus;
   pages: SpellPageView[];
+  keymap: Keymap;
   shake: number;
   onCast: (slot: number) => void;
   onEmptyPage: (slot: number) => void;
@@ -292,6 +164,11 @@ function SpellBar({
     <div className="r3-bar" role="toolbar" aria-label="Spells" style={{ ["--r3-slots" as string]: String(pages.length) }}>
       {pages.map((page, i) => {
         const key = i + 1;
+        // The page's own key, as the child has bound it ("1", or "Q" if they moved it). Pages 10
+        // to 12 have no key (there are nine cast actions): they are clicked, and draw no keycap
+        // rather than one that points at another page's key.
+        const action = castAction(key);
+        const cap = action ? primaryLabel(keymap, action) : null;
         if (!page.spell) {
           /*
             A button, not a picture of one. "The other spells having a plus icon on them but
@@ -309,7 +186,7 @@ function SpellBar({
               onMouseDown={keepFocusInWorld}
               onClick={() => onEmptyPage(page.slot)}
             >
-              <span className="r3-slot-key">{key}</span>
+              {cap !== null && <span className="r3-slot-key">{cap}</span>}
               <span className="r3-slot-seal">+</span>
               <span className="r3-slot-name">{page.empty ? "Get a spell" : "Faded"}</span>
             </button>
@@ -322,13 +199,13 @@ function SpellBar({
             ref={(el) => bus.setSlot(i, "root", el)}
             className={`r3-slot${shake === key ? " r3-slot--refused" : ""}`}
             style={{ ["--r3-ink" as string]: page.color }}
-            aria-label={`${page.name}, ${page.spell.manaCost} mana, key ${key}`}
+            aria-label={`${page.name}, ${page.spell.manaCost} mana${cap !== null ? `, key ${cap}` : ""}`}
             // A click casts, exactly as the number key does: the same queue, the same frame,
             // the same refusal if the page is resting or the mana is short.
             onMouseDown={keepFocusInWorld}
             onClick={() => onCast(key)}
           >
-            <span className="r3-slot-key">{key}</span>
+            {cap !== null && <span className="r3-slot-key">{cap}</span>}
             {page.icon && <GameIcon name={page.icon} className="r3-slot-icon" />}
             <span className="r3-slot-name">{page.name}</span>
             <span className="r3-slot-cost">{page.spell.manaCost}</span>
@@ -438,6 +315,7 @@ export function RealmHud({
   found: foundKept,
   onFound,
   numerals = false,
+  keymap = defaultKeymap(),
 }: {
   bus: HudBus;
   world: RealmWorld;
@@ -464,7 +342,7 @@ export function RealmHud({
   mapExtras?: ReactNode;
   /** Extra slots at the end of the spell bar: the Ride slot. */
   barExtra?: ReactNode;
-  /** Whether M rides: the key strip names it. */
+  /** Whether the mount key rides: the key strip names it. */
   mountKey?: boolean;
   /** The strip shows F (follow your pet) for a child with a companion. */
   petKey?: boolean;
@@ -478,6 +356,8 @@ export function RealmHud({
   onFound?: (id: string) => void;
   /** Full depth: the plates' stars say "7 of 9"; simple depth draws the marks alone. */
   numerals?: boolean;
+  /** The keys the child has bound: the spell keycaps and the key strip name them. */
+  keymap?: Keymap;
 }) {
   const [foundHere, setFound] = useState<ReadonlySet<string>>(() => new Set<string>());
   const found = foundKept ?? foundHere;
@@ -562,10 +442,10 @@ export function RealmHud({
               {MANA_MAX} / {MANA_MAX}
             </span>
           </div>
-          <SpellBar bus={bus} pages={pages} shake={shake} onCast={onCast} onEmptyPage={onEmptyPage} extra={barExtra} />
+          <SpellBar bus={bus} pages={pages} shake={shake} onCast={onCast} onEmptyPage={onEmptyPage} extra={barExtra} keymap={keymap} />
           <p className="r3-keys">
-            {keyHints(pages.length, { mount: mountKey, pet: petKey }).map((h, i) => (
-              <span key={h.key}>
+            {keyHints(keymap, pages.length, { mount: mountKey, pet: petKey }).map((h, i) => (
+              <span key={h.what}>
                 {i > 0 && " · "}
                 <b>{h.key}</b> {h.what}
               </span>

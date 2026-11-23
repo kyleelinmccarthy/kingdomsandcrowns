@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MOUNTS, DEFAULT_AVATAR } from "@/lib/utils/avatar-catalog";
+import { makeCastQueue } from "./casting";
 import { WADE_DEPTH, wadeSpeed } from "./shore";
 import { JUMP_SPEED, GRAVITY } from "./jump";
 import {
@@ -7,11 +8,16 @@ import {
   camOffsets,
   canGetDown,
   castBlocked,
-  CAST_FROM_SADDLE,
+  CAST_ON_THE_ROAD,
+  dropCastAfter,
+  requestCast,
+  takeCastAfter,
   DISMOUNT_S,
   isRiding,
   jumpSpeed,
   makeRideBus,
+  mountFirstLine,
+  pullUpLine,
   MOUNT_AIR_CARRY,
   MOUNT_JUMP_SPEED,
   MOUNT_UP_S,
@@ -82,6 +88,21 @@ describe("who rides", () => {
     const visitor = rideAccess({ mount: "pony", mountColor: "#fff" }, ["pony"], "parent");
     if (visitor.ok) throw new Error("expected a refusal");
     expect(rideRefusal(visitor, "Emma")).toMatch(/Emma's to ride/);
+  });
+});
+
+describe("the words that name a key", () => {
+  it("names the mount key the child has, at a hitching post on foot", () => {
+    expect(mountFirstLine("Pony", "Z")).toBe("Get on your Pony first. Press Z.");
+    expect(mountFirstLine("Pony", "G")).toBe("Get on your Pony first. Press G.");
+    expect(mountFirstLine("Pony", null)).toBe("Get on your Pony first. Set a key for Get on or off your mount in Controls.");
+  });
+
+  it("names the walk keys the child has as a ride sets off", () => {
+    expect(pullUpLine("the Mill", ["W", "A", "S", "D"])).toBe("Riding to the Mill. Press W, A, S or D to pull up.");
+    expect(pullUpLine("the Mill", ["I", "J", "K", "L"])).toBe("Riding to the Mill. Press I, J, K or L to pull up.");
+    expect(pullUpLine("the Mill", ["W", null, "S", "D"])).toBe("Riding to the Mill. Press W, S or D to pull up.");
+    expect(pullUpLine("the Mill", [null, null, null, null])).toBe("Riding to the Mill.");
   });
 });
 
@@ -254,13 +275,15 @@ describe("getting on and off", () => {
 });
 
 describe("what riding changes", () => {
-  it("no spells from the saddle — the flat Realm's rule", () => {
+  it("only a fast-travel ride blocks a spell", () => {
     const ride = makeRideBus(pony);
     expect(castBlocked(ride)).toBe(false);
     toggleRide(ride);
-    stepRide(ride, 0.05, 0);
+    run(ride, 1);
+    expect(castBlocked(ride)).toBe(false);
+    ride.travelling = true;
     expect(castBlocked(ride)).toBe(true);
-    expect(CAST_FROM_SADDLE).toMatch(/M/);
+    expect(castBlocked(null)).toBe(false);
   });
 
   it("a mount's jump is higher and longer", () => {
@@ -320,5 +343,114 @@ describe("remembered places", () => {
     expect(readVisited(null)).toEqual([]);
     expect(readVisited("nope")).toEqual([]);
     expect(readVisited('["a", 2, "b"]')).toEqual(["a", "b"]);
+  });
+});
+
+describe("a spell asked for in the saddle", () => {
+  function mounted() {
+    const ride = makeRideBus(pony);
+    toggleRide(ride);
+    run(ride, MOUNT_UP_S + 0.1);
+    expect(ride.phase).toBe("on");
+    return ride;
+  }
+
+  it("on foot, or with no ride at all, goes straight into the queue", () => {
+    const q = makeCastQueue();
+    expect(requestCast(makeRideBus(pony), q, 3, true)).toBe("cast");
+    expect(requestCast(null, q, 4, true)).toBe("cast");
+    expect(q.slots.slice(0, q.n)).toEqual([3, 4]);
+  });
+
+  it("in the saddle, waits for the ground: gets down, and hands the slot back once", () => {
+    const ride = mounted();
+    const q = makeCastQueue();
+    expect(requestCast(ride, q, 2, true)).toBe("dismounting");
+    expect(ride.castAfter).toBe(2);
+    expect(ride.want).toBe(false);
+    expect(q.n).toBe(0);
+    expect(run(ride, DISMOUNT_S + 0.1)).toContain("dismounted");
+    expect(takeCastAfter(ride)).toBe(2);
+    expect(takeCastAfter(ride)).toBe(0);
+  });
+
+  it("while already getting down: keeps the slot, leaves `want` alone, and the dismount completes once", () => {
+    const ride = mounted();
+    toggleRide(ride);
+    stepRide(ride, 0.05, 0);
+    expect(ride.phase).toBe("down");
+    const q = makeCastQueue();
+    expect(requestCast(ride, q, 5, true)).toBe("dismounting");
+    expect(ride.want).toBe(null);
+    expect(ride.castAfter).toBe(5);
+    expect(q.n).toBe(0);
+    const events = run(ride, DISMOUNT_S + 0.1);
+    expect(events.filter((e) => e === "dismounted")).toHaveLength(1);
+    expect(takeCastAfter(ride)).toBe(5);
+  });
+
+  it("while getting on: keeps the slot, and once up starts getting down with no further input", () => {
+    const ride = makeRideBus(pony);
+    toggleRide(ride);
+    stepRide(ride, 0.05, 0);
+    expect(ride.phase).toBe("up");
+    const q = makeCastQueue();
+    expect(requestCast(ride, q, 7, true)).toBe("dismounting");
+    expect(ride.castAfter).toBe(7);
+    expect(ride.want).toBe(null);
+    const events = run(ride, MOUNT_UP_S + DISMOUNT_S + 0.3);
+    expect(events).toEqual(["mounted", "dismounted"]);
+    expect(ride.phase).toBe("off");
+    expect(takeCastAfter(ride)).toBe(7);
+  });
+
+  it("in water too deep to get down in: refused, and the slot is forgotten", () => {
+    const ride = mounted();
+    requestCast(ride, makeCastQueue(), 1, true);
+    const events = run(ride, 0.2, RIDE_WADE_DEPTH);
+    expect(events).toContain("refused-deep");
+    expect(ride.phase).toBe("on");
+    expect(ride.castAfter).toBe(0);
+  });
+
+  it("an empty page's key does nothing, in the saddle or on foot: no dismount, nothing queued", () => {
+    const ride = mounted();
+    const q = makeCastQueue();
+    expect(requestCast(ride, q, 4, false)).toBe("empty");
+    expect(ride.want).toBe(null);
+    expect(ride.castAfter).toBe(0);
+    expect(run(ride, DISMOUNT_S + 0.1)).not.toContain("dismounted");
+    expect(ride.phase).toBe("on");
+    expect(requestCast(null, q, 4, false)).toBe("empty");
+    expect(q.n).toBe(0);
+  });
+
+  it("a newer ask replaces the older one", () => {
+    const ride = mounted();
+    const q = makeCastQueue();
+    requestCast(ride, q, 1, true);
+    requestCast(ride, q, 6, true);
+    expect(ride.castAfter).toBe(6);
+  });
+
+  it("on a fast-travel ride: refused, and nothing is queued or remembered", () => {
+    const ride = mounted();
+    ride.travelling = true;
+    const q = makeCastQueue();
+    expect(requestCast(ride, q, 4, true)).toBe("travelling");
+    expect(q.n).toBe(0);
+    expect(ride.castAfter).toBe(0);
+    expect(ride.want).toBe(null);
+    expect(CAST_ON_THE_ROAD).toMatch(/ride/);
+  });
+
+  it("going through a door (parkNow) forgets the waiting spell, and so does dropCastAfter", () => {
+    const ride = mounted();
+    requestCast(ride, makeCastQueue(), 8, true);
+    parkNow(ride, 2, 1);
+    expect(ride.castAfter).toBe(0);
+    ride.castAfter = 3;
+    dropCastAfter(ride);
+    expect(ride.castAfter).toBe(0);
   });
 });

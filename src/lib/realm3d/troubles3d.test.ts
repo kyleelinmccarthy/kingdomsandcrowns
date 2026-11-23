@@ -588,23 +588,27 @@ describe("the words", () => {
   });
 
   it("says the flat Realm's line when one is cleared, and where", () => {
-    expect(troubleNotice({ kind: "cleared", trouble: "fog", count: 3 }, "gentle", "the Ringstones", 1)).toEqual({
+    expect(troubleNotice({ kind: "cleared", trouble: "fog", count: 3 }, "gentle", "the Ringstones", { key: "1" })).toEqual({
       title: TROUBLE_COPY.fog.gentle,
       line: "the Ringstones is clear. 3 cleared today.",
     });
-    expect(troubleNotice({ kind: "cleared", trouble: "shadow-blob", count: 1 }, "monsters", null, 1)?.title).toBe("The blob bounces off!");
+    expect(troubleNotice({ kind: "cleared", trouble: "shadow-blob", count: 1 }, "monsters", null, { key: "1" })?.title).toBe("The blob bounces off!");
   });
 
   it("never says anything frightening about a bump, in either tone", () => {
     for (const skin of ["gentle", "monsters"] as const) {
-      const n = troubleNotice({ kind: "bounced", trouble: "shadow-blob", count: 0 }, skin, null, 1)!;
+      const n = troubleNotice({ kind: "bounced", trouble: "shadow-blob", count: 0 }, skin, null, { key: "1" })!;
       expect(`${n.title} ${n.line}`).not.toMatch(/hurt|damage|attack|die|dead|kill|pain/i);
     }
   });
 
   it("tells the child which key casts the first time a trouble is near", () => {
-    expect(troubleNotice({ kind: "sighted", trouble: "fog", count: 0 }, "gentle", null, 1)?.line).toBe("Press 1 to cast at it.");
+    expect(troubleNotice({ kind: "sighted", trouble: "fog", count: 0 }, "gentle", null, { key: "Q" })?.line).toBe("Press Q to cast at it.");
     expect(troubleNotice({ kind: "sighted", trouble: "fog", count: 0 }, "gentle", null, null)?.line).toBe("Earn a spell to clear it.");
+  });
+
+  it("asks for a click when the spell has no key (a page past nine, or a cast key taken away)", () => {
+    expect(troubleNotice({ kind: "sighted", trouble: "fog", count: 0 }, "gentle", null, { key: null })?.line).toBe("Click a spell to cast at it.");
   });
 });
 
@@ -612,15 +616,15 @@ describe("the words, when clearing pays", () => {
   const e = { kind: "cleared" as const, trouble: "fog" as const, count: 1 };
 
   it("says +1 minute on a clear that paid, with the day's tally rather than the visit's", () => {
-    const n = troubleNotice(e, "gentle", "Cloudfoot", 1, { paid: true, capped: false, already: false, clearsToday: 7 })!;
+    const n = troubleNotice(e, "gentle", "Cloudfoot", { key: "1" }, { paid: true, capped: false, already: false, clearsToday: 7 })!;
     expect(n.reward).toBe(REWARD_COPY);
     expect(n.line).toBe("Cloudfoot is clear. 7 cleared today.");
   });
 
   it("says so, kindly, when the day's minutes are all had, and when a home already paid", () => {
-    expect(troubleNotice(e, "gentle", null, 1, { paid: false, capped: true, already: false, clearsToday: 9 })!.line).toBe(`The fields are clear. ${CAPPED_COPY}`);
-    expect(troubleNotice(e, "gentle", null, 1, { paid: false, capped: false, already: true, clearsToday: 9 })!.line).toBe(`The fields are clear. ${ALREADY_COPY}`);
-    expect(troubleNotice(e, "gentle", null, 1, { paid: false, capped: true, already: false, clearsToday: 9 })!.reward).toBeUndefined();
+    expect(troubleNotice(e, "gentle", null, { key: "1" }, { paid: false, capped: true, already: false, clearsToday: 9 })!.line).toBe(`The fields are clear. ${CAPPED_COPY}`);
+    expect(troubleNotice(e, "gentle", null, { key: "1" }, { paid: false, capped: false, already: true, clearsToday: 9 })!.line).toBe(`The fields are clear. ${ALREADY_COPY}`);
+    expect(troubleNotice(e, "gentle", null, { key: "1" }, { paid: false, capped: true, already: false, clearsToday: 9 })!.reward).toBeUndefined();
   });
 });
 
@@ -628,15 +632,15 @@ describe("the day's clear count is a full-view surface (spec §6, clearCount)", 
   const e = { kind: "cleared" as const, trouble: "fog" as const, count: 4 };
 
   it("in simple view says where, and the reward, but never a tally", () => {
-    expect(troubleNotice(e, "gentle", "Cloudfoot", 1, null, false)!.line).toBe("Cloudfoot is clear.");
-    const paid = troubleNotice(e, "gentle", "Cloudfoot", 1, { paid: true, capped: false, already: false, clearsToday: 7 }, false)!;
+    expect(troubleNotice(e, "gentle", "Cloudfoot", { key: "1" }, null, false)!.line).toBe("Cloudfoot is clear.");
+    const paid = troubleNotice(e, "gentle", "Cloudfoot", { key: "1" }, { paid: true, capped: false, already: false, clearsToday: 7 }, false)!;
     expect(paid.line).toBe("Cloudfoot is clear.");
     expect(paid.reward).toBe(REWARD_COPY);
-    expect(troubleNotice(e, "gentle", null, 1, null, false)!.line).not.toMatch(/\d/);
+    expect(troubleNotice(e, "gentle", null, { key: "1" }, null, false)!.line).not.toMatch(/\d/);
   });
 
   it("in full view keeps the day's tally", () => {
-    expect(troubleNotice(e, "gentle", "Cloudfoot", 1, null, true)!.line).toBe("Cloudfoot is clear. 4 cleared today.");
+    expect(troubleNotice(e, "gentle", "Cloudfoot", { key: "1" }, null, true)!.line).toBe("Cloudfoot is clear. 4 cleared today.");
   });
 });
 

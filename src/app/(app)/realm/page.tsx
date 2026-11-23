@@ -97,6 +97,7 @@ export default async function RealmPage({ searchParams }: { searchParams: Promis
     tutorialStep: bundle.tutorialStep,
     helpSeen: bundle.helpSeen,
     sound: bundle.sound,
+    keybinds: bundle.keybinds,
     ceremony: bundle.ceremony
       ? { seasonId: bundle.ceremony.seasonId, crownId: bundle.ceremony.crownId, ordinal: bundle.ceremony.ordinal, seasonLabel: bundle.ceremony.seasonLabel }
       : devCeremony

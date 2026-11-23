@@ -16,6 +16,9 @@
  *     it. While it is free, holding the RIGHT button and dragging turns the camera too, as in
  *     World of Warcraft, so the HUD stays clickable. Every source goes through one door, `lookBy`,
  *     in screen pixels, scaled by the child's own sensitivity and invert setting.
+ *   - A LEFT drag (or the left button held while captured) swings the camera round the hero
+ *     WITHOUT turning them, as in World of Warcraft, so a child can see their hero's face: an
+ *     orbit (`LookState.orbiting`). The camera stays where the drag left it.
  *   - The wheel zooms and the pitch is the child's, both clamped. NOTHING ELSE MOVES THE CAMERA.
  *     It does not swing round a roof, duck under a canopy, rise over a tower or come in along a
  *     blocked line: what stands between it and the child turns see-through instead
@@ -23,11 +26,17 @@
  *     (`chaseLens`), and that only ever raises it — never brings it nearer, never turns it; the
  *     floor it hangs off glides over a step rather than dropping with it (`settleFloor`).
  *   - WASD walks relative to the CAMERA. A and D are true strafes, S is a backpedal, and a
- *     diagonal is no faster than straight. How the body gets up to speed is `locomotion.ts`.
- *   - The body faces where the camera looks while it moves and while the mouse has the camera;
- *     with the mouse free and no drag, a standing body keeps its facing (`bodyFacing`). A cast
+ *     diagonal is no faster than straight. How the body gets up to speed is `locomotion.ts`. While
+ *     an orbit has the camera, a hero on foot walks by their OWN facing instead (`walkYaw`), so
+ *     forward walks them toward a camera looking at their face; a mount still steers by the camera.
+ *   - The body faces where the camera looks while it moves and while the mouse turns the camera;
+ *     with the mouse free and no drag, or while it orbits, a standing body keeps its facing
+ *     (`bodyFacing`, `looking`). A cast
  *     turns a standing body to what it is aimed at for a moment (`AIM_HOLD`), mouse or not.
- *   - Space jumps, E interacts, 1–9 cast. Esc is the frame's.
+ *   - The keys are not this module's. Space jumps, E interacts and 1–9 cast BY DEFAULT: every key
+ *     is the input router's (`input-router.ts`), read through the child's keymap (`keymap.ts`),
+ *     and a child can move any of them in the Controls panel. The mouse above (the capture, the
+ *     left drag's orbit, the right drag, the wheel) is fixed. Esc is the frame's.
  *
  * ## Why facing the heading cannot flip
  *
@@ -102,7 +111,7 @@ export type LookLimits = { pitchMin: number; pitchMax: number; distMin: number; 
 export const ISLAND_LOOK: LookLimits = { pitchMin: PITCH_MIN, pitchMax: PITCH_MAX, distMin: DIST_MIN, distMax: DIST_MAX };
 
 /**
- * A look, in screen pixels: the mouse moved (captured), or dragged with the right button (free).
+ * A look, in screen pixels: the mouse moved (captured), or dragged with either button (free).
  * Right looks right; up looks up — the camera sinks toward the horizon — unless the child plays
  * inverted. `s` is the frame's settings, read at every move so a change applies at once.
  *
@@ -124,19 +133,24 @@ export function zoomBy(o: Orbit, deltaY: number, lim: LookLimits = ISLAND_LOOK):
 
 /**
  * The camera as the child holds it, beside the yaw (which the scene keeps in its own ref, read by
- * the HUD's cone and the spells). `held` is true while a mouse source has the camera — captured,
- * or a right-drag — and `lastLookAt` is when the last look arrived, in seconds.
+ * the HUD's cone and the spells). `held` is true while a mouse source turns the camera — captured
+ * with no button, or a right-drag — and `lastLookAt` is when the last turning look arrived, in
+ * seconds. `orbiting` is true while the left button swings the camera round the hero instead: an
+ * orbit never touches `held` or `lastLookAt`, so the body does not turn to follow it, during the
+ * drag or after.
  */
-export type LookState = { pitch: number; dist: number; held: boolean; lastLookAt: number };
+export type LookState = { pitch: number; dist: number; held: boolean; lastLookAt: number; orbiting: boolean };
 
 /** How long after the last look the body is still turning to follow it. */
 export const LOOK_SETTLE = 0.3;
 
 /**
  * Whether the child is looking with the mouse: it has the camera now, or moved it a moment ago —
- * so a body turning to follow a drag finishes its turn after the button comes up.
+ * so a body turning to follow a drag finishes its turn after the button comes up. Never while an
+ * orbit has the camera: the child is looking AT their hero, not where the hero should face.
  */
 export function looking(s: LookState, now: number): boolean {
+  if (s.orbiting) return false;
   return s.held || now - s.lastLookAt < LOOK_SETTLE;
 }
 
@@ -302,6 +316,17 @@ export function moveIntent(out: MoveIntent, yaw: number, k: MoveKeys): MoveInten
 /** The facing that looks where the camera looks. */
 export function cameraFacing(yaw: number): number {
   return Math.atan2(-Math.sin(yaw), -Math.cos(yaw));
+}
+
+/**
+ * The yaw `moveIntent` walks by. On foot while an orbit has the camera, the body's own `facing`
+ * (as a yaw: `cameraFacing(walkYaw(...)) === facing`), so forward walks the hero the way they face
+ * — toward a camera swung round to their face — and the body never turns to a camera it is not
+ * following. Otherwise, and always on a mount (which faces its direction of travel, so steering by
+ * its facing would go round in circles), the camera's yaw.
+ */
+export function walkYaw(cameraYaw: number, facing: number, orbiting: boolean, riding: boolean): number {
+  return orbiting && !riding ? wrapAngle(facing + Math.PI) : cameraYaw;
 }
 
 /**

@@ -1,24 +1,29 @@
 "use client";
 
 /**
- * RIDING, the frame half: the M key, the words, the Ride slot on the bar, and the fast-travel
- * sheet. No three.js — this is DOM, and it talks to the canvas only through the `RideBus`
- * (`lib/realm3d/riding.ts`), which it builds once and hands to the canvas as a prop.
+ * RIDING, the frame half: the mount key (Z, or whatever the child bound), the words, the Ride
+ * slot on the bar, and the fast-travel sheet. No three.js — this is DOM, and it talks to the
+ * canvas only through the `RideBus` (`lib/realm3d/riding.ts`), which it builds once and hands to
+ * the canvas as a prop.
  *
  * `useRiding` is the one hook `realm-game.tsx` calls. Everything it returns is stable or rare
  * state: the bus never changes identity, and `riding` / `line` change a handful of times a visit.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { HudBus, InteractTarget } from "@/lib/realm3d/hud-bus";
+import type { InputRouter } from "@/lib/realm3d/input-router";
+import { useAction, useKeymap } from "./realm-input";
+import { boundLabel, defaultKeymap, primaryLabel, type ActionId } from "@/lib/realm3d/keymap";
+import type { InteractTarget } from "@/lib/realm3d/hud-bus";
 import {
   askStop,
   askTravel,
-  castBlocked,
-  CAST_FROM_SADDLE,
+  dropCastAfter,
   isRiding,
   makeRideBus,
+  mountFirstLine,
   parkNow,
+  pullUpLine,
   rideAccess,
   rideRefusal,
   rideSpeed,
@@ -35,6 +40,9 @@ import { restingLine } from "@/lib/realm3d/quiet";
 import { speak } from "@/lib/utils/speech";
 import { keepFocusInWorld, Panel } from "./frame-hud";
 import "./riding.css";
+
+/** The walk keys, said the way a child reads them: W, A, S or D. */
+const PULL_UP: readonly ActionId[] = ["walkForward", "strafeLeft", "walkBack", "strafeRight"];
 
 /** How long a riding line stays in the top lane. */
 export const RIDE_LINE_MS = 4200;
@@ -54,10 +62,8 @@ export type Riding = {
   /** The line in the top lane, or null. */
   line: string | null;
   clearLine: () => void;
-  /** M, or the Ride slot. */
+  /** The mount key, or the Ride slot. */
   toggle: () => void;
-  /** A spell was asked for: true (and said why) when it must not go off. */
-  refuseCast: () => boolean;
   /** Going through a door: a riding child is set down at it and the mount waits outside. */
   atDoor: () => void;
   /** E at a hitching post: true when the sheet should open. */
@@ -67,23 +73,28 @@ export type Riding = {
   /** Ride to one. */
   go: (to: string) => void;
   stop: () => void;
-  /** The quiet world (`lib/realm3d/quiet.ts`): on, off the mount at once and M invites instead of riding. */
+  /** The label of the mount key the child has bound, for the Ride slot's keycap. */
+  key: string;
+  /** The quiet world (`lib/realm3d/quiet.ts`): on, off the mount at once and the mount key invites instead of riding. */
   rest: (on: boolean) => void;
 };
 
 export function useRiding({
+  router,
   avatar,
   unlocked,
   viewer,
   heroName,
   reducedMotion,
   readAloud,
-  bus,
   graph,
   insideRef,
   onRode,
   places,
+  paused = false,
 }: {
+  /** The frame's input router: the mount key arrives as an action. */
+  router: InputRouter;
   avatar: AvatarConfig;
   unlocked: readonly string[];
   viewer: "child" | "parent";
@@ -92,9 +103,8 @@ export function useRiding({
   childId?: string | null;
   reducedMotion: boolean;
   readAloud: boolean;
-  bus: HudBus;
   graph: TravelGraph;
-  /** Indoors, M says where the mount is instead. */
+  /** Indoors, the mount key says where the mount is instead. */
   insideRef: React.RefObject<unknown>;
   /** The first time the child is in the saddle this visit: the tutorial's "ride" lesson. */
   onRode?: () => void;
@@ -104,8 +114,13 @@ export function useRiding({
    * test), the ride remembers only this visit's.
    */
   places?: PlacesStore;
+  /** A panel is open: the hero's hands belong to it, so a spell waiting for the ground is forgotten. */
+  paused?: boolean;
 }): Riding {
   const access = useMemo(() => rideAccess(avatar, unlocked, viewer), [avatar, unlocked, viewer]);
+  // The keys the child has bound: the Ride slot draws the mount's, and re-draws on a rebind. The
+  // words read `router.keymap` when they are said, so they always name the key in force.
+  const keymap = useKeymap(router);
   // Built once for the visit: the canvas is memoised on it.
   const [ride] = useState<RideBus>(() =>
     makeRideBus(
@@ -153,8 +168,8 @@ export function useRiding({
         setRiding(r);
         if (r) onRodeRef.current?.();
       },
-      // Everything the scene says is a refusal (too deep to get down, no spells from the
-      // saddle): it gets the refusal's soft tap as well as the words.
+      // Everything the scene says is a refusal (too deep to get down, no spells on a fast-travel
+      // ride): it gets the refusal's soft tap as well as the words.
       onSay: (text) => {
         say(text);
         ride.sound.onRefuse();
@@ -167,14 +182,14 @@ export function useRiding({
         if (state === "start") {
           // The banner says where to, with its Stop; read aloud, it is said as well.
           setTravelling(where);
-          if (readAloud) speak(`Riding to ${where}. Press W, A, S or D to pull up.`);
+          if (readAloud) speak(pullUpLine(where, PULL_UP.map((a) => boundLabel(router.keymap, a))));
         } else {
           setTravelling(null);
           say(state === "arrive" ? `You're at ${where}.` : "You pulled up on the road.");
         }
       },
     });
-  }, [ride, say, graph, readAloud, places]);
+  }, [ride, say, graph, readAloud, places, router]);
 
   // Development only: the ride bus, for a screenshot script to read and steer.
   useEffect(() => {
@@ -186,7 +201,7 @@ export function useRiding({
     };
   }, [ride]);
 
-  // The quiet world's rest: a ref, since only M and the posts read it, and never to draw.
+  // The quiet world's rest: a ref, since only the mount key and the posts read it, and never to draw.
   const resting = useRef(false);
   const rest = useCallback(
     (on: boolean) => {
@@ -217,26 +232,13 @@ export function useRiding({
     toggleRide(ride);
   }, [access, heroName, insideRef, ride, say]);
 
-  // M: get on, get off. Heard here, where the words are, and never while typing or in a menu.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.code !== "KeyM" || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
-      const t = e.target;
-      if (t instanceof HTMLElement && (t.isContentEditable || t.closest("input, textarea, select, [role='dialog']"))) return;
-      if (bus.paused && !insideRef.current) return;
-      e.preventDefault();
-      toggle();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [bus, insideRef, toggle]);
+  // Z, or whatever mount is bound to: get on, get off. The router keeps it out of fields, dialogs and menus.
+  useAction(router, "mount", (e) => e.down && toggle(), "play");
 
-  const refuseCast = useCallback(() => {
-    if (!castBlocked(ride)) return false;
-    say(CAST_FROM_SADDLE);
-    ride.sound.onRefuse();
-    return true;
-  }, [ride, say]);
+  // A panel opening takes the hands off the world: a spell still waiting for the ground goes with it.
+  useEffect(() => {
+    if (paused) dropCastAfter(ride);
+  }, [paused, ride]);
 
   // Through a door on a mount: set down at the door, and it waits a step to the side of it.
   const atDoor = useCallback(() => {
@@ -258,14 +260,14 @@ export function useRiding({
         return false;
       }
       if (!isRiding(ride) || ride.phase !== "on") {
-        say(`Get on your ${access.mount.label} first. Press M.`);
+        say(mountFirstLine(access.mount.label, boundLabel(router.keymap, "mount")));
         ride.sound.onRefuse();
         return false;
       }
       if (ride.travelling) return false;
       return true;
     },
-    [access, heroName, ride, say],
+    [access, heroName, ride, say, router],
   );
 
   const destinations = useCallback(
@@ -282,7 +284,7 @@ export function useRiding({
   const go = useCallback((to: string) => askTravel(ride, to), [ride]);
   const stop = useCallback(() => askStop(ride), [ride]);
 
-  return { bus: ride, access, riding, travelling, line, clearLine, toggle, refuseCast, atDoor, atPost, destinations, go, stop, rest };
+  return { bus: ride, access, riding, travelling, line, clearLine, toggle, atDoor, atPost, destinations, go, stop, rest, key: primaryLabel(keymap, "mount") };
 }
 
 /* ------------------------------------------------------------------ the words */
@@ -320,13 +322,24 @@ export function HorseMark({ className }: { className?: string }) {
 
 /**
  * The mount's slot, at the end of the spell bar after a divider — where the flat Realm put its
- * Ride button ("beside the ability bar"). It says Ride or Get off, carries the M keycap, and is
- * there for a child with no mount too, as an empty saddle that says how to get one.
+ * Ride button ("beside the ability bar"). It says Ride or Get off, carries the mount key's keycap,
+ * and is there for a child with no mount too, as an empty saddle that says how to get one.
  */
-export function RideSlot({ riding, access, onPress }: { riding: boolean; access: RideAccess; onPress: () => void }) {
+export function RideSlot({
+  riding,
+  access,
+  onPress,
+  keyCap = primaryLabel(defaultKeymap(), "mount"),
+}: {
+  riding: boolean;
+  access: RideAccess;
+  onPress: () => void;
+  /** The label of the mount key the child has bound (`Riding.key`). */
+  keyCap?: string;
+}) {
   if (!access.ok && access.reason === "visitor") return null;
   const label = !access.ok ? "No mount" : riding ? "Get off" : `Ride`;
-  const aria = !access.ok ? "No mount yet. How do I get one?" : riding ? `Get off your ${access.mount.label}, key M` : `Ride your ${access.mount.label}, key M`;
+  const aria = !access.ok ? "No mount yet. How do I get one?" : riding ? `Get off your ${access.mount.label}, key ${keyCap}` : `Ride your ${access.mount.label}, key ${keyCap}`;
   return (
     <>
       <span className="r3-ride-divider" aria-hidden="true" />
@@ -338,7 +351,7 @@ export function RideSlot({ riding, access, onPress }: { riding: boolean; access:
         onMouseDown={keepFocusInWorld}
         onClick={onPress}
       >
-        <span className="r3-slot-key">M</span>
+        <span className="r3-slot-key">{keyCap}</span>
         <HorseMark className="r3-slot-icon r3-ride-icon" />
         <span className="r3-slot-name">{label}</span>
       </button>

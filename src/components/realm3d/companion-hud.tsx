@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * THE COMPANION LEADS YOU, the frame half: the F key, the pet's slot on the bar, the words, and
- * the pet's way drawn on the map. No three.js — this is DOM, and it talks to the canvas only
+ * THE COMPANION LEADS YOU, the frame half: the follow key (F, or whatever the child bound), the
+ * pet's slot on the bar, the words, and the pet's way drawn on the map. No three.js — this is DOM, and it talks to the canvas only
  * through the `LeadBus` (`lib/realm3d/lead.ts`), which it builds once and hands to the canvas.
  *
  * `useCompanionLead` is the one hook `realm-game.tsx` calls. Everything it returns is stable or
@@ -13,6 +13,9 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { InputRouter } from "@/lib/realm3d/input-router";
+import { useAction, useKeymap } from "./realm-input";
+import { boundLabel, keyLine, primaryLabel } from "@/lib/realm3d/keymap";
 import type { HudBus } from "@/lib/realm3d/hud-bus";
 import type { Goal } from "@/lib/realm3d/guide";
 import { isPlanId, PLANS_BOARD_NAME } from "@/lib/realm3d/plan-goal";
@@ -41,32 +44,40 @@ export function petLabel(avatar: Pick<AvatarConfig, "companion"> | null | undefi
 
 /* ------------------------------------------------------------------ the words */
 
-/** Every line the pet's leading says, in one place, so the tests and the game read the same words. */
+/**
+ * Every line the pet's leading says, in one place, so the tests and the game read the same words.
+ * A line that names a key is handed its label, as the child has bound it: `talk` is the interact
+ * key's (E until it is moved), `follow` the follow key's (F until it is moved). Null is a key the
+ * child took away, and the line says where to set one (`keyLine`), never "Press —".
+ */
 export const leadWords = {
   start(pet: string, t: LeadTarget): string {
     if (t.kind === "villager") return `Your ${pet} knows the way to ${t.name}. Follow!`;
     if (t.kind === "place") return `Your ${pet} has sniffed out somewhere new. Follow!`;
     return `Your ${pet} knows the way home. Follow!`;
   },
-  arrive(pet: string, t: LeadTarget): string {
-    // The gold ! on a ready plan (`plan-goal.ts`) is the plans board: E reads it, nobody is talked to.
-    if (t.kind === "villager" && isPlanId(t.id)) return `Here's ${PLANS_BOARD_NAME}! Press E to read it.`;
-    if (t.kind === "villager") return `Here's ${t.name}! Press E to talk.`;
+  arrive(pet: string, t: LeadTarget, talk: string | null): string {
+    // The gold ! on a ready plan (`plan-goal.ts`) is the plans board: the interact key reads it, nobody is talked to.
+    if (t.kind === "villager" && isPlanId(t.id)) return `Here's ${PLANS_BOARD_NAME}! ${keyLine(talk, "interact", (e) => `Press ${e} to read it.`)}`;
+    if (t.kind === "villager") return `Here's ${t.name}! ${keyLine(talk, "interact", (e) => `Press ${e} to talk.`)}`;
     if (t.kind === "place") return `Your ${pet} found it: ${t.name}!`;
     return `Home again! Your ${pet} knew the way.`;
   },
   stopped: (pet: string) => `Your ${pet} comes back to you.`,
-  lost: (pet: string) => `Your ${pet} lost you, so it came back. Press F to ask again.`,
+  lost: (pet: string, follow: string | null) => `Your ${pet} lost you, so it came back. ${keyLine(follow, "follow", (f) => `Press ${f} to ask again.`)}`,
   noway: (pet: string) => `Your ${pet} can't find a way from here. Try from a road.`,
-  here: (t: Pick<LeadTarget, "id" | "name">) => (isPlanId(t.id) ? "The plans board is right here! Press E to read it." : `${t.name} is right here! Press E to talk.`),
+  here: (t: Pick<LeadTarget, "id" | "name">, talk: string | null) =>
+    isPlanId(t.id)
+      ? `The plans board is right here! ${keyLine(talk, "interact", (e) => `Press ${e} to read it.`)}`
+      : `${t.name} is right here! ${keyLine(talk, "interact", (e) => `Press ${e} to talk.`)}`,
   nothing: (pet: string) => `You've found every place, and nobody is waiting. Your ${pet} is happy just to walk with you.`,
   indoors: (pet: string) => `Outside, your ${pet} will show you the way.`,
   /** The pet's own small jobs, said once a visit (sit, sniff) or each time (a trouble): never the only marker. */
   sniff: (pet: string) => `Your ${pet} can smell gleams! Follow its nose.`,
-  sit: (pet: string) => `Your ${pet} is waiting at the door. Walk in, or press E.`,
+  sit: (pet: string, talk: string | null) => `Your ${pet} is waiting at the door. ${keyLine(talk, "interact", (e) => `Walk in, or press ${e}.`, "Walk in.")}`,
   trouble: (pet: string) => `Your ${pet} spotted a trouble near the road!`,
   /** Added to the objective as it is read aloud (the spec's objective announcement, §3.7). */
-  objective: (pet: string) => `Your ${pet} will show you the way: press F.`,
+  objective: (pet: string, follow: string | null) => keyLine(follow, "follow", (f) => `Your ${pet} will show you the way: press ${f}.`),
   none: "You don't have a companion yet. In the Tavern, open your hero's look and pick one on the Companion tab. The Cat and the Dog are free.",
 };
 
@@ -89,11 +100,14 @@ export type CompanionLead = {
   route: readonly Vec2[] | null;
   line: string | null;
   clearLine: () => void;
-  /** F, or the pet's slot: ask for a lead, or stop one. */
+  /** The follow key, or the pet's slot: ask for a lead, or stop one. */
   toggle: () => void;
+  /** The label of the follow key the child has bound, for the slot's keycap. */
+  key: string;
 };
 
 export function useCompanionLead({
+  router,
   avatar,
   viewer,
   calm,
@@ -105,6 +119,8 @@ export function useCompanionLead({
   insideRef,
   breakOff = false,
 }: {
+  /** The frame's input router: the follow key arrives as an action. */
+  router: InputRouter;
   avatar: Pick<AvatarConfig, "companion">;
   viewer: "child" | "parent";
   /** Reduced motion or low stimulus: a gentler pet. */
@@ -124,6 +140,10 @@ export function useCompanionLead({
 }): CompanionLead {
   const pet = viewer === "child" ? petLabel(avatar) : null;
   const has = pet !== null;
+  // The slot draws the follow key and re-draws on a rebind; the words read `router.keymap` when
+  // they are said, so they always name the key in force.
+  const keymap = useKeymap(router);
+  const keyOf = useCallback((action: "interact" | "follow") => boundLabel(router.keymap, action), [router]);
   // Built once for the visit: the canvas is memoised on it.
   const [lead] = useState<LeadBus>(() => makeLeadBus(calm));
   const [leading, setLeading] = useState(false);
@@ -169,11 +189,11 @@ export function useCompanionLead({
           }
           return;
         case "arrive":
-          say(leadWords.arrive(pet, n.target));
+          say(leadWords.arrive(pet, n.target, keyOf("interact")));
           realmCue("pet-arrive");
           return;
         case "lost":
-          say(leadWords.lost(pet));
+          say(leadWords.lost(pet, keyOf("follow")));
           return;
         case "stopped":
           say(leadWords.stopped(pet));
@@ -188,7 +208,7 @@ export function useCompanionLead({
           if (n.errand === "trouble") say(leadWords.trouble(pet));
           else if (n.errand === "sit" && !told.current.sit) {
             told.current.sit = true;
-            say(leadWords.sit(pet));
+            say(leadWords.sit(pet, keyOf("interact")));
           } else if (n.errand === "sniff" && !told.current.sniff) {
             told.current.sniff = true;
             say(leadWords.sniff(pet));
@@ -206,14 +226,14 @@ export function useCompanionLead({
     };
     setLeadNews(lead, hear);
     return () => setLeadNews(lead, null);
-  }, [lead, pet, say]);
+  }, [lead, pet, say, keyOf]);
 
   // The frame's say on the trouble break-off: the canvas reads it every frame.
   useEffect(() => {
     setLeadBreakOff(lead, has && breakOff);
   }, [lead, has, breakOff]);
 
-  // Read at the moment F is pressed, not captured at render.
+  // Read at the moment the follow key is pressed, not captured at render.
   const live = useRef({ goal, found, world });
   useEffect(() => {
     live.current = { goal, found, world };
@@ -237,29 +257,17 @@ export function useCompanionLead({
     const { goal: g, found: f, world: w } = live.current;
     const choice = chooseLead({ x: bus.ear.x, z: bus.ear.z }, g, w.landmarks, f);
     if (!choice.ok) {
-      say(choice.reason === "here" ? leadWords.here(g) : leadWords.nothing(pet));
+      say(choice.reason === "here" ? leadWords.here(g, keyOf("interact")) : leadWords.nothing(pet));
       return;
     }
     askLead(lead, choice.target);
     setLeading(true);
     // Indoors the island is frozen: the pet takes the child from the door when they come out.
     if (insideRef.current) say(leadWords.indoors(pet));
-  }, [viewer, pet, lead, bus, say, insideRef]);
+  }, [viewer, pet, lead, bus, say, insideRef, keyOf]);
 
-  // F: ask the pet the way, or stop it. Never while typing or in a menu.
-  useEffect(() => {
-    if (viewer !== "child") return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.code !== "KeyF" || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
-      const t = e.target;
-      if (t instanceof HTMLElement && (t.isContentEditable || t.closest("input, textarea, select, [role='dialog']"))) return;
-      if (bus.paused && !insideRef.current) return;
-      e.preventDefault();
-      toggle();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [viewer, bus, insideRef, toggle]);
+  // F, or whatever follow is bound to: ask the pet the way, or stop it. The router keeps it out of fields, dialogs and menus.
+  useAction(router, "follow", (e) => e.down && toggle(), "play", viewer === "child");
 
   // Development only: the lead bus, for a screenshot script to read and steer.
   useEffect(() => {
@@ -271,7 +279,7 @@ export function useCompanionLead({
     };
   }, [lead]);
 
-  return { bus: lead, has, pet, leading, mode, errand, target, route, line, clearLine, toggle };
+  return { bus: lead, has, pet, leading, mode, errand, target, route, line, clearLine, toggle, key: primaryLabel(keymap, "follow") };
 }
 
 /* ------------------------------------------------------------------ on screen */
@@ -310,21 +318,21 @@ export function errandWords(errand: ErrandKind): string {
 }
 
 /**
- * The pet's slot, after the Ride slot at the end of the bar. It carries the F keycap and a paw,
- * says "Follow" (ask the pet the way) or "Stop" while it leads, and is there for a child with no
- * pet too, as an empty one that says how to get one. A visitor has none.
+ * The pet's slot, after the Ride slot at the end of the bar. It carries the follow key's keycap
+ * and a paw, says "Follow" (ask the pet the way) or "Stop" while it leads, and is there for a child
+ * with no pet too, as an empty one that says how to get one. A visitor has none.
  */
 export function CompanionSlot({ lead, onPress, calm = false }: { lead: CompanionLead; onPress: () => void; calm?: boolean }) {
-  const { has, pet, leading, mode, errand } = lead;
+  const { has, pet, leading, mode, errand, key } = lead;
   const label = !has ? "No pet" : slotCaption(leading);
   const doing = errand ? errandWords(errand) : modeWords(mode);
   const aria = !has
     ? "No companion yet. How do I get one?"
     : leading
-      ? `Your ${pet} is ${doing}. Stop, key F`
+      ? `Your ${pet} is ${doing}. Stop, key ${key}`
       : errand
-        ? `Your ${pet} is ${doing}. Ask it to show you the way, key F`
-        : `Ask your ${pet} to show you the way, key F`;
+        ? `Your ${pet} is ${doing}. Ask it to show you the way, key ${key}`
+        : `Ask your ${pet} to show you the way, key ${key}`;
   return (
     <>
       <button
@@ -332,11 +340,11 @@ export function CompanionSlot({ lead, onPress, calm = false }: { lead: Companion
         className={`r3-slot r3-pet-slot${leading ? " r3-pet-slot--on" : ""}${has ? "" : " r3-pet-slot--none"}${calm ? " r3-pet-slot--calm" : ""}`}
         aria-label={aria}
         aria-pressed={has ? leading : undefined}
-        title={has ? (leading ? `Your ${pet} is ${doing}. F to stop.` : errand ? `Your ${pet} is ${doing}. F: show me the way.` : `Your ${pet} shows you the way. F.`) : undefined}
+        title={has ? (leading ? `Your ${pet} is ${doing}. ${key} to stop.` : errand ? `Your ${pet} is ${doing}. ${key}: show me the way.` : `Your ${pet} shows you the way. ${key}.`) : undefined}
         onMouseDown={keepFocusInWorld}
         onClick={onPress}
       >
-        <span className="r3-slot-key">F</span>
+        <span className="r3-slot-key">{key}</span>
         <PawMark className="r3-slot-icon r3-pet-icon" />
         <span className="r3-slot-name">{label}</span>
       </button>

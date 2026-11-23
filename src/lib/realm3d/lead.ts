@@ -19,7 +19,7 @@
  *     somewhere else. It arrives, waits a moment for the child, and comes back to heel.
  *   - **Never the only marker** (D7.10). The ! and the map keep doing exactly what they did.
  *
- * `LeadBus` is the wire between the frame (the F key, the words, the target) and the canvas
+ * `LeadBus` is the wire between the frame (the follow key, the words, the target) and the canvas
  * (which owns positions, solids and the frame loop), the same pattern as `RideBus`.
  *
  * Pure: no three.js, no clock, nothing random. The per-frame step allocates nothing.
@@ -923,7 +923,7 @@ export function stepLead(run: LeadRun, kidX: number, kidZ: number, kidSpeed: num
  *     past, or after a while, and never breaks off for the same trouble twice in one lead.
  *
  * Precedence, the spec's (sit > sniff > lead > heel) with the one change this island's pet needs:
- * a lead the child ASKED for (F) is theirs, so while it runs only a trouble may pull the pet off
+ * a lead the child ASKED for (the follow key) is theirs, so while it runs only a trouble may pull the pet off
  * it, and only for a moment; sit and sniff fill the time the pet would otherwise spend at heel.
  *
  * Never the only marker (D7.10): a gleam glows and bobs by itself, a door is lit and has its E

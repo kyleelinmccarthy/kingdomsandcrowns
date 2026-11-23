@@ -1,7 +1,7 @@
 /**
  * THE INSIDES OF THINGS — one room per kind of building, as a plan: every wall, shelf, pew and
  * millstone as a shape, the solids the hero is stopped by, where they come in, who keeps the
- * room, and the one thing in it a child can press E at.
+ * room, and the one thing in it a child can use the interact key on.
  *
  * Same idea as `castle-plan.ts`: the drawing and the collision come from the same numbers, so
  * what stops the hero is exactly what is drawn. Not a three.js module; the scene
@@ -83,7 +83,7 @@ export type RoomAnim = { id: string; kind: AnimKind; x: number; y: number; z: nu
 
 export type RoomLight = { x: number; y: number; z: number; color: string; intensity: number; distance: number };
 
-/** The one thing to press E at. `floor` is the height a child has to be standing at to reach it. */
+/** The one thing to use the interact key on. `floor` is the height a child has to be standing at to reach it. */
 export type RoomFixture = {
   id: string;
   label: string;
@@ -418,7 +418,7 @@ function mill(): RoomPlan {
   // A pale ring of flour round the stones.
   r.cyl("#f2ead8", cx, 0.64, cz, 1.95, 0.02, 1.95, { seg: 14 });
 
-  // The lever that sets the stones going: the thing to press E at.
+  // The lever that sets the stones going: the thing to use the interact key on.
   r.box("#5b3f28", 2.9, 0.6, 1.0, 0.3, 1.2, 0.3);
   r.anim("lever", "tilt", 2.9, 1.15, 1.0);
   r.box("#7c5c38", 2.9, 1.75, 1.0, 0.12, 1.3, 0.12, { anim: "lever", rz: 0.35 });

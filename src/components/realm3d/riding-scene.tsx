@@ -21,9 +21,10 @@ import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { slideMove, HERO_RADIUS, type Collider, type Pt } from "@/lib/realm3d/collision";
+import { pushCast, type CastQueue } from "@/lib/realm3d/casting";
 import type { HudBus } from "@/lib/realm3d/hud-bus";
-import { holdKeys, seedMoves } from "@/lib/realm3d/held-keys";
-import { camGoal, clearPark, isRiding, offTheGround, parkNow, rideRadius, settleRider, stepRide, TOO_DEEP_TO_GET_DOWN, type RideBus } from "@/lib/realm3d/riding";
+import { seedMoves, type InputRouter } from "@/lib/realm3d/input-router";
+import { camGoal, clearPark, dropCastAfter, isRiding, offTheGround, parkNow, rideRadius, settleRider, stepRide, takeCastAfter, TOO_DEEP_TO_GET_DOWN, type RideBus } from "@/lib/realm3d/riding";
 import { postAt, requestStop, startTravel, stepTravel, travelGraphFor, travelRoute, VILLAGE_ID, type TravelGraph, type TravelRun } from "@/lib/realm3d/travel";
 import type { RealmWorld } from "@/lib/realm3d/worldgen";
 import { at, litMaterial, merge, paint } from "./geo-kit";
@@ -34,7 +35,7 @@ import { hoofTick, makeHoofClock, mountVoice, wingsOpen, wingTick } from "@/lib/
 const RIDER_HIP = 0.95;
 /** Where a child steps to on getting down: this far to their right of the mount. */
 const STEP_OFF = 1.15;
-/** Beyond this, pressing M brings the mount to you; within it, it walks in from where it waits. */
+/** Beyond this, the mount key brings the mount to you; within it, it walks in from where it waits. */
 const CALL_NEAR = 5;
 
 /* ------------------------------------------------------------------ shared per ride */
@@ -225,15 +226,19 @@ function driveGait(g: MountGait, moved: number, dt: number, stride: number, top:
 export function Riding({
   ride,
   bus,
+  router,
   heroRef,
   facingRef,
   aimRef,
   keys,
   solids,
   world,
+  casts,
 }: {
   ride: RideBus;
   bus: HudBus;
+  /** The one keyboard listener (`input-router.ts`): it knows which keys are held, whoever heard them go down. */
+  router: InputRouter;
   heroRef: React.RefObject<THREE.Vector3>;
   /** The way the hero's body faces (the mover writes it every frame). */
   facingRef: React.RefObject<number>;
@@ -241,6 +246,8 @@ export function Riding({
   keys: React.RefObject<{ f: boolean; b: boolean; l: boolean; r: boolean }>;
   solids: Collider[];
   world: RealmWorld;
+  /** The spell queue: a spell asked for in the saddle goes into it once the hero is down. */
+  casts: CastQueue;
 }) {
   const graph = useMemo(() => travelGraphFor(world), [world]);
   const s = scratchFor(ride);
@@ -250,15 +257,12 @@ export function Riding({
   const side = useMemo<Pt>(() => ({ x: 0, z: 0 }), []);
   const settled = useMemo<Pt>(() => ({ x: 0, z: 0 }), []);
   const lookClock = useRef(0);
-  // The keys a child is physically holding, whoever was listening when they went down.
-  useEffect(() => holdKeys(), []);
-
   useFrame((_, rawDt) => {
     if (bus.paused) return;
     const dt = Math.min(0.05, rawDt);
     // A key held through a doorway (or out of a menu) walks at once, rather than after the
     // browser's half-second auto-repeat: the island ignored its key-down while it was paused.
-    seedMoves(keys.current);
+    seedMoves(router, keys.current);
     const p = heroRef.current;
     const depth = Math.max(0, world.waterLevelAt(p.x, p.z) - world.heightAt(p.x, p.z));
     const yaw = facingRef.current;
@@ -304,6 +308,9 @@ export function Riding({
       // Local +x (the child's right, looking along +z) in world terms.
       slideMove(side, p.x, p.z, p.x + c * STEP_OFF, p.z - sn * STEP_OFF, solids, 0.5, p.y);
       moveHero(p, side.x, side.z);
+      // A spell asked for in the saddle goes off now the hero is on foot.
+      const slot = takeCastAfter(ride);
+      if (slot > 0) pushCast(casts, slot);
     }
 
     /* ---- fast travel ---------------------------------------------------------- */
@@ -326,6 +333,7 @@ export function Riding({
             wantDown(ride);
           } else {
             run.current = r;
+            dropCastAfter(ride);
             setTravelling(ride, true, to);
             ride.onTravel("start", to);
             ride.sound.onTravel("start");

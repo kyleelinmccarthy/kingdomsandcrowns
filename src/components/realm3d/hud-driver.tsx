@@ -123,6 +123,8 @@ export function HudDriver({
     const facing = facingRef.current;
     // Where the sound listens from: a trouble to the child's left on screen is heard on the left.
     writeEar(bus.ear, p.x, p.z, yawRef.current);
+    // Where the hero stands and faces, for the big map to read once as it opens.
+    writeYou(bus.you, p.x, p.z, facing);
 
     /* ---- casting ------------------------------------------------------- */
     /**
@@ -234,7 +236,7 @@ export function HudDriver({
     }
     /**
      * The camera's own yaw, not the child's facing: the cone says what is on screen, and what
-     * is on screen is decided by where the boom is, which the child steers with the mouse (captured, or dragged with the right button).
+     * is on screen is decided by where the boom is, which the child steers with the mouse (captured, or dragged with either button).
      *
      * The boom sits at `p + (sin yaw, cos yaw) * length` and looks back at the child, so the
      * VIEW direction is `-(sin yaw, cos yaw)` — the negative of the hero arrow's basis, which
@@ -309,7 +311,13 @@ export function HudDriver({
   return null;
 }
 
-/** A free function, so the frame loop writes through no prop of its own (the React compiler's rule). */
+/** Free functions, so the frame loop writes through no prop of its own (the React compiler's rule). */
+function writeYou(you: { x: number; z: number; facing: number }, x: number, z: number, facing: number): void {
+  you.x = x;
+  you.z = z;
+  you.facing = facing;
+}
+
 function writeEar(ear: { x: number; z: number; yaw: number }, x: number, z: number, yaw: number): void {
   ear.x = x;
   ear.z = z;

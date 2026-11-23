@@ -1,16 +1,27 @@
 /**
- * THE MOUSE, AS A SOURCE OF LOOKS — capture as in Minecraft, a right-drag as in World of Warcraft.
+ * THE MOUSE, AS A SOURCE OF LOOKS — capture as in Minecraft, drags as in World of Warcraft.
  *
- * One input source with one output: `sink(dx, dy)`, in screen pixels, right and down positive.
- * What a look DOES to the camera is `lookBy` in `controls.ts`, the other side of that interface;
- * this module only knows the browser. It is handed its canvas and its document rather than
- * reaching for globals, so every rule below is tested against a fake of each, with no browser.
+ * One input source with one output: `sink(dx, dy, mode)`, in screen pixels, right and down
+ * positive. What a look DOES to the camera is `lookBy` in `controls.ts`, the other side of that
+ * interface; this module only knows the browser. It is handed its canvas and its document rather
+ * than reaching for globals, so every rule below is tested against a fake of each, with no browser.
+ *
+ * Every look is one of two kinds. A `"turn"` swings the camera and the hero turns to follow it. An
+ * `"orbit"` swings the camera round the hero and the hero stays as they are, so a child can see
+ * their own face (`orbiting`, and `looking` in `controls.ts`).
  *
  *   - A click on the world captures the mouse (Pointer Lock). From then on every move turns the
- *     camera, with no button held.
- *   - While the mouse is free, the RIGHT button held down and dragged turns the camera too. It
- *     never captures, so the HUD stays clickable: a child can look round and then reach for a
- *     spell without first having to let the mouse go.
+ *     camera, with no button held. The capture is asked for when the button comes UP, once the
+ *     press is known to be a click: the press itself is the user activation the browser wants, and
+ *     it is still fresh when the button comes up.
+ *   - While the mouse is free, the LEFT button pressed and dragged further than `CLICK_SLOP`
+ *     orbits instead, and captures nothing when it comes up. The canvas holds the pointer capture
+ *     for the whole press, so a drag let go of over the HUD ends here and clicks nothing there.
+ *   - With the mouse captured, holding the left button orbits too, until it comes up.
+ *   - While the mouse is free, the RIGHT button held down and dragged turns the camera. It never
+ *     captures, so the HUD stays clickable: a child can look round and then reach for a spell
+ *     without first having to let the mouse go. One button drags at a time: the other is ignored
+ *     until it comes up.
  *   - Esc frees a captured mouse, and the browser swallows that Esc — the page never hears it. So
  *     a capture lost while the game is playing is reported (`freed`), and the frame opens the pause
  *     menu on it, exactly as Esc would have.
@@ -35,8 +46,14 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- DOM events, typed at the edge by hand. */
 
+/** What a look does to the hero: `"turn"` turns them to follow the camera, `"orbit"` leaves them be. */
+export type LookMode = "turn" | "orbit";
+
 /** Where looks go: screen pixels, right and down positive. */
-export type LookSink = (dxPx: number, dyPx: number) => void;
+export type LookSink = (dxPx: number, dyPx: number, mode: LookMode) => void;
+
+/** How far, in px, a left press may wander and still be a click (a capture), not a drag (an orbit). */
+export const CLICK_SLOP = 4;
 
 /** The part of a canvas this needs. */
 export type LookEl = {
@@ -72,8 +89,10 @@ export type MouseLookOptions = {
 export type MouseLook = {
   /** The mouse is captured by this canvas. */
   readonly captured: boolean;
-  /** The right button is dragging the camera. */
+  /** The right button is dragging the camera (a turn). */
   readonly dragging: boolean;
+  /** The left button is swinging the camera round the hero: a free drag, or held while captured. */
+  readonly orbiting: boolean;
   /** Ask for the capture: from a click, or to take over one held elsewhere in the document. */
   request(): void;
   /** Once a frame: lets go when a panel opens, and takes back a capture handed over by a room. */
@@ -87,7 +106,7 @@ export const LOCK_RETRY_MS = 1100;
 /**
  * Some Windows and Chrome setups now and then report a huge `movementX`/`movementY` in one captured
  * move (a known Chromium bug), which whips the camera round. Past this many px in one event it is
- * dropped. Chrome coalesces mousemove to one per animation frame, so on a 30 fps PC a brisk flick
+ * dropped. Chrome coalesces pointermove to one per animation frame, so on a 30 fps PC a brisk flick
  * is a few hundred px in one event; the bug's jumps are typically half a screen or more, so 500
  * keeps every real flick and still catches the jumps.
  */
@@ -114,7 +133,16 @@ export function mouseLook(el: LookEl, doc: LookDoc, o: MouseLookOptions): MouseL
   // A new instance over a document nothing holds is a fresh visit: a hand-over left by a Realm that
   // unmounted while captured is stale, and must not capture the mouse without a click.
   if (doc.pointerLockElement == null) HANDED.delete(doc);
+  /** The right button's drag: its pointer, or -1. */
   let drag = -1;
+  /** A left press with the mouse free, not yet a click or a drag: its pointer, or -1. */
+  let press = -1;
+  /** That press has gone further than `CLICK_SLOP`: it is a drag, and orbits. */
+  let pressDrag = false;
+  /** The left button is held while the mouse is captured: captured moves orbit. */
+  let heldLeft = false;
+  let startX = 0;
+  let startY = 0;
   let lastX = 0;
   let lastY = 0;
 
@@ -145,12 +173,32 @@ export function mouseLook(el: LookEl, doc: LookDoc, o: MouseLookOptions): MouseL
     drag = -1;
   }
 
+  /**
+   * A left press over, click or drag, with nothing asked for. `release` is false on the press's own
+   * pointerup: the browser lets go of the capture itself straight after it, and holding it through
+   * the up is what sends the click that follows to the canvas, not to a HUD button under the mouse.
+   */
+  function endPress(release = true): void {
+    if (release && press >= 0 && el.hasPointerCapture?.(press)) el.releasePointerCapture?.(press);
+    press = -1;
+    pressDrag = false;
+  }
+
+  /** The browser took the pointer capture away: whatever drag or press it held is over. */
+  function lost(): void {
+    endDrag();
+    endPress();
+  }
+
   const api: MouseLook = {
     get captured() {
       return captured;
     },
     get dragging() {
       return drag >= 0;
+    },
+    get orbiting() {
+      return (press >= 0 && pressDrag) || (captured && heldLeft);
     },
     request() {
       if (captured) return;
@@ -187,25 +235,38 @@ export function mouseLook(el: LookEl, doc: LookDoc, o: MouseLookOptions): MouseL
       // Going away while captured (a room closing): the next canvas to play takes the capture.
       if (captured) HANDED.set(doc, true);
       endDrag();
+      endPress();
       el.removeEventListener("pointerdown", down);
       el.removeEventListener("pointermove", dragMove);
       el.removeEventListener("pointerup", up);
-      el.removeEventListener("pointercancel", up);
-      el.removeEventListener("lostpointercapture", endDrag);
+      el.removeEventListener("pointercancel", cancel);
+      el.removeEventListener("lostpointercapture", lost);
       el.removeEventListener("wheel", wheel);
       el.removeEventListener("contextmenu", menu);
       doc.removeEventListener("pointerlockchange", change);
       doc.removeEventListener("pointerlockerror", refused);
-      doc.removeEventListener("mousemove", lockedMove);
+      doc.removeEventListener("pointermove", lockedMove);
     },
   };
 
   function down(e: { button: number; pointerId: number; clientX: number; clientY: number; preventDefault(): void }): void {
     if (o.paused()) return;
     if (e.button === 0) {
-      api.request();
       e.preventDefault();
+      if (captured) {
+        heldLeft = true;
+        return;
+      }
+      // Free: a click or a drag, not known until it moves or comes up. Hold the pointer meanwhile,
+      // so the up comes here wherever the mouse ends up.
+      if (drag >= 0 || press >= 0) return;
+      press = e.pointerId;
+      pressDrag = false;
+      startX = lastX = e.clientX;
+      startY = lastY = e.clientY;
+      el.setPointerCapture?.(press);
     } else if (e.button === 2 && !captured) {
+      if (drag >= 0 || press >= 0) return;
       drag = e.pointerId;
       lastX = e.clientX;
       lastY = e.clientY;
@@ -215,25 +276,55 @@ export function mouseLook(el: LookEl, doc: LookDoc, o: MouseLookOptions): MouseL
   }
 
   function dragMove(e: { pointerId: number; clientX: number; clientY: number }): void {
+    if (press >= 0 && e.pointerId === press) {
+      if (o.paused()) return endPress();
+      if (!pressDrag) {
+        if (Math.hypot(e.clientX - startX, e.clientY - startY) <= CLICK_SLOP) return;
+        pressDrag = true;
+      }
+      const dx = e.clientX - lastX;
+      const dy = e.clientY - lastY;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      if (dx !== 0 || dy !== 0) o.sink(dx, dy, "orbit");
+      return;
+    }
     if (drag < 0 || e.pointerId !== drag) return;
     if (o.paused()) return endDrag();
     const dx = e.clientX - lastX;
     const dy = e.clientY - lastY;
     lastX = e.clientX;
     lastY = e.clientY;
-    if (dx !== 0 || dy !== 0) o.sink(dx, dy);
+    if (dx !== 0 || dy !== 0) o.sink(dx, dy, "turn");
   }
 
-  function up(e: { pointerId: number }): void {
+  function up(e: { pointerId: number; button?: number }): void {
+    if (e.button === 0 || e.button === undefined) heldLeft = false;
     if (e.pointerId === drag) endDrag();
+    if (press >= 0 && e.pointerId === press) {
+      // A press that never went further than a click is one: capture the mouse now. A drag ends
+      // where it is, and asks for nothing.
+      const click = !pressDrag;
+      endPress(false);
+      if (click && !o.paused()) api.request();
+    }
   }
 
-  function lockedMove(e: { movementX?: number; movementY?: number }): void {
+  /** The browser called the pointer off (a touch turned into a scroll, a window lost focus). */
+  function cancel(e: { pointerId: number }): void {
+    heldLeft = false;
+    if (e.pointerId === drag) endDrag();
+    if (e.pointerId === press) endPress();
+  }
+
+  function lockedMove(e: { movementX?: number; movementY?: number; buttons?: number }): void {
     if (!captured || o.paused()) return;
+    // The move knows which buttons are down: trust it over an up the canvas may never have heard.
+    if (typeof e.buttons === "number") heldLeft = (e.buttons & 1) !== 0;
     const dx = e.movementX ?? 0;
     const dy = e.movementY ?? 0;
     if (Math.abs(dx) > LOOK_SPIKE || Math.abs(dy) > LOOK_SPIKE) return;
-    if (dx !== 0 || dy !== 0) o.sink(dx, dy);
+    if (dx !== 0 || dy !== 0) o.sink(dx, dy, heldLeft ? "orbit" : "turn");
   }
 
   function wheel(e: { deltaY: number; deltaMode: number; preventDefault(): void }): void {
@@ -250,9 +341,11 @@ export function mouseLook(el: LookEl, doc: LookDoc, o: MouseLookOptions): MouseL
     const now = doc.pointerLockElement === el;
     if (now === captured) return;
     captured = now;
+    heldLeft = false;
     if (now) {
       asking = false;
       endDrag();
+      endPress();
       return;
     }
     // Lost it. To another canvas in this document (a room's): that is a hand-over, not a freeing.
@@ -269,13 +362,17 @@ export function mouseLook(el: LookEl, doc: LookDoc, o: MouseLookOptions): MouseL
   el.addEventListener("pointerdown", down);
   el.addEventListener("pointermove", dragMove);
   el.addEventListener("pointerup", up);
-  el.addEventListener("pointercancel", up);
-  el.addEventListener("lostpointercapture", endDrag);
+  el.addEventListener("pointercancel", cancel);
+  el.addEventListener("lostpointercapture", lost);
   el.addEventListener("wheel", wheel, { passive: false });
   el.addEventListener("contextmenu", menu);
   doc.addEventListener("pointerlockchange", change);
   doc.addEventListener("pointerlockerror", refused);
-  doc.addEventListener("mousemove", lockedMove);
+  // Captured moves come as pointermove, never mousemove: the left press that starts a captured orbit
+  // is prevented, and a prevented pointerdown stops the browser sending mousemove until pointerup
+  // (Pointer Events' compatibility rules). The canvas's own pointermoves bubble up here too, but
+  // only count while captured, when the canvas has no press or drag of its own.
+  doc.addEventListener("pointermove", lockedMove);
 
   // Opening while another canvas in this document holds the capture (walking into a room with the
   // mouse captured): take it over. A captured document may move its capture without a click.

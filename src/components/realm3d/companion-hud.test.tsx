@@ -6,6 +6,8 @@ import { controlRows, keyHints } from "@/lib/realm3d/frame";
 import type { Goal } from "@/lib/realm3d/guide";
 import { PLANS_BOARD_NAME } from "@/lib/realm3d/plan-goal";
 import type { LeadBus, LeadTarget } from "@/lib/realm3d/lead";
+import { createInputRouter, type InputRouter } from "@/lib/realm3d/input-router";
+import { bind, defaultKeymap, type ActionId, type Keymap } from "@/lib/realm3d/keymap";
 import { CompanionSlot, LeadLine, LeadMapMarks, leadWords, petLabel, slotCaption, useCompanionLead, type CompanionLead } from "./companion-hud";
 
 const BRAM: Goal = { on: true, x: 0, z: 40, name: "Old Bram", id: "bram" };
@@ -13,9 +15,9 @@ const WORLD = { landmarks: [{ id: "far", name: "Far Place", position: { x: 200, 
 
 type Seen = (lead: CompanionLead) => void;
 
-function Harness({ pet, viewer = "child", bus, goal = BRAM, inside = false, breakOff = false, seen }: { pet: string | null; viewer?: "child" | "parent"; bus: HudBus; goal?: Goal; inside?: boolean; breakOff?: boolean; seen: Seen }) {
+function Harness({ router, pet, viewer = "child", bus, goal = BRAM, inside = false, breakOff = false, seen }: { router: InputRouter; pet: string | null; viewer?: "child" | "parent"; bus: HudBus; goal?: Goal; inside?: boolean; breakOff?: boolean; seen: Seen }) {
   const insideRef = useRef<unknown>(inside ? { room: "chapel" } : null);
-  const lead = useCompanionLead({ avatar: { companion: pet }, viewer, calm: false, readAloud: false, bus, goal, world: WORLD, found: new Set(), insideRef, breakOff });
+  const lead = useCompanionLead({ router, avatar: { companion: pet }, viewer, calm: false, readAloud: false, bus, goal, world: WORLD, found: new Set(), insideRef, breakOff });
   // Handed out after each render, through a function rather than by writing to a prop.
   useEffect(() => {
     seen(lead);
@@ -28,15 +30,29 @@ function Harness({ pet, viewer = "child", bus, goal = BRAM, inside = false, brea
   );
 }
 
+function rebound(action: ActionId, code: string): Keymap {
+  const r = bind(defaultKeymap(), action, 0, code);
+  if (!r.ok) throw new Error("not bindable");
+  return r.keymap;
+}
+
+const routers: InputRouter[] = [];
+
 function setup(o: { pet?: string | null; viewer?: "child" | "parent"; goal?: Goal; inside?: boolean; breakOff?: boolean } = {}) {
   const bus = makeHudBus(4, 1);
   let latest: CompanionLead | null = null;
-  const view = render(<Harness pet={o.pet === undefined ? "fox" : o.pet} viewer={o.viewer} bus={bus} goal={o.goal} inside={o.inside} breakOff={o.breakOff} seen={(l) => (latest = l)} />);
-  return { bus, view, lead: () => latest!.bus as LeadBus };
+  const router = createInputRouter(window, defaultKeymap());
+  router.start();
+  routers.push(router);
+  const view = render(<Harness router={router} pet={o.pet === undefined ? "fox" : o.pet} viewer={o.viewer} bus={bus} goal={o.goal} inside={o.inside} breakOff={o.breakOff} seen={(l) => (latest = l)} />);
+  return { bus, view, router, lead: () => latest!.bus as LeadBus };
 }
 
-const press = () => fireEvent.keyDown(window, { code: "KeyF" });
-afterEach(cleanup);
+const press = (code = "KeyF") => fireEvent.keyDown(window, { code });
+afterEach(() => {
+  cleanup();
+  for (const r of routers.splice(0)) r.dispose();
+});
 
 describe("asking the pet the way", () => {
   it("F asks for a lead to whoever is waiting, when they are far", () => {
@@ -44,6 +60,15 @@ describe("asking the pet the way", () => {
     act(() => press());
     expect(lead().ask).toMatchObject({ kind: "villager", id: "bram", name: "Old Bram" });
     expect(screen.getByRole("button", { name: /Fox/ })).toHaveTextContent("Stop");
+  });
+
+  it("a remapped follow key asks, and the old one does not", () => {
+    const { lead, router } = setup();
+    act(() => router.setKeymap(rebound("follow", "KeyG")));
+    act(() => void press("KeyF"));
+    expect(lead().ask).toBeNull();
+    act(() => void press("KeyG"));
+    expect(lead().ask).toMatchObject({ kind: "villager", id: "bram" });
   });
 
   it("the canvas setting off puts the pet's words in the top lane", () => {
@@ -94,8 +119,8 @@ describe("asking the pet the way", () => {
   });
 
   it("does nothing under a menu", () => {
-    const { bus, lead } = setup();
-    bus.setPaused(true);
+    const { router, lead } = setup();
+    router.setState({ overlay: true, inside: false });
     act(() => press());
     expect(lead().ask).toBeNull();
   });
@@ -126,33 +151,57 @@ describe("the words, the slot and the map", () => {
   });
 
   it("the controls and the key strip carry F for a child with a pet, and say how to get one without", () => {
-    const withPet = controlRows(4, { mount: true, pet: "Fox" });
+    const K = defaultKeymap();
+    const withPet = controlRows(K, 4, { mount: true, pet: "Fox" });
     const f = withPet.find((r) => r.keys[0] === "F")!;
     expect(f.what).toMatch(/Ask your Fox to show you the way/);
     // Before the pause row, which stays last.
     expect(withPet[withPet.length - 1].keys).toEqual(["P", "Esc"]);
-    expect(controlRows(4, { pet: false }).find((r) => r.keys[0] === "F")?.what).toMatch(/once you've picked one/);
-    expect(controlRows(4, {}).some((r) => r.keys[0] === "F")).toBe(false);
-    expect(keyHints(4, { pet: true }).map((h) => h.key)).toContain("F");
-    expect(keyHints(4, {}).map((h) => h.key)).not.toContain("F");
+    expect(controlRows(K, 4, { pet: false }).find((r) => r.keys[0] === "F")?.what).toMatch(/once you've picked one/);
+    // A visitor is told what the key does for the hero.
+    expect(controlRows(K, 4, {}).find((r) => r.keys[0] === "F")?.what).toBe("Your hero's companion shows the way.");
+    expect(keyHints(K, 4, { pet: true }).map((h) => h.key)).toContain("F");
+    expect(keyHints(K, 4, {}).map((h) => h.key)).not.toContain("F");
   });
 
   it("leads to the plans board in the board's own words: E reads it, nobody is talked to", () => {
     const board: LeadTarget = { kind: "villager", id: "plan:village-banners", name: PLANS_BOARD_NAME, x: -6, z: 21.5 };
     expect(leadWords.start("Fox", board)).toBe("Your Fox knows the way to the plans board. Follow!");
-    expect(leadWords.arrive("Fox", board)).toBe("Here's the plans board! Press E to read it.");
-    expect(leadWords.here(board)).toBe("The plans board is right here! Press E to read it.");
+    expect(leadWords.arrive("Fox", board, "E")).toBe("Here's the plans board! Press E to read it.");
+    expect(leadWords.here(board, "E")).toBe("The plans board is right here! Press E to read it.");
     // A villager is still talked to.
-    expect(leadWords.here({ id: "bram", name: "Old Bram" })).toBe("Old Bram is right here! Press E to talk.");
+    expect(leadWords.here({ id: "bram", name: "Old Bram" }, "E")).toBe("Old Bram is right here! Press E to talk.");
+  });
+
+  it("names the keys the child has bound in what the pet says", () => {
+    const board: LeadTarget = { kind: "villager", id: "plan:village-banners", name: PLANS_BOARD_NAME, x: -6, z: 21.5 };
+    expect(leadWords.arrive("Fox", board, "R")).toBe("Here's the plans board! Press R to read it.");
+    expect(leadWords.here({ id: "bram", name: "Old Bram" }, "R")).toBe("Old Bram is right here! Press R to talk.");
+    expect(leadWords.lost("Fox", "G")).toBe("Your Fox lost you, so it came back. Press G to ask again.");
+    expect(leadWords.sit("Fox", "R")).toBe("Your Fox is waiting at the door. Walk in, or press R.");
+    expect(leadWords.objective("Fox", "G")).toBe("Your Fox will show you the way: press G.");
+  });
+
+  it("the slot's keycap and its name follow the follow key, and the lines name it", () => {
+    const { router, lead } = setup();
+    expect(screen.getByRole("button", { name: "Ask your Fox to show you the way, key F" })).toHaveTextContent(/^F/);
+    act(() => router.setKeymap(rebound("follow", "KeyG")));
+    const slot = screen.getByRole("button", { name: "Ask your Fox to show you the way, key G" });
+    expect(slot.querySelector(".r3-slot-key")).toHaveTextContent("G");
+    act(() => lead().onNews({ kind: "lost", target: { kind: "villager", id: "bram", name: "Old Bram", x: 0, z: 40 } }));
+    expect(screen.getByRole("status")).toHaveTextContent("Press G to ask again.");
+    act(() => router.setKeymap(rebound("interact", "KeyR")));
+    act(() => lead().onNews({ kind: "arrive", target: { kind: "villager", id: "bram", name: "Old Bram", x: 0, z: 40 } }));
+    expect(screen.getByRole("status")).toHaveTextContent("Here's Old Bram! Press R to talk.");
   });
 
   it("knows the plans board by the goal's id, not by what it is called", () => {
     const named: LeadTarget = { kind: "villager", id: "plan:village-banners", name: "Banners", x: -6, z: 21.5 };
-    expect(leadWords.arrive("Fox", named)).toBe("Here's the plans board! Press E to read it.");
-    expect(leadWords.here(named)).toBe("The plans board is right here! Press E to read it.");
+    expect(leadWords.arrive("Fox", named, "E")).toBe("Here's the plans board! Press E to read it.");
+    expect(leadWords.here(named, "E")).toBe("The plans board is right here! Press E to read it.");
     // A villager given the board's name is still a villager.
     const bram: LeadTarget = { kind: "villager", id: "bram", name: PLANS_BOARD_NAME, x: 0, z: 0 };
-    expect(leadWords.arrive("Fox", bram)).toBe(`Here's ${PLANS_BOARD_NAME}! Press E to talk.`);
+    expect(leadWords.arrive("Fox", bram, "E")).toBe(`Here's ${PLANS_BOARD_NAME}! Press E to talk.`);
   });
 
   it("draws the pet's way on the map, and a paw at its end unless the gold ! is already there", () => {
@@ -176,11 +225,11 @@ describe("the pet's own small jobs, as the frame hears them", () => {
     expect(screen.getByRole("button", { name: /Fox is sniffing out a gleam/ })).toBeInTheDocument();
     act(() => lead().onNews({ kind: "errand", errand: null }));
     act(() => lead().onNews({ kind: "errand", errand: "sit" }));
-    expect(screen.getByRole("status")).toHaveTextContent(leadWords.sit("Fox"));
+    expect(screen.getByRole("status")).toHaveTextContent(leadWords.sit("Fox", "E"));
     expect(screen.getByRole("button", { name: /Fox is sitting by the door/ })).toBeInTheDocument();
     // Said once a visit: the second time the pet simply does it.
     act(() => lead().onNews({ kind: "errand", errand: "sniff" }));
-    expect(screen.getByRole("status")).toHaveTextContent(leadWords.sit("Fox"));
+    expect(screen.getByRole("status")).toHaveTextContent(leadWords.sit("Fox", "E"));
     act(() => lead().onNews({ kind: "errand", errand: "trouble" }));
     expect(screen.getByRole("status")).toHaveTextContent(leadWords.trouble("Fox"));
     act(() => lead().onNews({ kind: "errand", errand: null }));

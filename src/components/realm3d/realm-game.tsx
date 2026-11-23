@@ -30,10 +30,15 @@ import type { SkillArea } from "@/lib/utils/skills";
 import { renderSettingsFor } from "@/lib/realm/render-settings";
 import { resolvePages, withEmptyPages } from "@/lib/realm/spells/pages";
 import { villagerById, villagerForBuilding } from "@/lib/realm/villagers";
-import { makeCaster, makeCastQueue, pushCast } from "@/lib/realm3d/casting";
+import { makeCaster, makeCastQueue } from "@/lib/realm3d/casting";
+import { CAST_ON_THE_ROAD, requestCast } from "@/lib/realm3d/riding";
 import { clockLine, escapeFrom, spellbookHref, visitClockLine, type AccessSource, type Overlay } from "@/lib/realm3d/frame";
 import { goalFor, spellHelp, type SpellbookFacts } from "@/lib/realm3d/guide";
-import { makeHudBus, type InteractTarget } from "@/lib/realm3d/hud-bus";
+import { makeHudBus, type InteractTarget, type MapMark } from "@/lib/realm3d/hud-bus";
+import { blockedTarget, createInputRouter, type InputRouter } from "@/lib/realm3d/input-router";
+import { boundLabel, keymapFrom, WALK_ACTIONS, type Keymap } from "@/lib/realm3d/keymap";
+import { saveRealmKeybinds } from "@/lib/actions/realm-keybinds";
+import { debounceSave } from "@/lib/realm3d/sound/store";
 import { deedToast, type DeedToast } from "@/lib/realm3d/talk";
 import { roomFor, type RoomVisit } from "@/lib/realm3d/doorways";
 import { fixtureLine, roomPlan } from "@/lib/realm3d/interiors";
@@ -44,12 +49,13 @@ import {
   CORE_LESSONS,
   countsAsLook,
   lessonCopy,
+  lessonKeys,
   lessonsFromStored,
   settle,
   skipLesson,
   STEP_ESCAPE_MS,
   storedFromLessons,
-  TUTORIAL_DONE,
+  tutorialDone,
   type LessonContext,
   type LessonSignal,
 } from "@/lib/realm3d/tutorial";
@@ -97,7 +103,10 @@ import {
   type PauseSettings,
 } from "./frame-hud";
 import { RealmHud } from "./hud";
+import { RealmInputProvider, useAction, useKeymap } from "./realm-input";
+import { KEYS_UNSAVED } from "./keybind-list";
 import { RoomLine } from "./room-hud";
+import { WorldMap } from "./world-map";
 import { RideLine, RideSlot, TravelBanner, TravelSheet, useRiding } from "./riding-hud";
 import { CompanionSlot, LeadLine, LeadMapMarks, leadWords, useCompanionLead } from "./companion-hud";
 import { travelGraphFor } from "@/lib/realm3d/travel";
@@ -167,6 +176,8 @@ export type RealmData = {
   ceremony?: CeremonyInfo | null;
   /** Sound settings for whoever is looking: the hero's own, or a visiting grown-up's own. */
   sound?: SoundSettings;
+  /** The keys for whoever is looking (`bundle.keybinds`): the hero's own, or a visiting grown-up's own. Absent: the defaults. */
+  keybinds?: Keymap;
   /**
    * Whether whoever is looking may WRITE this hero's settings. False for a grown-up with view
    * access only (a teacher): a save of the hero's settings would be refused, so the pause menu
@@ -204,6 +215,47 @@ export type RealmData = {
 
 const NO_RECENT: RecentQuest[] = [];
 
+/** How long after the last key change the keys are saved: as the sound sliders wait (`realm-sound.tsx`). */
+const KEYS_SAVE_MS = 700;
+
+/**
+ * A key changed in the Controls panel: the router has it at once, and it is saved a moment later
+ * (a child trying out three keys in a row is one save). The server decides whose row it is, the
+ * hero's or a visiting grown-up's own. With no hero to save for there is nothing to call. A save
+ * that fails keeps the keys for this visit, and `note` says so until a later save goes through.
+ * Leaving within the moment still saves.
+ */
+function useKeybindSaver(router: InputRouter, childId: string | null): { change: (k: Keymap) => void; note: string | null } {
+  const [note, setNote] = useState<string | null>(null);
+  const saver = useRef<ReturnType<typeof debounceSave<Keymap>> | null>(null);
+  useEffect(() => {
+    if (!childId) return;
+    const save = debounceSave<Keymap>(
+      (k) => {
+        saveRealmKeybinds(childId, k).then(
+          () => setNote(null),
+          () => setNote(KEYS_UNSAVED),
+        );
+      },
+      KEYS_SAVE_MS,
+      { set: (fn, ms) => window.setTimeout(fn, ms), clear: (id) => window.clearTimeout(id) },
+    );
+    saver.current = save;
+    return () => {
+      save.flush();
+      if (saver.current === save) saver.current = null;
+    };
+  }, [childId]);
+  const change = useCallback(
+    (k: Keymap) => {
+      router.setKeymap(k);
+      saver.current?.push(k);
+    },
+    [router],
+  );
+  return { change, note };
+}
+
 /** What the access check decided, for an open gate. */
 export type OpenEntry = {
   minutes: number;
@@ -238,7 +290,10 @@ const CEREMONY_FAILED = "The crown could not be recorded.";
  * own nameplate is at 2.9, so this keeps the two from sitting on one another.
  */
 const GOAL_Y = 5.6;
-const MOVE_KEYS: Record<string, string> = { KeyW: "w", ArrowUp: "w", KeyA: "a", ArrowLeft: "a", KeyS: "s", ArrowDown: "s", KeyD: "d", ArrowRight: "d" };
+/** The tutorial's count of walk directions tried: one letter per walk action, whatever key it is bound to. */
+const MOVE_KEYS: Record<(typeof WALK_ACTIONS)[number], string> = { walkForward: "w", walkBack: "s", strafeLeft: "a", strafeRight: "d" };
+/** What the tutorial's hands listen for: the walk directions and the jump. */
+const HAND_ACTIONS = [...WALK_ACTIONS, "jump"] as const;
 
 /** A finished side quest's result; a screenshot's `__realmRaise` may leave the stars out. */
 type RaiseResult = Omit<DeedResult, "stars" | "maxStars"> & Partial<Pick<DeedResult, "stars" | "maxStars">>;
@@ -281,7 +336,7 @@ export function RealmGame({
   onClose?: (reason: CloseReason) => void;
   /** A grown-up's child selector, for the pause menu. */
   selector?: ReactNode;
-  /** The mounts this child has earned (`bundle.mounts.unlocked`): what M may ride. */
+  /** The mounts this child has earned (`bundle.mounts.unlocked`): what the mount key may ride. */
   mounts?: readonly string[];
 }) {
   const world = useMemo(() => realmWorld(), []);
@@ -377,6 +432,20 @@ export function RealmGame({
   const caster = useMemo(() => makeCaster(pages.length), [pages.length]);
   const fxPool = useMemo(() => makeFxPool(FX_POOL), []);
   const casts = useMemo(() => makeCastQueue(), []);
+  // The one keyboard listener (`input-router.ts`): keys become actions for the scenes, the tutorial
+  // and the HUD. Made once, on the client only (the frame mounts this after hydration), with the
+  // keys whoever is looking saved. Making it listens to nothing, so a spare one React makes and
+  // throws away leaks nothing; it listens while this is mounted, and the cleanup only stops it, so
+  // `<Activity mode="hidden">` (which cleans up and re-runs effects on the same router) gets it back.
+  const [router] = useState(() => createInputRouter(window, keymapFrom(realm.keybinds ?? null), blockedTarget));
+  useEffect(() => {
+    router.start();
+    return () => router.stop();
+  }, [router]);
+  // The keys in force, re-read on a rebind: every surface that names a key is handed this.
+  const keymap = useKeymap(router);
+  // A key changed in the Controls panel: applied at once, saved for the hero or the visitor.
+  const keybinds = useKeybindSaver(router, realm.childId);
   // With the clears a reload would forget, held with when they arrived, for the scene to seed its field.
   const [troubleBus] = useState(() => makeTroubleBus(undefined, heldClearsFor(realm.childId, realm.troubleClears, realm.isChildView)));
   // What the hero is wearing: the page's look, until the wardrobe saves a new one.
@@ -434,13 +503,14 @@ export function RealmGame({
   const nearOutside = useRef<InteractTarget | null>(null);
 
   /* ---- riding ------------------------------------------------------------ */
-  // M, the Ride slot, the words, and fast travel's sheet (`riding-hud.tsx`); the canvas gets the bus.
+  // The mount key (Z by default), the Ride slot, the words, and fast travel's sheet (`riding-hud.tsx`); the canvas gets the bus.
   const travelGraph = useMemo(() => travelGraphFor(world), [world]);
   // The one record of the places found: the HUD's count, the map's marks and fast travel all read it.
   const places = usePlacesFound({ childId, writer: isChild && viewer === "child", initial: realm.placesFound });
   const onRodeRef = useRef<() => void>(() => {});
   const onRode = useCallback(() => onRodeRef.current(), []);
   const riding = useRiding({
+    router,
     avatar: hero,
     unlocked: mounts,
     viewer,
@@ -448,21 +518,23 @@ export function RealmGame({
     childId: realm.isChildView ? realm.childId : null,
     reducedMotion: profile.reducedMotion,
     readAloud,
-    bus,
     graph: travelGraph,
     insideRef,
     onRode,
+    paused,
     places: places.store,
   });
   // The companion leads (`companion-hud.tsx`): F or the pet's slot, its words, its way on the map.
-  const companion = useCompanionLead({ avatar: hero, viewer, calm, readAloud, bus, goal: leadGoal, world, found: places.found, insideRef, breakOff: surfaces.troubleDetail && !profile.fewerChoices });
+  const companion = useCompanionLead({ router, avatar: hero, viewer, calm, readAloud, bus, goal: leadGoal, world, found: places.found, insideRef, breakOff: surfaces.troubleDetail && !profile.fewerChoices });
 
   // The ONE writer of `bus.paused`. Every panel is an overlay, so every panel pauses the
   // scene, and nothing can open a panel that forgets to. Indoors pauses the ISLAND too (its keys,
   // its casting, its E), because the child's hands belong to the room; the room reads `paused`.
+  // The router hears the same two facts: its `island` scope is exactly "not paused" here.
   useEffect(() => {
     bus.setPaused(paused || inside !== null);
-  }, [bus, paused, inside]);
+    router.setState({ overlay: paused, inside: inside !== null });
+  }, [bus, router, paused, inside]);
 
   // Where the gold ! points, for the driver. Written when the objective moves — a handful of
   // times a visit — and read every frame.
@@ -515,10 +587,10 @@ export function RealmGame({
       if (nearRef.current) next = advanceLesson(next, nearSignal(nearRef.current), ctxRef.current);
       lessonsRef.current = next;
       setLessons(next);
-      if (next >= LESSONS.length) setDoneLine(TUTORIAL_DONE);
+      if (next >= LESSONS.length) setDoneLine(tutorialDone(router.keymap));
       void setTutorialStep(childId, storedFromLessons(next)).catch(() => {});
     },
-    [childId],
+    [childId, router],
   );
 
   /**
@@ -557,30 +629,33 @@ export function RealmGame({
 
   const lessonShown = tutorialOn && coachReady ? settle(lessons, lessonCtx) : LESSONS.length;
   const lesson = lessonShown < LESSONS.length ? currentLesson(lessonShown, lessonCtx) : null;
-  const coachCopy = lesson ? lessonCopy(lessonShown, lessonCtx) : null;
+  const coachCopy = lesson ? lessonCopy(lessonShown, lessonCtx, keymap) : null;
 
   /* ---- what the child's hands are doing, for the lessons -------------- */
   // Which movement keys, how much mouse drag on the world, and Space. Listened for here, not in
   // the scene: the scene's input is the scene's, and these only ever feed `signal`, which does
   // nothing unless the lesson on screen is waiting for exactly this.
   const hands = useRef({ keys: new Set<string>(), drag: 0 });
+  useAction(
+    router,
+    HAND_ACTIONS,
+    (e) => {
+      if (!e.down || e.repeat) return;
+      if (e.action === "jump") signal({ kind: "jumped" });
+      else hands.current.keys.add(MOVE_KEYS[e.action as (typeof WALK_ACTIONS)[number]]);
+    },
+    "island",
+    tutorialOn,
+  );
   useEffect(() => {
     if (!tutorialOn) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (bus.paused || e.repeat) return;
-      const k = MOVE_KEYS[e.code];
-      if (k) hands.current.keys.add(k);
-      else if (e.code === "Space") signal({ kind: "jumped" });
-    };
     const onMove = (e: PointerEvent) => {
       if (bus.paused || !(e.target instanceof HTMLCanvasElement) || !countsAsLook(e.buttons, document.pointerLockElement != null)) return;
       hands.current.drag += Math.abs(e.movementX) + Math.abs(e.movementY);
       signal({ kind: "looked", px: hands.current.drag });
     };
-    window.addEventListener("keydown", onKey);
     window.addEventListener("pointermove", onMove);
     return () => {
-      window.removeEventListener("keydown", onKey);
       window.removeEventListener("pointermove", onMove);
     };
   }, [tutorialOn, bus, signal]);
@@ -746,7 +821,7 @@ export function RealmGame({
     setNear(nearOutside.current);
   }, [bus]);
 
-  const { atPost, refuseCast } = riding;
+  const { atPost } = riding;
   /** Whether E at the Ring's arch opens its board now (`use-recess.ts`, made below the clock). */
   const archOpens = useRef<() => boolean>(() => false);
   const { stopOf: runeStopAt, sayRef: runeSay, stops: runeStopList, at: runeAt } = runeWalk;
@@ -843,7 +918,7 @@ export function RealmGame({
       onInteract: (t) => openTarget(t),
       onCast: () => signal({ kind: "cast" }),
       onWalked: (distance) => signal({ kind: "walked", keys: hands.current.keys.size, distance }),
-      // Walking into a doorway: the same door E opens, if it has an inside.
+      // Walking into a doorway: the same door the interact key opens, if it has an inside.
       onDoor: (site) => {
         const visit = roomFor(site === "castle" ? { kind: "castle", id: site } : { kind: "site", id: site }, kingdomRef.current.buildings, castleUnlocked);
         if (visit) enter(visit);
@@ -900,8 +975,8 @@ export function RealmGame({
     if (!line) return;
     spokenObjective.current = true;
     // With a pet: the spec's "Your {companion} will show you the way.", and the key that asks it.
-    speak(companion.pet && goal.on ? `${line} ${leadWords.objective(companion.pet)}` : line);
-  }, [readAloud, paused, coachCopy, objective, companion.pet, goal]);
+    speak(companion.pet && goal.on ? `${line} ${leadWords.objective(companion.pet, boundLabel(router.keymap, "follow"))}` : line);
+  }, [readAloud, paused, coachCopy, objective, companion.pet, goal, router]);
 
   /* ---- the play clock ------------------------------------------------- */
   const clockOn = realm.isChildView && childId !== null;
@@ -931,7 +1006,7 @@ export function RealmGame({
   });
   // The pauses a child never asks for — the tab hidden, the window left, the mouse let go, two
   // minutes untouched — and P (`use-pause.ts`). A grown-up has no clock: only Esc and P pause them.
-  const pauser = usePause({ bus, overlayRef, paused, go, clock: clockOn, enabled: !close, noteInput: clock.noteInput, giveBackIdle: clock.giveBackIdle });
+  const pauser = usePause({ router, bus, overlayRef, paused, go, clock: clockOn, enabled: !close, noteInput: clock.noteInput, giveBackIdle: clock.giveBackIdle });
   // The quiet world (`quiet-hud.tsx`): troubles, riding and recess rest. A grown-up has no clock, so is never quiet.
   const { quiet, awake } = useQuietWorld({ clockOn, clock, rest: riding.rest, askGate });
   // How the mouse looks around, kept on this computer and live on the bus from the first frame.
@@ -974,9 +1049,11 @@ export function RealmGame({
   const askedSpellbook = useRef(false);
   // No spells indoors: a click on the bar would otherwise wait in the queue and go off outside.
   const onCast = useCallback((slot: number) => {
-    // And none from the saddle: the flat Realm's "Dismount to cast."
-    if (!insideRef.current && !refuseCast()) pushCast(casts, slot);
-  }, [casts, refuseCast]);
+    if (insideRef.current) return;
+    // From the saddle the hero gets down and the spell follows; a fast-travel ride refuses.
+    const bus = riding.bus;
+    if (requestCast(bus, casts, slot, !!pages[slot - 1]?.spell) === "travelling") bus.onSay(CAST_ON_THE_ROAD);
+  }, [casts, riding.bus, pages]);
   const onEmptyPage = useCallback(
     (slot: number) => {
       go({ kind: "page", slot });
@@ -994,6 +1071,27 @@ export function RealmGame({
     [go, signal, childId],
   );
   const closeOverlay = useCallback(() => go(null), [go]);
+
+  /* ---- the big map ---------------------------------------------------- */
+  // M, or whatever map is bound to: open from play, close from the map, nothing under any other
+  // panel. The world is paused while it is open, so what it shows is read once, here: where the
+  // hero stands and faces (written by the HUD driver; indoors the island is frozen, so it still
+  // holds the spot by the door they went in at) and every feature's registered marks.
+  const [mapShot, setMapShot] = useState<{ hero: { x: number; z: number; facing: number }; marks: MapMark[] } | null>(null);
+  useAction(
+    router,
+    "map",
+    (e) => {
+      if (!e.down) return;
+      const now = overlayRef.current;
+      if (now === null) {
+        setMapShot({ hero: { x: bus.you.x, z: bus.you.z, facing: bus.you.facing }, marks: bus.mapMarks() });
+        go({ kind: "map" });
+      } else if (now.kind === "map") go(null);
+    },
+    "always",
+    !close,
+  );
   const help = useMemo(() => (spellFacts ? spellHelp(spellFacts) : null), [spellFacts]);
 
   const retryKingdom = useCallback(() => {
@@ -1094,7 +1192,7 @@ export function RealmGame({
   const worldLocks = useMemo(() => withRuneWalk(lockState.canvas, runeWalk.canvas), [lockState.canvas, runeWalk.canvas]);
   const roomColors = useMemo(() => ({ field: hero.backgroundColor || hero.outfitColor, charge: hero.accessoryColor || "#f4d27a" }), [hero]);
 
-  return (
+  const game = (
     <div className={`r3-game${inside ? " r3-game--indoors" : ""}`}>
       <RealmCanvas
         timeZone={realm.timezone ?? null}
@@ -1106,6 +1204,7 @@ export function RealmGame({
         anchors={anchors}
         pages={pages}
         bus={bus}
+        router={router}
         caster={caster}
         fxPool={fxPool}
         casts={casts}
@@ -1128,7 +1227,7 @@ export function RealmGame({
       />
       {outCount > 0 && !inside && <div key={outCount} className="r3-fade" aria-hidden="true" />}
       {inside && (
-        <RoomCanvas visit={inside} avatar={hero} viewer={viewer} bus={bus} paused={paused} colors={roomColors} used={roomUses} onLeave={leave} chest={roomChest} />
+        <RoomCanvas visit={inside} avatar={hero} viewer={viewer} bus={bus} router={router} paused={paused} colors={roomColors} used={roomUses} onLeave={leave} chest={roomChest} />
       )}
       {!close && (
         <>
@@ -1148,15 +1247,15 @@ export function RealmGame({
             inside={room ? room.where : null}
             mapExtras={
               <>
-                <TroubleMapMarks tbus={troubleBus} />
+                <TroubleMapMarks tbus={troubleBus} hud={bus} />
                 <LeadMapMarks route={companion.route} target={companion.target} />
-                <RecessMapMarks bus={recess.bus} calm={calm} />
+                <RecessMapMarks bus={recess.bus} calm={calm} hud={bus} />
               </>
             }
             barExtra={
               viewer === "child" ? (
                 <>
-                  {awake.riding && <RideSlot riding={riding.riding} access={riding.access} onPress={riding.toggle} />}
+                  {awake.riding && <RideSlot riding={riding.riding} access={riding.access} onPress={riding.toggle} keyCap={riding.key} />}
                   <CompanionSlot lead={companion} onPress={companion.toggle} calm={calm} />
                 </>
               ) : undefined
@@ -1165,6 +1264,7 @@ export function RealmGame({
             petKey={companion.has}
             found={places.found}
             onFound={places.store.add}
+            keymap={keymap}
           />
           <TroublePlates tbus={troubleBus} />
           <LookReticle paused={paused} />
@@ -1183,6 +1283,7 @@ export function RealmGame({
                 onRetry={childId ? retryKingdom : undefined}
                 pet={companion.pet}
                 plan={beaconPlan}
+                keymap={keymap}
               />
               <SatchelHud works={works} raised={raisedIds} numerals={numerals} heroName={heroName} visiting={visiting} />
             </div>
@@ -1198,7 +1299,7 @@ export function RealmGame({
               {tutorialOn && !paused && (
                 <Coach
                   copy={coachCopy}
-                  keys={lesson?.keys ?? []}
+                  keys={lesson ? lessonKeys(lesson, keymap, lessonCtx) : []}
                   step={lessonShown + 1}
                   steps={lessonCtx.mount ? LESSONS.length : CORE_LESSONS}
                   done={doneLine}
@@ -1208,12 +1309,12 @@ export function RealmGame({
               )}
               {!paused && <DeedToastBanner toast={toast} numerals={numerals} />}
               {!paused && inside && <RoomLine line={roomLine} onDone={clearRoomLine} />}
-              <TroubleNotices tbus={troubleBus} skin={tone} pages={pages} paused={paused} bounty={bounty} clearCount={surfaces.clearCount} />
+              <TroubleNotices tbus={troubleBus} skin={tone} pages={pages} paused={paused} bounty={bounty} clearCount={surfaces.clearCount} keymap={keymap} />
               {!paused && <RideLine line={riding.line} onDone={riding.clearLine} />}
               {!paused && <LeadLine line={companion.line} onDone={companion.clearLine} />}
             </div>
             {!paused && <TravelBanner to={riding.travelling} onStop={riding.stop} />}
-            {!paused && <InteractPrompt target={recess.prompt(near)} onPress={openTarget} />}
+            {!paused && <InteractPrompt target={recess.prompt(near)} onPress={openTarget} keymap={keymap} />}
             <ClockCorner
               line={line}
               warning={realm.isChildView && clock.warning}
@@ -1227,6 +1328,7 @@ export function RealmGame({
               onMenu={() => go({ kind: "pause" })}
               leaveHref="/tavern"
               quiet={realm.isChildView}
+              keymap={keymap}
             />
           </div>
           {/* Beside the panels, outside the dimmed frame: the stone is never dimmed; its card is portalled into the column (RI-a / B2). */}
@@ -1283,7 +1385,10 @@ export function RealmGame({
               mount={viewer === "child" ? riding.access.ok : undefined}
               pet={viewer === "child" ? (companion.pet ?? false) : undefined}
               earning={earning}
-              ring={viewer === "child" ? ringHelp("keyboard") : undefined}
+              ring={viewer === "child" ? ringHelp("keyboard", boundLabel(keymap, "interact")) : undefined}
+              keymap={keymap}
+              onKeymap={realm.childId ? keybinds.change : null}
+              keysNote={keybinds.note}
               back={overlay.back}
               onClose={() => go(escapeFrom(overlay))}
               onReplay={
@@ -1326,6 +1431,9 @@ export function RealmGame({
               }}
               onClose={closeOverlay}
             />
+          )}
+          {overlay?.kind === "map" && mapShot && (
+            <WorldMap world={world} found={places.found} castle={castleUnlocked} goal={goal} marks={mapShot.marks} hero={mapShot.hero} onClose={closeOverlay} />
           )}
           {overlay?.kind === "page" && (
             <EmptyPagePanel slot={overlay.slot} viewer={who} heroName={heroName} spellbookHref={bookHref} help={help} onClose={closeOverlay} />
@@ -1457,4 +1565,6 @@ export function RealmGame({
       )}
     </div>
   );
+  // DOM-side components reach the router through context (`useRealmInput`); the canvases are handed it.
+  return <RealmInputProvider router={router}>{game}</RealmInputProvider>;
 }
