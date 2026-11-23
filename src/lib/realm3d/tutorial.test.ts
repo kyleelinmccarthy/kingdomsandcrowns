@@ -164,6 +164,12 @@ describe("the words", () => {
     expect(lessonKeys(lesson("ride"), K)).toEqual(["Z"]);
   });
 
+  it("names no key for a first spell on a page no key casts (10 to 12): it is clicked", () => {
+    const late = { ...ctx, spell: { name: "Tide Orb", key: 10 } };
+    expect(copyOf(at("cast"), late)).toMatchObject({ title: "Cast Tide Orb.", how: "Click the spell." });
+    expect(lessonKeys(LESSONS.find((l) => l.id === "cast")!, K, late)).toEqual([]);
+  });
+
   it("speaks the title and the how together", () => {
     expect(copyOf(0, ctx)?.spoken).toBe("Walk around. W walks forward and S walks back. A and D step to the side.");
   });

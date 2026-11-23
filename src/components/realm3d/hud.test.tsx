@@ -150,6 +150,31 @@ describe("the spell bar", () => {
     expect(view.container.querySelector(".r3-keys")).toHaveTextContent("1 Q 3 4 cast");
   });
 
+  it("draws no keycap on pages 10 to 12, which no key casts, so none of them points at page 1's key", () => {
+    const twelve = withEmptyPages(
+      resolvePages(
+        [
+          { slot: 1, elementId: "ember", formId: "bolt", modifierId: null, adjective: "Ember", noun: "Bolt" },
+          { slot: 10, elementId: "ember", formId: "bolt", modifierId: null, adjective: "Ember", noun: "Bolt" },
+        ] as never,
+        12,
+      ),
+      12,
+    );
+    const bus = makeHudBus(twelve.length, anchors.length);
+    const view = render(<RealmHud bus={bus} world={world} anchors={anchors} pages={twelve} heroName="Emma" />);
+    const slots = [...view.container.querySelectorAll(".r3-bar .r3-slot")];
+    expect(slots).toHaveLength(12);
+    const caps = slots.map((el) => el.querySelector(".r3-slot-key")?.textContent ?? null);
+    expect(caps).toEqual(["1", "2", "3", "4", "5", "6", "7", "8", "9", null, null, null]);
+    // The written page 10 is still a spell you click; its name says no key.
+    const ten = slots[9];
+    expect(ten.getAttribute("aria-label")).not.toMatch(/key/);
+    expect(ten.getAttribute("aria-label")).toMatch(/mana$/);
+    expect(slots[0].getAttribute("aria-label")).toMatch(/, key 1$/);
+    expect(slots[10].getAttribute("aria-label")).toBe("Page 11 is empty. How do I get a spell?");
+  });
+
   it("names the control scheme the scene binds: E talks, P pauses, Q is gone", () => {
     const { view } = mount();
     const strip = view.container.querySelector(".r3-keys")!;

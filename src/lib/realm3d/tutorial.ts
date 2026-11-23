@@ -77,9 +77,13 @@ export const LESSONS: readonly Lesson[] = [
   { id: "ride", signal: "rode" },
 ];
 
-/** The label of the key that casts the first written page: what the cast lesson asks for. */
-function castLabel(k: Keymap, ctx?: Pick<LessonContext, "spell">): string {
-  return primaryLabel(k, castAction(ctx?.spell?.key ?? 1) ?? "cast1");
+/**
+ * The label of the key that casts the first written page: what the cast lesson asks for. Null for
+ * a page no key casts (10 to 12: there are nine cast actions), which is clicked instead.
+ */
+function castLabel(k: Keymap, ctx?: Pick<LessonContext, "spell">): string | null {
+  const action = castAction(ctx?.spell?.key ?? 1);
+  return action ? primaryLabel(k, action) : null;
 }
 
 /**
@@ -100,8 +104,10 @@ export function lessonKeys(lesson: Lesson, k: Keymap, ctx?: Pick<LessonContext, 
       return [];
     case "talk":
       return [primaryLabel(k, "interact")];
-    case "cast":
-      return [castLabel(k, ctx)];
+    case "cast": {
+      const label = castLabel(k, ctx);
+      return label === null ? [] : [label];
+    }
     case "spells":
       return ["+"];
     case "ride":
@@ -244,8 +250,10 @@ export function lessonCopy(done: number, ctx: LessonContext, k: Keymap): LessonC
     case "talk":
       if (!ctx.villagers) return null;
       return say(ctx.waiting ? `Talk to ${ctx.waiting}.` : "Talk to a villager.", `Stand close and press ${key("interact")}.`);
-    case "cast":
-      return say(`Cast ${ctx.spell!.name}.`, `Press ${castLabel(k, ctx)}, or click the spell.`);
+    case "cast": {
+      const label = castLabel(k, ctx);
+      return say(`Cast ${ctx.spell!.name}.`, label === null ? "Click the spell." : `Press ${label}, or click the spell.`);
+    }
     case "spells":
       return say("Get more spells.", "Click a + page to see how.");
     case "ride":

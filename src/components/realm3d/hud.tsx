@@ -164,8 +164,11 @@ function SpellBar({
     <div className="r3-bar" role="toolbar" aria-label="Spells" style={{ ["--r3-slots" as string]: String(pages.length) }}>
       {pages.map((page, i) => {
         const key = i + 1;
-        // The page's own key, as the child has bound it ("1", or "Q" if they moved it).
-        const cap = primaryLabel(keymap, castAction(key) ?? "cast1");
+        // The page's own key, as the child has bound it ("1", or "Q" if they moved it). Pages 10
+        // to 12 have no key (there are nine cast actions): they are clicked, and draw no keycap
+        // rather than one that points at another page's key.
+        const action = castAction(key);
+        const cap = action ? primaryLabel(keymap, action) : null;
         if (!page.spell) {
           /*
             A button, not a picture of one. "The other spells having a plus icon on them but
@@ -183,7 +186,7 @@ function SpellBar({
               onMouseDown={keepFocusInWorld}
               onClick={() => onEmptyPage(page.slot)}
             >
-              <span className="r3-slot-key">{cap}</span>
+              {cap !== null && <span className="r3-slot-key">{cap}</span>}
               <span className="r3-slot-seal">+</span>
               <span className="r3-slot-name">{page.empty ? "Get a spell" : "Faded"}</span>
             </button>
@@ -196,13 +199,13 @@ function SpellBar({
             ref={(el) => bus.setSlot(i, "root", el)}
             className={`r3-slot${shake === key ? " r3-slot--refused" : ""}`}
             style={{ ["--r3-ink" as string]: page.color }}
-            aria-label={`${page.name}, ${page.spell.manaCost} mana, key ${cap}`}
+            aria-label={`${page.name}, ${page.spell.manaCost} mana${cap !== null ? `, key ${cap}` : ""}`}
             // A click casts, exactly as the number key does: the same queue, the same frame,
             // the same refusal if the page is resting or the mana is short.
             onMouseDown={keepFocusInWorld}
             onClick={() => onCast(key)}
           >
-            <span className="r3-slot-key">{cap}</span>
+            {cap !== null && <span className="r3-slot-key">{cap}</span>}
             {page.icon && <GameIcon name={page.icon} className="r3-slot-icon" />}
             <span className="r3-slot-name">{page.name}</span>
             <span className="r3-slot-cost">{page.spell.manaCost}</span>
