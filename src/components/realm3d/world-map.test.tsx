@@ -2,9 +2,9 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { MapMark } from "@/lib/realm3d/hud-bus";
 import { NO_GOAL } from "@/lib/realm3d/guide";
-import { headingDegrees } from "@/lib/realm3d/minimap";
+import { glyphScaleFor, headingDegrees, MAP_WINDOW } from "@/lib/realm3d/minimap";
 import { WORLD_HALF, type Landmark, type RealmWorld } from "@/lib/realm3d/worldgen";
-import { WorldMap } from "./world-map";
+import { WORLD_MAP_GLYPH, WorldMap } from "./world-map";
 
 /** A stand-in island: the map asks a world for its landmarks, its roads and one biome per baked cell. */
 const landmarks: Landmark[] = [
@@ -76,6 +76,15 @@ describe("the big map", () => {
     const transform = you.getAttribute("transform")!;
     expect(transform).toContain("translate(12 -34)");
     expect(transform).toContain(`rotate(${headingDegrees(facing)})`);
+  });
+
+  it("draws glyphs bigger than the minimap's but well under the full-island rule, so the village stays readable", () => {
+    expect(WORLD_MAP_GLYPH).toBeCloseTo(glyphScaleFor(2 * WORLD_HALF) * 0.5);
+    expect(WORLD_MAP_GLYPH).toBeGreaterThan(glyphScaleFor(MAP_WINDOW));
+    const { view } = mount({ marks: [{ id: "trouble-0", x: 0, z: 0, kind: "trouble", label: "Fog" }] });
+    expect(view.container.querySelector(".r3-worldmap-you")!.getAttribute("transform")).toContain(`scale(${WORLD_MAP_GLYPH})`);
+    expect(view.container.querySelector('[data-mark="trouble-0"]')!.getAttribute("transform")).toContain(`scale(${WORLD_MAP_GLYPH})`);
+    expect(view.container.querySelector(".r3-map-place")!.parentElement!.getAttribute("transform")).toContain(`scale(${WORLD_MAP_GLYPH})`);
   });
 
   it("closes from its own button", () => {

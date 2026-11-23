@@ -24,7 +24,12 @@ export const WORLD_MAP_TITLE = "Map of the island";
 
 /** The whole island, edge to edge. */
 const WINDOW = 2 * WORLD_HALF;
-const GLYPH = glyphScaleFor(WINDOW);
+/**
+ * Half the full-island rule: at glyphScaleFor(WINDOW) a trouble is as wide as the whole village and
+ * the village marks merge, so the big map draws glyphs half that, still about 1.5x the minimap's.
+ */
+export const WORLD_MAP_GLYPH = glyphScaleFor(WINDOW) * 0.5;
+const GLYPH = WORLD_MAP_GLYPH;
 
 /** A tenth of a world unit is finer than a pixel here; rounding keeps the attributes short. */
 const r1 = (n: number) => Math.round(n * 10) / 10;
