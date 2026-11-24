@@ -16,9 +16,10 @@ export default function PrivacyPage() {
 
       <section className="mt-8 space-y-4">
         <p>
-          Kingdoms &amp; Crowns (&ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;the
-          app&rdquo;) is a homeschool learning-log tool used by parents to track their
-          children&rsquo;s educational activities. This policy explains what we collect,
+          Kingdoms &amp; Crowns (&ldquo;the app&rdquo;) is a homeschool learning-log tool
+          used by parents to track their children&rsquo;s educational activities. It is
+          operated by Tiny Frenzy Studio, LLC (&ldquo;we&rdquo; or &ldquo;us&rdquo;).
+          This policy explains what we collect,
           why, and the choices you have. We tried to write this in plain language;
           where we use legal terms we&rsquo;ve done so because we think they protect you,
           not us.
@@ -162,6 +163,7 @@ export default function PrivacyPage() {
 
       <h2 className="mt-10 text-xl font-semibold">11. Contact</h2>
       <p>
+        Tiny Frenzy Studio, LLC, operator of Kingdoms &amp; Crowns, Utah, USA.
         Questions, requests, or concerns? Email us at{" "}
         <a className="underline" href="mailto:privacy@kingdomsandcrowns.com">
           privacy@kingdomsandcrowns.com

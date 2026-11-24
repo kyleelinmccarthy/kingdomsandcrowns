@@ -16,7 +16,9 @@ export default function TermsPage() {
       <section className="mt-8 space-y-4">
         <p>
           These Terms of Service (&ldquo;Terms&rdquo;) govern your use of Kingdoms &amp;
-          Crowns (the &ldquo;app&rdquo;), a homeschool learning-log tool. By creating an
+          Crowns (the &ldquo;app&rdquo;), a homeschool learning-log tool operated by Tiny
+          Frenzy Studio, LLC, a Utah limited liability company (&ldquo;we&rdquo; or
+          &ldquo;us&rdquo;). By creating an
           account or using the app, you agree to these Terms. If you do not agree,
           please do not use the app.
         </p>
@@ -149,6 +151,7 @@ export default function TermsPage() {
 
       <h2 className="mt-10 text-xl font-semibold">14. Contact</h2>
       <p>
+        Tiny Frenzy Studio, LLC, operator of Kingdoms &amp; Crowns, Utah, USA.
         Questions about these Terms? Email{" "}
         <a className="underline" href="mailto:support@kingdomsandcrowns.com">
           support@kingdomsandcrowns.com

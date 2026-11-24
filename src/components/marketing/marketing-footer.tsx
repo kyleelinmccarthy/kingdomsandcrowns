@@ -13,7 +13,7 @@ export function MarketingFooter() {
           Terms of Service
         </Link>
         <span className="mx-2 opacity-50">·</span>
-        &copy; {new Date().getFullYear()} Kingdoms &amp; Crowns. All Rights Reserved.
+        &copy; {new Date().getFullYear()} Tiny Frenzy Studio, LLC. All Rights Reserved.
       </div>
     </footer>
   );

@@ -50,7 +50,7 @@ export default function AuthLayout({
         <span className="mx-2 opacity-50">·</span>
         <a href="/terms" className="text-[var(--gold-bright)] underline underline-offset-2 hover:no-underline">Terms of Service</a>
         <span className="mx-2 opacity-50">·</span>
-        &copy; {new Date().getFullYear()} Kingdoms &amp; Crowns. All Rights Reserved.
+        &copy; {new Date().getFullYear()} Tiny Frenzy Studio, LLC. All Rights Reserved.
       </p>
     </div>
   );

@@ -27,7 +27,7 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
       </main>
       <footer className="border-t">
         <div className="mx-auto max-w-3xl px-6 py-6 text-xs text-muted-foreground">
-          &copy; {new Date().getFullYear()} Kingdoms &amp; Crowns. All Rights Reserved.
+          &copy; {new Date().getFullYear()} Tiny Frenzy Studio, LLC. All Rights Reserved.
         </div>
       </footer>
     </div>

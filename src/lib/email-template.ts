@@ -150,7 +150,7 @@ ${preheaderHtml}
               &nbsp;&middot;&nbsp;
               <a href="${base}/terms" style="color:${C.cyan};text-decoration:none;">Terms of Service</a>
               &nbsp;&middot;&nbsp;
-              &copy; ${year} Kingdoms &amp; Crowns. All Rights Reserved.
+              &copy; ${year} Tiny Frenzy Studio, LLC. All Rights Reserved.
             </p>
           </td>
         </tr>
